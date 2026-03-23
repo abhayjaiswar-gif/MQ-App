@@ -40,6 +40,16 @@ const MainRoutes = {
       name: 'other',
       path: '/sample-page',
       component: () => import('@/views/StarterPage.vue')
+    },
+    {
+      name: 'Stock',
+      path: '/stock',
+      component: () => import('@/views/stock/StockPage.vue')
+    },
+    {
+      name: 'ApproveStock',
+      path: '/approve-stock',
+      component: () => import('@/views/stock/ApproveStockPage.vue')
     }
   ]
 };

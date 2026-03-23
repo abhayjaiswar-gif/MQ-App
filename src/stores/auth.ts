@@ -15,19 +15,42 @@ export const useAuthStore = defineStore({
   }),
   actions: {
     async login(username: string, password: string) {
-      const user = await fetchWrapper.post(`${baseUrl}/authenticate`, { username, password });
+      try {
+        const response = await fetch('http://localhost:3000/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email: username, password })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok || !data.success) {
+          throw data.message || 'Login failed';
+        }
 
-      // update pinia state
-      this.user = user;
-      // store user details and jwt in local storage to keep user logged in between page refreshes
-      localStorage.setItem('user', JSON.stringify(user));
-      // redirect to previous url or default to home page
-      router.push(this.returnUrl || '/dashboard');
+        // update pinia state to include token so fetchWrapper can use it
+        this.user = { ...data.user, token: data.token };
+        
+        // store user details and jwt securely in storage to maintain logged-in state 
+        localStorage.setItem('user', JSON.stringify(this.user));
+        sessionStorage.setItem('id', data.user.id);
+        localStorage.setItem('token', data.token);
+        
+        // redirect to previous url or default to home page
+        router.push(this.returnUrl || '/dashboard');
+      } catch (error) {
+        throw error;
+      }
     },
     logout() {
       this.user = null;
       localStorage.removeItem('user');
-      router.push('/login');
+      localStorage.removeItem('token');
+      sessionStorage.removeItem('id');
+      localStorage.removeItem('id');
+      router.push('/login1');
     }
   }
 });
