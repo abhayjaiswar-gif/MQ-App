@@ -1,18 +1,26 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-// icons
 import { EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons-vue';
+import { useAuthStore } from '@/stores/auth';
+import { useRouter } from 'vue-router';
+
 const show1 = ref(false);
 const password = ref('');
 const email = ref('');
 const Regform = ref();
 const firstname = ref('');
 const lastname = ref('');
+const apiError = ref('');
+const apiSuccess = ref('');
+const isSubmitting = ref(false);
+const authStore = useAuthStore();
+const router = useRouter();
+
 // Password validation rules
 const passwordRules = ref([
   (v: string) => !!v || 'Password is required',
   (v: string) => v === v.trim() || 'Password cannot start or end with spaces',
-  (v: string) => v.length <= 10 || 'Password must be less than 10 characters'
+  (v: string) => (v && v.length >= 6) || 'Password must be at least 6 characters'
 ]);
 const firstRules = ref([(v: string) => !!v || 'First Name is required']);
 const lastRules = ref([(v: string) => !!v || 'Last Name is required']);
@@ -26,8 +34,31 @@ const emailRules = ref([
   (v: string) => /.+@.+\..+/.test(v.trim()) || 'E-mail must be valid'
 ]);
 
-function validate() {
-  Regform.value.validate();
+async function validate() {
+  const { valid } = await Regform.value.validate();
+  if (!valid) return;
+
+  isSubmitting.value = true;
+  apiError.value = '';
+  apiSuccess.value = '';
+
+  try {
+    await authStore.register({
+      firstname: firstname.value,
+      lastname: lastname.value,
+      email: email.value,
+      password: password.value
+    });
+
+    apiSuccess.value = 'Registration successful! Redirecting to login...';
+    setTimeout(() => {
+      router.push('/login1');
+    }, 2000);
+  } catch (error: any) {
+    apiError.value = error || 'Registration failed';
+  } finally {
+    isSubmitting.value = false;
+  }
 }
 </script>
 
@@ -118,6 +149,14 @@ function validate() {
         <router-link to="/register" class="text-primary link-hover font-weight-medium">Privacy Policy</router-link>
       </h6>
     </div>
-    <v-btn color="primary" block class="mt-4" variant="flat" size="large" @click="validate()">Create Account</v-btn>
+    <v-btn color="primary" block class="mt-4" variant="flat" size="large" @click="validate()" :loading="isSubmitting">Create Account</v-btn>
+
+    <!-- SUCCESS / ERROR ALERTS -->
+    <v-alert v-if="apiSuccess" type="success" variant="tonal" class="mt-4">
+      {{ apiSuccess }}
+    </v-alert>
+    <v-alert v-if="apiError" type="error" variant="tonal" class="mt-4">
+      {{ apiError }}
+    </v-alert>
   </v-form>
 </template>

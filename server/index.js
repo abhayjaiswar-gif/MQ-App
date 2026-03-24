@@ -1,51 +1,29 @@
 const express = require('express');
 const cors = require('cors');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const morgan = require('morgan');
+const bcrypt = require('bcrypt');
 const crypto = require('crypto');
+const morgan = require('morgan');
 require('dotenv').config();
 const db = require('./db');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.use(morgan('dev'));
 app.use(cors());
+app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.get('/', (req, res) => {
-  res.json({ message: 'Welcome to MQ-App Backend API' });
-});
-
-// DB Test
-app.get('/api/db-test', async (req, res) => {
-  try {
-    const [rows] = await db.query('SELECT 1 + 1 AS solution');
-    res.json({
-      success: true,
-      message: 'Database connection is successful!',
-      data: rows
-    });
-  } catch (error) {
-    console.error('Database connection failed:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Database connection failed',
-      details: error.message
-    });
-  }
-});
-
-// ✅ FIXED LOGIN API
 app.post('/api/login', async (req, res) => {
+  console.log('\n--- LOGIN REQUEST ---');
+  console.log('BODY:', req.body);
+
   const { email, password } = req.body;
 
+  // ✅ Validate input
   if (!email || !password) {
     return res.status(400).json({
       success: false,
-      message: 'Please enter your email and password'
+      message: 'Email and password required'
     });
   }
 
@@ -53,11 +31,13 @@ app.post('/api/login', async (req, res) => {
     const formattedEmail = email.toLowerCase().trim();
 
     const [rows] = await db.query(
-      'SELECT id, email, password, hash_key, is_active FROM users WHERE email = ?',
+      'SELECT id, email, password, is_active, hash_key FROM users WHERE email = ?',
       [formattedEmail]
     );
 
+    // ❌ User not found
     if (rows.length === 0) {
+      console.log('❌ USER NOT FOUND');
       return res.status(401).json({
         success: false,
         message: 'Incorrect email or password!'
@@ -65,61 +45,89 @@ app.post('/api/login', async (req, res) => {
     }
 
     const user = rows[0];
+    console.log('✅ USER FOUND:', user.email);
 
-    // Generate hashes
-    const md5Hash = crypto.createHash('md5').update(password).digest('hex');
-    const sha1Hash = crypto.createHash('sha1').update(password).digest('hex');
+    // ❌ Inactive
+    if (user.is_active !== 1) {
+      console.log('❌ USER INACTIVE');
+      return res.status(403).json({
+        success: false,
+        message: 'Account inactive'
+      });
+    }
 
+    const cleanPassword = password.trim();
     let isMatch = false;
 
-    // ✅ bcrypt check (only if it's bcrypt hash)
-    if (user.password.startsWith('$2')) {
-      isMatch = await bcrypt.compare(password, user.password);
+    // 🔍 Detect hash type
+    const isSHA1 = user.password.length === 40;
+    const isBcrypt = user.password.startsWith('$2');
+
+    console.log('🔍 HASH TYPE:', isSHA1 ? 'SHA1' : isBcrypt ? 'BCRYPT' : 'UNKNOWN');
+
+    // =========================
+    // 🔐 SHA1 LOGIN (OLD USERS)
+    // =========================
+    if (isSHA1) {
+      const sha1 = crypto
+        .createHash('sha1')
+        .update(cleanPassword)
+        .digest('hex');
+
+      console.log('➡️ ENTERED SHA1:', sha1);
+      console.log('➡️ DB SHA1     :', user.password);
+
+      if (sha1 === user.password) {
+        isMatch = true;
+
+        console.log('✅ SHA1 MATCH');
+
+        // 🔥 Upgrade to bcrypt
+        const hashed = await bcrypt.hash(cleanPassword, 10);
+        await db.query(
+          'UPDATE users SET password = ? WHERE id = ?',
+          [hashed, user.id]
+        );
+
+        console.log('🔄 Password upgraded to bcrypt');
+      } else {
+        console.log('❌ SHA1 MISMATCH');
+      }
     }
 
-    // ✅ Legacy support
-    if (!isMatch) {
-      isMatch =
-        password === user.password ||
-        md5Hash === user.password ||
-        sha1Hash === user.password;
+    // =========================
+    // 🔐 BCRYPT LOGIN (NEW USERS)
+    // =========================
+    else if (isBcrypt) {
+      isMatch = await bcrypt.compare(cleanPassword, user.password);
+
+      console.log('➡️ BCRYPT MATCH:', isMatch);
     }
 
+    // =========================
+    // ❌ UNKNOWN FORMAT
+    // =========================
+    else {
+      console.log('⚠️ UNKNOWN PASSWORD FORMAT');
+    }
+
+    // ❌ Wrong password
     if (!isMatch) {
+      console.log('❌ LOGIN FAILED');
       return res.status(401).json({
         success: false,
         message: 'Incorrect email or password!'
       });
     }
 
-    // Check active status
-    if (user.is_active !== 1) {
-      return res.status(403).json({
-        success: false,
-        message: 'Your account is locked/inactive. Contact Administrator.'
-      });
-    }
-
-    // ✅ Upgrade old password to bcrypt
-    if (
-      user.password === password ||
-      user.password === md5Hash ||
-      user.password === sha1Hash
-    ) {
-      const newHash = await bcrypt.hash(password, 10);
-      await db.query('UPDATE users SET password = ? WHERE id = ?', [
-        newHash,
-        user.id
-      ]);
-      console.log('Password upgraded to bcrypt for user:', user.email);
-    }
-
-    // Generate JWT
+    // ✅ Generate JWT
     const token = jwt.sign(
       { id: user.id, email: user.email },
-      process.env.JWT_SECRET || 'appsecret123',
+      process.env.JWT_SECRET || 'secret123',
       { expiresIn: '8h' }
     );
+
+    console.log('🎉 LOGIN SUCCESS');
 
     return res.json({
       success: true,
@@ -132,38 +140,72 @@ app.post('/api/login', async (req, res) => {
       }
     });
 
-  } catch (error) {
-    console.error('Login Error:', error);
+  } catch (err) {
+    console.error('❌ ERROR:', err);
     return res.status(500).json({
       success: false,
-      message: 'Server error during login',
-      error: error.message
+      message: 'Server error during login'
     });
   }
 });
 
-// Sample API
-app.get('/api/requests', (req, res) => {
-  const sampleRequests = [
-    {
-      id: 'REQ-1023',
-      item: 'Laptop, Model X1',
-      quantity: 5,
-      date: 'Oct 25, 2023',
-      status: 'Pending Verification'
-    },
-    {
-      id: 'REQ-1022',
-      item: 'Monitor, 27-inch',
-      quantity: 10,
-      date: 'Oct 20, 2023',
-      status: 'Processing'
-    }
-  ];
+// 📝 REGISTER API
+app.post('/api/register', async (req, res) => {
+  const { firstname, lastname, email, password } = req.body;
 
-  res.json({ success: true, data: sampleRequests });
+  if (!firstname || !lastname || !email || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'All fields are required'
+    });
+  }
+
+  try {
+    const formattedEmail = email.toLowerCase().trim();
+    const fullName = `${firstname} ${lastname}`.trim();
+    const hashedPassword = await bcrypt.hash(password.trim(), 10);
+    const addedDate = new Date().toISOString().slice(0, 19).replace('T', ' '); // YYYY-MM-DD HH:MM:SS
+
+    // Check if user already exists
+    const [existing] = await db.query('SELECT id FROM users WHERE email = ?', [formattedEmail]);
+    if (existing.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email already registered'
+      });
+    }
+
+    // Insert new user
+    // Using defaults for other columns as per the provided table structure
+    const [result] = await db.query(
+      `INSERT INTO users (
+        email, password, name, is_active, 
+        is_super_admin, role_id, added_date, 
+        mobile, address_line1, address_line2, 
+        city, state, pincode, remarks, profile_pic,
+        app_access, web_access, added_by, added_ip
+      ) VALUES (?, ?, ?, 1, 0, 2, ?, '', '', '', '', '', '', '', '', 1, 1, 0, '127.0.0.1')`,
+      [formattedEmail, hashedPassword, fullName, addedDate]
+    );
+
+    console.log('🎉 REGISTRATION SUCCESS:', formattedEmail);
+
+    return res.json({
+      success: true,
+      message: 'User registered successfully',
+      userId: result.insertId
+    });
+
+  } catch (err) {
+    console.error('❌ REGISTRATION ERROR:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error during registration',
+      error: err.message
+    });
+  }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(3000, () => {
+  console.log('🚀 Server running on http://localhost:3000');
 });

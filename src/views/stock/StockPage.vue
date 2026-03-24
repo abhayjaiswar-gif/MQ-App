@@ -133,7 +133,7 @@ const trackerSteps = ['Requested', 'SSGM Verified', 'Admin Approved', 'Processin
         </button>
       </div>
       <div v-if="activeTab === 'order'" class="bg-white rounded-xl tracker-card p-6">
-        <h2 class="text-lg font-semibold text-slate-800 mb-6">Active and Past Requests</h2>
+        <h2 class="text-lg font-semibold text-slate-8000 mb-6">Active and Past Requests</h2>
         <!-- BEGIN: RequestTable -->
         <div class="table-container overflow-x-auto">
           <table class="w-full text-left border-collapse min-w-[800px]" id="requests-table">

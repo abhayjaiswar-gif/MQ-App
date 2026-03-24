@@ -32,33 +32,25 @@ interface AuthStore {
 }
 
 router.beforeEach(async (to, from, next) => {
-  // Check if the session has an active ID
   const sessionId = sessionStorage.getItem('id') || localStorage.getItem('id');
+  // const sessionId = 2;
   const auth: AuthStore = useAuthStore();
-
-  // Determine if the route requires authentication based on its meta tags
   const authRequired = to.matched.some((record) => record.meta.requiresAuth);
-
-  // User not logged in and trying to access a restricted page
   if (authRequired && !sessionId) {
-    auth.returnUrl = to.fullPath; // Save the intended page
+    auth.returnUrl = to.fullPath;
     next('/login1');
   } else if (sessionId && (to.path === '/login' || to.path === '/login1' || to.path === '/')) {
-    // User logged in and trying to access the login page or root
     next({
       path: auth.returnUrl && auth.returnUrl !== '/' ? auth.returnUrl : '/dashboard'
     });
   } else {
-    // All other scenarios, either public page or authorized access
     next();
   }
 });
-
 router.beforeEach(() => {
   const uiStore = useUIStore();
   uiStore.isLoading = true;
 });
-
 router.afterEach(() => {
   const uiStore = useUIStore();
   uiStore.isLoading = false;
