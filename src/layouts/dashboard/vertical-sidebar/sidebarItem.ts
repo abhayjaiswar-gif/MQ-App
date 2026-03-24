@@ -10,7 +10,9 @@ import {
   BarcodeOutlined,
   CrownOutlined,
   LineChartOutlined,
-  CheckSquareOutlined
+  CheckSquareOutlined,
+  BankOutlined,
+  PictureOutlined
 } from '@ant-design/icons-vue';
 
 export interface menu {
@@ -40,6 +42,16 @@ const sidebarItem: menu[] = [
     title: 'Stock',
     icon: LineChartOutlined,
     to: '/stock'
+  },
+  {
+    title: 'School',
+    icon: BankOutlined,
+    to: '/school'
+  },
+  {
+    title: 'Gallery',
+    icon: PictureOutlined,
+    to: '/school/gallery'
   },
   {
     title: 'Approve Stock',

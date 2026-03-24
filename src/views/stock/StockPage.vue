@@ -1,122 +1,164 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useAuthStore } from '@/stores/auth';
+
+// --- AUTH & CONFIG ---
+const authStore = useAuthStore();
+const isAdmin = computed(() => authStore.user?.role_id === 1);
+const currentYear = new Date().getFullYear();
+
+// --- STATE ---
+const activeTab = ref('report'); // Default to stock report as per user request
+const schools = ref<any[]>([]);
+const selectedSchoolId = ref<number | null>(null);
+const availableMonths = ref<Record<number, string>>({});
+const inventoryRows = ref<any[]>([]);
+const autosaveStatus = ref<{ message: string; type: 'success' | 'error' | 'info' | null }>({ message: '', type: null });
+
+// Autocomplete
+const equipmentSearch = ref('');
+const searchResults = ref<any[]>([]);
+const showResults = ref(false);
 
 const isModalOpen = ref(false);
 const isReportModalOpen = ref(false);
-const activeTab = ref('order');
-const expandedRequestId = ref<string | null>(null);
 
-const toggleTracker = (id: string) => {
-  if (expandedRequestId.value === id) {
-    expandedRequestId.value = null;
-  } else {
-    expandedRequestId.value = id;
+// --- METHODS ---
+
+const fetchSchools = async () => {
+  try {
+    const resp = await fetch('http://localhost:3000/api/schools');
+    const data = await resp.json();
+    if (data.success) schools.value = data.schools;
+  } catch (err) {
+    console.error('Fetch schools error:', err);
   }
 };
 
-// Based on the user's database schema and table data
-const dbRequests = ref([
-  {
-    id: 1,
-    sku_name: 'football',
-    qty: 10,
-    school_id: 27,
-    size: '5',
-    created_at: '2026-02-06 20:25:49',
-    approve_ssgm: 1,
-    approve_admin: 1,
-    status_delivery: null,
-    user_id: 47,
-    delivery_date: null,
-    image_path: null
-  },
-  {
-    id: 2,
-    sku_name: 'basketball',
-    qty: 10,
-    school_id: 27,
-    size: '5',
-    created_at: '2026-02-06 20:25:49',
-    approve_ssgm: 1,
-    approve_admin: 0,
-    status_delivery: null,
-    user_id: 47,
-    delivery_date: null,
-    image_path: null
-  },
-  {
-    id: 3,
-    sku_name: 'tennis ball',
-    qty: 15,
-    school_id: 27,
-    size: 'N/A',
-    created_at: '2026-02-05 10:00:00',
-    approve_ssgm: 1,
-    approve_admin: 1,
-    status_delivery: 'Processing',
-    user_id: 47,
-    delivery_date: null,
-    image_path: null
-  },
-  {
-    id: 4,
-    sku_name: 'cricket bat',
-    qty: 2,
-    school_id: 28,
-    size: 'Full',
-    created_at: '2026-02-01 14:30:00',
-    approve_ssgm: 1,
-    approve_admin: 1,
-    status_delivery: 'Delivered',
-    user_id: 47,
-    delivery_date: '2026-02-10 10:00:00',
-    image_path: null
+const fetchAvailableMonths = async (schoolId: number) => {
+  try {
+    const resp = await fetch('http://localhost:3000/api/available-months', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ school_id: schoolId, year: currentYear })
+    });
+    const data = await resp.json();
+    if (data.success) availableMonths.value = data.months;
+  } catch (err) {
+    console.error('Fetch months error:', err);
   }
-]);
+};
 
-const requests = computed(() => {
-  return dbRequests.value.map(row => {
-    let step = 1;
-    let status = 'Pending SSGM';
-    let statusClass = 'status-pending';
-    if (row.approve_ssgm === 1) {
-      step = 2;
-      status = 'Pending Admin';
-      if (row.approve_admin === 1) {
-        step = 3;
-        status = 'Admin Approved';
-        statusClass = 'status-processing';
-        if (row.status_delivery === 'Processing') {
-          step = 4;
-          status = 'Processing Delivery';
-        } else if (row.status_delivery === 'Delivered') {
-          step = 5;
-          status = 'Delivered';
-          statusClass = 'status-delivered';
-        }
-      } else if (row.approve_admin === 0) {
-        status = 'Rejected by Admin';
-        statusClass = 'status-rejected';
-      }
-    } else if (row.approve_ssgm === 2) {
-      status = 'Rejected by SSGM';
-      statusClass = 'status-rejected';
-    }
-    return {
-      id: `REQ-${1000 + row.id}`,
-      itemName: row.sku_name,
-      quantity: row.qty,
-      date: row.created_at.split(' ')[0], 
-      status,
-      statusClass,
-      step
-    };
+const fetchSchoolEquipments = async (schoolId: number) => {
+  try {
+    const resp = await fetch('http://localhost:3000/api/school-equipments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ school_id: schoolId, year: currentYear })
+    });
+    const data = await resp.json();
+    inventoryRows.value = data.map((item: any) => {
+      const stockMap: any = {};
+      item.stock?.forEach((s: any) => {
+        stockMap[s.month_no] = {
+          size: s.size || '',
+          qty: s.qty || 0,
+          damage: s.damage || 0,
+          warehouse_qty: s.warehouse_qty || 0,
+          warehouse_damage: s.warehouse_damage || 0
+        };
+      });
+      return { id: item.id, name: item.value, months: stockMap };
+    });
+  } catch (err) {
+    console.error('Fetch equipments error:', err);
+  }
+};
+
+const handleSearch = async () => {
+  if (equipmentSearch.value.length < 1) {
+    searchResults.value = [];
+    return;
+  }
+  try {
+    const resp = await fetch(`http://localhost:3000/api/equipment?term=${equipmentSearch.value}`);
+    const data = await resp.json();
+    searchResults.value = data;
+    showResults.value = true;
+  } catch (err) {
+    console.error('Search error:', err);
+  }
+};
+
+const addEquipment = (item: any) => {
+  if (inventoryRows.value.some(r => r.id === item.id)) return;
+  const stockMap: any = {};
+  Object.keys(availableMonths.value).forEach(m => {
+    stockMap[m] = { size: '', qty: 0, damage: 0, warehouse_qty: 0, warehouse_damage: 0 };
   });
+  inventoryRows.value.push({ id: item.id, name: item.value || item.name, months: stockMap });
+  equipmentSearch.value = '';
+  showResults.value = false;
+};
+
+const autosaveTimers: Record<string, any> = {};
+const handleAutosave = (itemId: number, monthNo: string, field: string, value: any) => {
+  const key = `${itemId}_${monthNo}_${field}`;
+  if (autosaveTimers[key]) clearTimeout(autosaveTimers[key]);
+  autosaveTimers[key] = setTimeout(async () => {
+    autosaveStatus.value = { message: 'Saving...', type: 'info' };
+    try {
+      const resp = await fetch('http://localhost:3000/api/autosave-stock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ school_id: selectedSchoolId.value, equipment_id: itemId, month_no: monthNo, field, value })
+      });
+      const data = await resp.json();
+      if (data.success) {
+        autosaveStatus.value = { message: 'Autosaved!', type: 'success' };
+        setTimeout(() => { if (autosaveStatus.value.message === 'Autosaved!') autosaveStatus.value.type = null; }, 2000);
+      } else {
+        autosaveStatus.value = { message: 'Save failed', type: 'error' };
+      }
+    } catch (err) {
+      autosaveStatus.value = { message: 'Connection error', type: 'error' };
+    }
+  }, 700);
+};
+
+const calculateDiff = (row: any, monthNo: string, field: 'qty' | 'damage') => {
+  const monthKeys = Object.keys(availableMonths.value).sort((a: any, b: any) => parseInt(a) - parseInt(b));
+  const currentIndex = monthKeys.indexOf(monthNo);
+  if (currentIndex <= 0) return null;
+  const prevMonthNo = monthKeys[currentIndex - 1];
+  const currVal = parseInt(row.months[monthNo]?.[field]) || 0;
+  const prevVal = parseInt(row.months[prevMonthNo]?.[field]) || 0;
+  const diff = currVal - prevVal;
+  if (diff === 0) return { text: '=', class: 'text-slate-400' };
+  return { text: diff > 0 ? `+${diff} ↑` : `${diff} ↓`, class: diff > 0 ? 'text-green-600' : 'text-red-500' };
+};
+
+const removeRow = (id: number) => {
+  inventoryRows.value = inventoryRows.value.filter(r => r.id !== id);
+};
+
+watch(selectedSchoolId, (newId) => {
+  if (newId) {
+    fetchAvailableMonths(newId);
+    fetchSchoolEquipments(newId);
+  }
 });
-const stockReports = ref([
-  { id: 'REP-2001', school: 'School 1', date: 'Oct 26, 2023', hasImage: true, hasPdf: true },
-  { id: 'REP-2002', school: 'School 2', date: 'Oct 24, 2023', hasImage: true, hasPdf: false }
-]);
+
+onMounted(() => {
+  fetchSchools();
+});
+
+const expandedRequestId = ref<string | null>(null);
+const toggleTracker = (id: string) => {
+  expandedRequestId.value = expandedRequestId.value === id ? null : id;
+};
+
+const requests = ref([]); 
 const trackerSteps = ['Requested', 'SSGM Verified', 'Admin Approved', 'Processing', 'Delivered'];
 </script>
 <template>
@@ -210,42 +252,143 @@ const trackerSteps = ['Requested', 'SSGM Verified', 'Admin Approved', 'Processin
       </div>
       
       <!-- Stock Report Update Tab Content -->
-      <div v-else-if="activeTab === 'report'" class="bg-white rounded-xl tracker-card p-6">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-lg font-semibold text-slate-800">Stock Reports</h2>
-          <button @click="isReportModalOpen = true" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium shadow-sm flex items-center gap-2 transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-            Add Report
-          </button>
+      <div v-else-if="activeTab === 'report'" class="bg-white rounded-xl tracker-card p-6 animate-fade-in">
+        
+        <!-- TOP CONTROLS -->
+        <div class="flex flex-wrap items-end gap-6 mb-8">
+          <!-- SCHOOL SELECT -->
+          <div class="w-full sm:w-auto min-w-[300px]">
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Select School</label>
+            <select v-model="selectedSchoolId" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm font-semibold outline-none shadow-sm">
+              <option :value="null">-- Select School --</option>
+              <option v-for="s in schools" :key="s.id" :value="s.id">
+                {{ s.name }} ({{ s.school_code }})
+              </option>
+            </select>
+          </div>
+
+          <!-- EQUIPMENT SEARCH -->
+          <div class="w-full sm:w-auto flex-grow relative" v-if="selectedSchoolId">
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Add Equipment</label>
+            <div class="relative">
+              <input 
+                v-model="equipmentSearch" 
+                @input="handleSearch"
+                @focus="showResults = true"
+                type="text" 
+                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm font-semibold outline-none shadow-sm"
+                placeholder="Search to add item..."
+              />
+              <!-- Autocomplete Dropdown -->
+              <div v-if="showResults && searchResults.length" class="absolute z-[100] w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
+                <div 
+                  v-for="res in searchResults" 
+                  :key="res.id"
+                  @click="addEquipment(res)"
+                  class="px-4 py-3 hover:bg-blue-50 cursor-pointer text-sm font-medium text-slate-700 border-b border-slate-50 last:border-0 transition-colors"
+                >
+                  {{ res.value }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AUTOSAVE STATUS -->
+          <div v-if="autosaveStatus.type" class="ml-auto mb-2 pr-2">
+            <span :class="{
+              'bg-blue-100 text-blue-700': autosaveStatus.type === 'info',
+              'bg-green-100 text-green-700': autosaveStatus.type === 'success',
+              'bg-red-100 text-red-700': autosaveStatus.type === 'error'
+            }" class="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-sm border border-current transition-all">
+              <div v-if="autosaveStatus.type === 'info'" class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+              {{ autosaveStatus.message }}
+            </span>
+          </div>
         </div>
-        <div class="table-container overflow-x-auto">
-          <table class="w-full text-left border-collapse min-w-[800px]">
+
+        <!-- DYNAMIC STOCK TABLE -->
+        <div v-if="selectedSchoolId" class="table-container shadow-sm border-slate-100">
+          <table class="w-full text-left border-collapse min-w-max">
             <thead>
-              <tr class="bg-slate-50 border-b border-slate-200">
-                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Report ID</th>
-                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">School Name</th>
-                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Date Submitted</th>
-                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Files</th>
+              <tr class="bg-slate-50/80 backdrop-blur-sm sticky top-0 z-20">
+                <th rowspan="2" class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-r border-slate-200 text-center w-16">Sr</th>
+                <th rowspan="2" class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-200 min-w-[200px]">Item Details</th>
+                <template v-for="(name, id) in availableMonths" :key="id">
+                  <th :colspan="isAdmin ? 5 : 3" class="px-6 py-3 text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] text-center border-b border-l border-slate-200 bg-blue-50/30">
+                    {{ name }}
+                  </th>
+                </template>
+                <th rowspan="2" class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-l border-slate-200 text-center">Trends</th>
+                <th rowspan="2" class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-l border-slate-200 text-center w-20">Action</th>
+              </tr>
+              <tr class="bg-slate-50/50 text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                <template v-for="(name, id) in availableMonths" :key="id">
+                  <th class="px-3 py-2 border-b border-l border-slate-200 text-center">Size</th>
+                  <th class="px-3 py-2 border-b border-slate-100 text-center">Sch Qty</th>
+                  <th class="px-3 py-2 border-b border-slate-100 text-center">Sch Dmg</th>
+                  <th v-if="isAdmin" class="px-3 py-2 border-b border-slate-100 text-center bg-orange-50/30">WH Qty</th>
+                  <th v-if="isAdmin" class="px-3 py-2 border-b border-slate-100 text-center bg-orange-50/30 font-black">WH Dmg</th>
+                </template>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-200 table-body">
-              <tr v-for="rep in stockReports" :key="rep.id" class="hover:bg-slate-50 transition-colors">
-                <td class="px-6 py-4 text-sm text-slate-700">{{ rep.id }}</td>
-                <td class="px-6 py-4 text-sm text-slate-700">{{ rep.school }}</td>
-                <td class="px-6 py-4 text-sm text-slate-700">{{ rep.date }}</td>
-                <td class="px-6 py-4 text-sm flex gap-3">
-                  <span v-if="rep.hasImage" class="text-blue-600 text-xs font-medium flex items-center gap-1 cursor-pointer hover:underline">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                    Image
-                  </span>
-                  <span v-if="rep.hasPdf" class="text-red-600 text-xs font-medium flex items-center gap-1 cursor-pointer hover:underline">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                    PDF
-                  </span>
+            <tbody class="divide-y divide-slate-100 cursor-default">
+              <tr v-for="(row, idx) in inventoryRows" :key="row.id" class="hover:bg-blue-50/30 transition-colors group">
+                <td class="px-6 py-4 text-xs font-bold text-slate-400 text-center border-r border-slate-50 group-hover:text-blue-500">{{ idx + 1 }}</td>
+                <td class="px-6 py-4 border-slate-50">
+                  <div class="text-sm font-bold text-slate-800">{{ row.name }}</div>
+                  <div class="text-[10px] text-slate-400 font-medium">ID: {{ row.id }}</div>
+                </td>
+                
+                <template v-for="(name, mId) in availableMonths" :key="mId">
+                  <!-- SIZE -->
+                  <td class="px-2 py-3 border-l border-slate-50">
+                    <input v-model="row.months[mId].size" @input="handleAutosave(row.id, mId, 'size', row.months[mId].size)" type="text" class="w-full px-2 py-1.5 bg-transparent group-hover:bg-white border-transparent border focus:border-blue-300 rounded text-center text-xs font-semibold focus:outline-none transition-all" placeholder="-">
+                  </td>
+                  <!-- SCH QTY -->
+                  <td class="px-2 py-3">
+                    <input v-model.number="row.months[mId].qty" @input="handleAutosave(row.id, mId, 'qty', row.months[mId].qty)" type="number" class="w-full px-2 py-1.5 bg-transparent group-hover:bg-white border-transparent border focus:border-blue-300 rounded text-center text-xs font-bold text-blue-700 focus:outline-none transition-all" min="0">
+                  </td>
+                  <!-- SCH DMG -->
+                  <td class="px-2 py-3">
+                    <input v-model.number="row.months[mId].damage" @input="handleAutosave(row.id, mId, 'damage', row.months[mId].damage)" type="number" class="w-full px-2 py-1.5 bg-transparent group-hover:bg-white border-transparent border focus:border-red-300 rounded text-center text-xs font-bold text-red-600 focus:outline-none transition-all" min="0">
+                  </td>
+                  <!-- ADMIN FIELDS -->
+                  <td v-if="isAdmin" class="px-2 py-3 bg-orange-50/10">
+                    <input v-model.number="row.months[mId].warehouse_qty" @input="handleAutosave(row.id, mId, 'warehouse_qty', row.months[mId].warehouse_qty)" type="number" class="w-full px-2 py-1.5 bg-transparent group-hover:bg-white border-transparent border focus:border-orange-300 rounded text-center text-xs font-bold text-indigo-700 focus:outline-none transition-all" min="0">
+                  </td>
+                  <td v-if="isAdmin" class="px-2 py-3 bg-orange-50/10">
+                    <input v-model.number="row.months[mId].warehouse_damage" @input="handleAutosave(row.id, mId, 'warehouse_damage', row.months[mId].warehouse_damage)" type="number" class="w-full px-2 py-1.5 bg-transparent group-hover:bg-white border-transparent border focus:border-orange-300 rounded text-center text-xs font-bold text-red-800 focus:outline-none transition-all" min="0">
+                  </td>
+                </template>
+
+                <!-- TRENDS -->
+                <td class="px-6 py-4 border-l border-slate-50 text-center">
+                  <div class="flex flex-col gap-1">
+                    <template v-for="(name, mId) in availableMonths" :key="mId">
+                      <div v-if="calculateDiff(row, mId, 'qty')" class="text-[9px] font-black whitespace-nowrap bg-white px-2 py-1 rounded-md shadow-sm border border-slate-100 flex items-center justify-between gap-3">
+                        <span class="text-slate-400">{{ availableMonths[mId].substring(0,3) }}:</span>
+                        <span :class="calculateDiff(row, mId, 'qty')?.class">{{ calculateDiff(row, mId, 'qty')?.text }}</span>
+                      </div>
+                    </template>
+                  </div>
+                </td>
+
+                <!-- REMOVE -->
+                <td class="px-6 py-4 border-l border-slate-50 text-center">
+                  <button @click="removeRow(row.id)" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all transform hover:scale-110 active:scale-90 opacity-0 group-hover:opacity-100">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                  </button>
                 </td>
               </tr>
-              <tr v-if="stockReports.length === 0">
-                <td colspan="4" class="px-6 py-8 text-center text-sm text-slate-500">No reports available.</td>
+
+              <!-- EMPTY STATE -->
+              <tr v-if="inventoryRows.length === 0">
+                <td :colspan="10" class="px-6 py-20 text-center">
+                   <div class="flex flex-col items-center gap-4 text-slate-300">
+                    <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                    <span class="text-sm font-extrabold uppercase tracking-widest">{{ selectedSchoolId ? 'No equipments added yet. Search to start.' : 'Please select a school to begin.' }}</span>
+                   </div>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -436,12 +579,14 @@ const trackerSteps = ['Requested', 'SSGM Verified', 'Admin Approved', 'Processin
   overflow-x: auto;
   border-radius: 12px;
   border: 1px solid #e2e8f0;
+  max-width: 100%;
 }
 
 table {
-  text-indent: 0;
-  border-color: inherit;
-  border-collapse: collapse;
+  width: max-content !important;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .table-body tr {
@@ -449,5 +594,17 @@ table {
 }
 .table-body tr:last-child {
   border-bottom: none;
+}
+
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
 }
 </style>

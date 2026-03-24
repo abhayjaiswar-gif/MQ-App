@@ -50,6 +50,26 @@ const MainRoutes = {
       name: 'ApproveStock',
       path: '/approve-stock',
       component: () => import('@/views/stock/ApproveStockPage.vue')
+    },
+    {
+      name: 'SchoolList',
+      path: '/school',
+      component: () => import('@/views/school/SchoolListPage.vue')
+    },
+    {
+      name: 'AddSchool',
+      path: '/school/add',
+      component: () => import('@/views/school/AddSchoolPage.vue')
+    },
+    {
+      name: 'AddSchool',
+      path: '/school/add',
+      component: () => import('@/views/school/AddSchoolPage.vue')
+    },
+    {
+      name: 'SchoolEdit',
+      path: '/school/edit/:id',
+      component: () => import('@/views/school/EditSchoolPage.vue')
     }
   ]
 };
