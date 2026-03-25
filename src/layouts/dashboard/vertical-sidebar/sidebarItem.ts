@@ -12,7 +12,10 @@ import {
   LineChartOutlined,
   CheckSquareOutlined,
   BankOutlined,
-  PictureOutlined
+  PictureOutlined,
+  FilePdfOutlined,
+  TeamOutlined,
+  UserOutlined
 } from '@ant-design/icons-vue';
 
 export interface menu {
@@ -39,14 +42,19 @@ const sidebarItem: menu[] = [
     to: '/dashboard'
   },
   {
-    title: 'Stock',
-    icon: LineChartOutlined,
-    to: '/stock'
-  },
-  {
     title: 'School',
     icon: BankOutlined,
     to: '/school'
+  },
+  {
+    title: 'School Assign',
+    icon: TeamOutlined,
+    to: '/school/assignments'
+  },
+  {
+    title: 'User Management',
+    icon: UserOutlined,
+    to: '/management/users'
   },
   {
     title: 'Gallery',
@@ -54,56 +62,14 @@ const sidebarItem: menu[] = [
     to: '/school/gallery'
   },
   {
-    title: 'Approve Stock',
-    icon: CheckSquareOutlined,
-    to: '/approve-stock'
-  },
-  { header: 'Authentication' },
-  {
-    title: 'Login',
-    icon: LoginOutlined,
-    to: '/login1'
+    title: 'Match Report',
+    icon: FilePdfOutlined,
+    to: '/reports/match'
   },
   {
-    title: 'Register',
-    icon: ProfileOutlined,
-    to: '/register'
-  },
-  { header: 'Utilities' },
-  {
-    title: 'Typography',
-    icon: FontSizeOutlined,
-    to: '/typography'
-  },
-  {
-    title: 'Color',
-    icon: BgColorsOutlined,
-    to: '/colors'
-  },
-  {
-    title: 'Shadow',
-    icon: BarcodeOutlined,
-    to: '/shadow'
-  },
-  {
-    title: 'Ant Icons',
-    icon: CrownOutlined,
-    to: '/icon/ant'
-  },
-  { header: 'Support' },
-  {
-    title: 'Sample Page',
-    icon: ChromeOutlined,
-    to: '/sample-page'
-  },
-  {
-    title: 'Documentation',
-    icon: QuestionOutlined,
-    to: 'https://codedthemes.gitbook.io/mantis-vuetify/',
-    type: 'external',
-    chip: 'gitbook',
-    chipColor: 'secondary',
-    chipVariant: 'flat'
+    title: 'Parents Report Card',
+    icon: TeamOutlined,
+    to: '/reports/parents'
   }
 ];
 

@@ -1,7 +1,7 @@
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
-async function listTables() {
+async function checkTable() {
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
@@ -9,13 +9,18 @@ async function listTables() {
     database: process.env.DB_NAME || 'appmarcos_mainapp'
   });
 
-  const [tables] = await connection.query('SHOW TABLES');
-  const tableNames = tables.map(row => Object.values(row)[0]);
-  console.log(tableNames.join('\n'));
+  try {
+    const [columns] = await connection.query('DESCRIBE mq_report_parents');
+    console.log('COLUMNS_START');
+    columns.forEach(col => console.log(col.Field));
+    console.log('COLUMNS_END');
+  } catch (err) {
+    console.error('Table mq_report_parents does not exist or error:', err.message);
+  }
   process.exit();
 }
 
-listTables().catch(err => {
+checkTable().catch(err => {
   console.error(err);
   process.exit(1);
 });

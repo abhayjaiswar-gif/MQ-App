@@ -1,7 +1,8 @@
 const mysql = require('mysql2/promise');
+const fs = require('fs');
 require('dotenv').config();
 
-async function listTables() {
+async function listTablesToFile() {
   const connection = await mysql.createConnection({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
@@ -11,11 +12,12 @@ async function listTables() {
 
   const [tables] = await connection.query('SHOW TABLES');
   const tableNames = tables.map(row => Object.values(row)[0]);
-  console.log(tableNames.join('\n'));
+  fs.writeFileSync('tables.txt', tableNames.join('\n'));
+  console.log('Tables written to tables.txt');
   process.exit();
 }
 
-listTables().catch(err => {
+listTablesToFile().catch(err => {
   console.error(err);
   process.exit(1);
 });

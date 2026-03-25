@@ -209,8 +209,9 @@ const goToEditSchool = (id: number) => {
               </td>
               <td class="px-6 py-5">
                 <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-xl bg-primary-fixed flex items-center justify-center text-primary font-bold text-lg">
-                    {{ school.name.charAt(0) }}
+                  <div class="w-10 h-10 rounded-xl bg-primary-fixed flex items-center justify-center text-primary font-bold text-lg overflow-hidden border border-slate-100">
+                    <img v-if="school.school_logo" :src="`http://localhost:3000/uploads/${school.school_logo}`" class="w-full h-full object-contain" />
+                    <span v-else>{{ school.name.charAt(0) }}</span>
                   </div>
                   <div>
                     <p class="font-bold text-sm text-on-surface">{{ school.name }}</p>
@@ -279,32 +280,7 @@ const goToEditSchool = (id: number) => {
     </div>
 
     <!-- Insights Section -->
-    <div class="mt-10 grid grid-cols-1 md:grid-cols-2 gap-8">
-      <div class="bg-primary/5 p-8 rounded-3xl border border-primary/10 flex gap-6">
-        <div class="w-12 h-12 bg-primary rounded-2xl flex items-center justify-center text-white shrink-0">
-          <span class="material-symbols-outlined">analytics</span>
-        </div>
-        <div>
-          <h4 class="font-bold text-lg mb-2">School Compliance Overview</h4>
-          <p class="text-sm text-on-surface-variant leading-relaxed mb-4">You have {{ stats.pendingUpdates }} schools currently in the 'Pending' state. Please review their status in the settings panel.</p>
-          <a class="text-primary font-bold text-sm inline-flex items-center gap-1 hover:underline" href="#">
-            View compliance report <span class="material-symbols-outlined text-sm">arrow_forward</span>
-          </a>
-        </div>
-      </div>
-      <div class="bg-secondary/5 p-8 rounded-3xl border border-secondary/10 flex gap-6">
-        <div class="w-12 h-12 bg-secondary rounded-2xl flex items-center justify-center text-white shrink-0">
-          <span class="material-symbols-outlined">auto_stories</span>
-        </div>
-        <div>
-          <h4 class="font-bold text-lg mb-2">Institutional Management Tip</h4>
-          <p class="text-sm text-on-surface-variant leading-relaxed mb-4">Assigning a dedicated Operation Manager to each school increases partnership retention significantly.</p>
-          <a class="text-secondary font-bold text-sm inline-flex items-center gap-1 hover:underline" href="#">
-            Learn more best practices <span class="material-symbols-outlined text-sm">arrow_forward</span>
-          </a>
-        </div>
-      </div>
-    </div>
+    
   </div>
 </template>
 

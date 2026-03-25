@@ -22,6 +22,7 @@ const school = ref({
 
 const files = ref({
   logo: null as File | null,
+  building: null as File | null,
   timetable: null as File | null,
   principal_sig: null as File | null,
   head_coach_sig: null as File | null
@@ -29,6 +30,7 @@ const files = ref({
 
 const previews = ref({
   logo: '',
+  building: '',
   timetable: '',
   principal_sig: '',
   head_coach_sig: ''
@@ -60,6 +62,7 @@ const saveSchool = async () => {
 
     // Append files
     if (files.value.logo) formData.append('school_logo', files.value.logo);
+    if (files.value.building) formData.append('school_image', files.value.building);
     if (files.value.timetable) formData.append('time_table_image', files.value.timetable);
     if (files.value.principal_sig) formData.append('principal_signature_image', files.value.principal_sig);
     if (files.value.head_coach_sig) formData.append('head_coach_signature_image', files.value.head_coach_sig);
@@ -91,6 +94,7 @@ const goToSchoolList = () => {
   <div class="px-0 py-0 school-page-wrapper">
     <!-- Hidden File Inputs -->
     <input type="file" id="logo-input" class="hidden" accept="image/*" @change="handleFileChange($event, 'logo')" />
+    <input type="file" id="building-input" class="hidden" accept="image/*" @change="handleFileChange($event, 'building')" />
     <input type="file" id="timetable-input" class="hidden" accept="image/*,.pdf" @change="handleFileChange($event, 'timetable')" />
     <input type="file" id="principal-sig-input" class="hidden" accept="image/*" @change="handleFileChange($event, 'principal_sig')" />
     <input type="file" id="head-coach-sig-input" class="hidden" accept="image/*" @change="handleFileChange($event, 'head_coach_sig')" />
@@ -186,6 +190,20 @@ const goToSchoolList = () => {
                 <span class="material-symbols-outlined text-outline group-hover:text-primary text-4xl mb-2">add_photo_alternate</span>
                 <p class="text-xs font-semibold text-on-surface-variant">Click to upload logo</p>
                 <p class="text-[10px] text-outline mt-1">PNG, JPG up to 5MB</p>
+              </template>
+            </div>
+          </div>
+          <div class="space-y-3">
+            <label class="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant/80">School Building Image (Banner)</label>
+            <div 
+              @click="triggerFileInput('building-input')"
+              class="border-2 border-dashed border-outline-variant/40 rounded-xl p-8 flex flex-col items-center justify-center bg-surface-container-low hover:bg-surface-container-high transition-colors cursor-pointer group min-h-[160px]"
+            >
+              <img v-if="previews.building" :src="previews.building" class="max-h-24 object-contain mb-2" />
+              <template v-else>
+                <span class="material-symbols-outlined text-outline group-hover:text-primary text-4xl mb-2">domain</span>
+                <p class="text-xs font-semibold text-on-surface-variant">Click to upload building image</p>
+                <p class="text-[10px] text-outline mt-1">PNG, JPG up to 10MB</p>
               </template>
             </div>
           </div>

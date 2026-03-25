@@ -32,6 +32,7 @@ const upload = multer({ storage });
 
 const schoolUploadFields = upload.fields([
   { name: 'school_logo', maxCount: 1 },
+  { name: 'school_image', maxCount: 1 },
   { name: 'time_table_image', maxCount: 1 },
   { name: 'principal_signature_image', maxCount: 1 },
   { name: 'head_coach_signature_image', maxCount: 1 }
@@ -232,16 +233,25 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-// 🏫 GET SCHOOLS API
+// 🏫 GET SCHOOLS API (Filtered by Gallery existence if requested)
 app.get('/api/schools', async (req, res) => {
+  const { hasGallery } = req.query;
   try {
-    // Return all columns joined with users to get OM name and subquery for student count
-    const [rows] = await db.query(`
+    let query = `
       SELECT s.*, u.name as om_name,
-      (SELECT COUNT(*) FROM students src WHERE src.school_id = s.id) as student_count
+      (SELECT COUNT(*) FROM students src WHERE src.school_id = s.id) as student_count,
+      (SELECT COUNT(*) FROM school_gallery sg WHERE sg.school_id = s.id) as gallery_count
       FROM schools s 
       LEFT JOIN users u ON s.mq_om_id = u.id
-    `);
+    `;
+
+    if (hasGallery === 'true') {
+      query += ` WHERE EXISTS (SELECT 1 FROM school_gallery sg WHERE sg.school_id = s.id)`;
+    } else if (hasGallery === 'false') {
+      query += ` WHERE NOT EXISTS (SELECT 1 FROM school_gallery sg WHERE sg.school_id = s.id)`;
+    }
+
+    const [rows] = await db.query(query);
     res.json({ success: true, schools: rows });
   } catch (err) {
     console.error('FETCH SCHOOLS ERROR:', err);
@@ -272,6 +282,7 @@ app.post('/api/schools', schoolUploadFields, async (req, res) => {
   try {
     // Extract file names if uploaded
     if (files['school_logo']) data.school_logo = files['school_logo'][0].filename;
+    if (files['school_image']) data.school_image = files['school_image'][0].filename;
     if (files['time_table_image']) data.time_table_image = files['time_table_image'][0].filename;
     if (files['principal_signature_image']) data.principal_signature_image = files['principal_signature_image'][0].filename;
     if (files['head_coach_signature_image']) data.head_coach_signature_image = files['head_coach_signature_image'][0].filename;
@@ -298,10 +309,11 @@ app.put('/api/schools/:id', schoolUploadFields, async (req, res) => {
   const { id } = req.params;
   const data = req.body;
   const files = req.files;
-  
+
   try {
     // Extract file names if uploaded
     if (files['school_logo']) data.school_logo = files['school_logo'][0].filename;
+    if (files['school_image']) data.school_image = files['school_image'][0].filename;
     if (files['time_table_image']) data.time_table_image = files['time_table_image'][0].filename;
     if (files['principal_signature_image']) data.principal_signature_image = files['principal_signature_image'][0].filename;
     if (files['head_coach_signature_image']) data.head_coach_signature_image = files['head_coach_signature_image'][0].filename;
@@ -318,7 +330,7 @@ app.put('/api/schools/:id', schoolUploadFields, async (req, res) => {
     values.push(id);
 
     await db.query(`UPDATE schools SET ${setClause}, last_updated_on = ? WHERE id = ?`, values);
-    
+
     res.json({ success: true, message: 'School updated successfully' });
   } catch (err) {
     console.error('UPDATE SCHOOL ERROR:', err);
@@ -330,8 +342,8 @@ app.put('/api/schools/:id', schoolUploadFields, async (req, res) => {
 app.post('/api/available-months', async (req, res) => {
   // Mocking the structure from PHP
   const months = {
-    1: 'January', 2: 'February', 3: 'March', 4: 'April', 
-    5: 'May', 6: 'June', 7: 'July', 8: 'August', 
+    1: 'January', 2: 'February', 3: 'March', 4: 'April',
+    5: 'May', 6: 'June', 7: 'July', 8: 'August',
     9: 'September', 10: 'October', 11: 'November', 12: 'December'
   };
   // Logic could be more complex (filter by what's in DB for that school/year)
@@ -406,6 +418,286 @@ app.post('/api/autosave-stock', async (req, res) => {
   } catch (err) {
     console.error('AUTOSAVE ERROR:', err);
     res.json({ success: false, error: err.message });
+  }
+});
+
+// 🖼️ GET SCHOOL GALLERY PHOTOS
+app.get('/api/school-gallery/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await db.query('SELECT * FROM school_gallery WHERE school_id = ? ORDER BY uploaded_at DESC', [id]);
+    res.json({ success: true, gallery: rows });
+  } catch (err) {
+    console.error('FETCH GALLERY ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching gallery' });
+  }
+});
+
+// 🖼️ UPLOAD GALLERY PHOTOS
+app.post('/api/school-gallery/:id', upload.array('photos'), async (req, res) => {
+  const { id } = req.params;
+  const { category, description } = req.body;
+  const files = req.files;
+
+  if (!files || files.length === 0) {
+    return res.status(400).json({ success: false, message: 'No photos uploaded' });
+  }
+
+  try {
+    const values = files.map(file => [
+      id,
+      path.extname(file.originalname).substring(1), // file_type (e.g., jpg)
+      file.filename, // file_path
+      category || 'General',
+      new Date().toISOString().slice(0, 19).replace('T', ' ') // uploaded_at
+    ]);
+
+    await db.query(
+      'INSERT INTO school_gallery (school_id, file_type, file_path, caption, uploaded_at) VALUES ?',
+      [values]
+    );
+
+    res.json({ success: true, message: `${files.length} photos uploaded successfully` });
+  } catch (err) {
+    console.error('UPLOAD GALLERY ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error uploading photos', error: err.message });
+  }
+});
+
+// 📄 GET ALL MATCH REPORTS
+app.get('/api/match-reports', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT mr.id, mr.school_id, mr.user_id, mr.file_path, mr.created_at,
+             s.name as school_name 
+      FROM match_report_card mr
+      JOIN schools s ON mr.school_id = s.id
+      ORDER BY mr.created_at DESC
+    `);
+    res.json({ success: true, reports: rows });
+  } catch (err) {
+    console.error('FETCH REPORTS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching reports', error: err.message });
+  }
+});
+
+// 📄 UPLOAD MATCH REPORT
+app.post('/api/match-reports', upload.single('report'), async (req, res) => {
+  const { school_id } = req.body;
+  const file = req.file;
+
+  if (!file) {
+    return res.status(400).json({ success: false, message: 'No report file uploaded' });
+  }
+  if (!school_id) {
+    return res.status(400).json({ success: false, message: 'School is required' });
+  }
+
+  try {
+    const [result] = await db.query(
+      'INSERT INTO match_report_card (school_id, file_path) VALUES (?, ?)',
+      [school_id, file.filename]
+    );
+
+    res.json({
+      success: true,
+      message: 'Match report uploaded successfully',
+      reportId: result.insertId
+    });
+  } catch (err) {
+    console.error('UPLOAD REPORT ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error uploading report', error: err.message });
+  }
+});
+
+// 👪 GET ALL PARENTS REPORTS
+app.get('/api/parents-reports', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM mq_report_parents ORDER BY request_date DESC');
+    res.json({ success: true, reports: rows });
+  } catch (err) {
+    console.error('FETCH PARENTS REPORTS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching parents reports', error: err.message });
+  }
+});
+
+// 🔗 GET ALL SCHOOL ASSIGNMENTS
+app.get('/api/school-assignments', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        u.id as user_id, 
+        u.name as user_name, 
+        u.email, 
+        r.name as role_name,
+        r.id as role_id,
+        GROUP_CONCAT(s.name SEPARATOR ', ') as assigned_schools,
+        GROUP_CONCAT(asgn.school_id SEPARATOR ',') as school_ids,
+        COUNT(asgn.school_id) as school_count
+      FROM users u
+      JOIN roles r ON u.role_id = r.id
+      LEFT JOIN assign_school asgn ON u.id = asgn.user_id
+      LEFT JOIN schools s ON asgn.school_id = s.id
+      GROUP BY u.id
+      ORDER BY u.name ASC
+    `);
+
+    const [[stats]] = await db.query(`
+      SELECT 
+        (SELECT COUNT(*) FROM assign_school) as total_assignments,
+        (SELECT COUNT(DISTINCT school_id) FROM assign_school) as active_institutions,
+        (SELECT COUNT(*) FROM users u LEFT JOIN assign_school asgn ON u.id = asgn.user_id WHERE asgn.id IS NULL) as pending_requests
+    `);
+
+    res.json({ success: true, assignments: rows, stats: stats });
+  } catch (err) {
+    console.error('FETCH ASSIGNMENTS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching school assignments', error: err.message });
+  }
+});
+
+// 👥 GET ALL USERS FOR MANAGEMENT
+app.get('/api/users-list', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        u.id, 
+        u.name, 
+        u.email, 
+        u.mobile, 
+        u.is_active,
+        r.name as role_name,
+        COALESCE(u.mq_id, CONCAT('MQ-', LPAD(u.id, 4, '0'), '-U')) as mq_id
+      FROM users u
+      LEFT JOIN roles r ON u.role_id = r.id
+      ORDER BY u.id DESC
+    `);
+
+    const [[stats]] = await db.query(`
+      SELECT 
+        COUNT(*) as total_users,
+        SUM(CASE WHEN role_id = 1 THEN 1 ELSE 0 END) as active_admins,
+        SUM(CASE WHEN role_id = 2 THEN 1 ELSE 0 END) as system_coaches,
+        SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as pending_access
+      FROM users
+    `);
+
+    res.json({ success: true, users: rows, stats: stats });
+  } catch (err) {
+    console.error('FETCH USERS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching users', error: err.message });
+  }
+});
+
+// 💾 SAVE SCHOOL ASSIGNMENTS
+app.post('/api/school-assignments', async (req, res) => {
+  const { user_id, school_ids } = req.body;
+  if (!user_id || !Array.isArray(school_ids)) {
+    return res.status(400).json({ success: false, message: 'Invalid data provided' });
+  }
+  try {
+    await db.query('DELETE FROM assign_school WHERE user_id = ?', [user_id]);
+    if (school_ids.length > 0) {
+      const values = school_ids.map(sId => [user_id, sId]);
+      await db.query('INSERT INTO assign_school (user_id, school_id) VALUES ?', [values]);
+    }
+    res.json({ success: true, message: 'Assignments updated successfully' });
+  } catch (err) {
+    console.error('SAVE ASSIGNMENTS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error saving assignments', error: err.message });
+  }
+});
+
+// 👥 CREATE NEW USER
+app.post('/api/users', async (req, res) => {
+  const {
+    mq_id, name, email, password, mobile, role_id,
+    address_line1, address_line2, city, state, pincode,
+    app_access, web_access, remarks
+  } = req.body;
+
+  if (!name || !email || !password || !role_id) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(password.trim(), 10);
+    const addedDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
+
+    const [result] = await db.query(
+      `INSERT INTO users (
+        mq_id, name, email, password, mobile, role_id, 
+        address_line1, address_line2, city, state, pincode,
+        app_access, web_access, remarks,
+        is_active, is_super_admin, added_date, added_ip
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, '127.0.0.1')`,
+      [
+        mq_id || null, name, email.toLowerCase().trim(), hashedPassword, mobile, role_id,
+        address_line1 || '', address_line2 || '', city || '', state || '', pincode || '',
+        app_access ? 1 : 0, web_access ? 1 : 0, remarks || '',
+        addedDate
+      ]
+    );
+
+    res.json({ success: true, message: 'User created successfully', userId: result.insertId });
+  } catch (err) {
+    console.error('CREATE USER ERROR:', err);
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ success: false, message: 'Email already exists' });
+    }
+    res.status(500).json({ success: false, message: 'Error creating user', error: err.message });
+  }
+});
+
+// 🔍 GET SINGLE USER
+app.get('/api/users/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await db.query('SELECT * FROM users WHERE id = ?', [id]);
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    const user = rows[0];
+    delete user.password; // Don't send password hash
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error('FETCH USER ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching user', error: err.message });
+  }
+});
+
+// 🔄 UPDATE USER
+app.put('/api/users/:id', async (req, res) => {
+  const { id } = req.params;
+  const {
+    name, email, mobile, role_id,
+    address_line1, address_line2, city, state, pincode,
+    app_access, web_access, remarks, mq_id
+  } = req.body;
+
+  if (!name || !email || !role_id) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  }
+
+  try {
+    await db.query(
+      `UPDATE users SET 
+        mq_id = ?, name = ?, email = ?, mobile = ?, role_id = ?, 
+        address_line1 = ?, address_line2 = ?, city = ?, state = ?, pincode = ?,
+        app_access = ?, web_access = ?, remarks = ?
+      WHERE id = ?`,
+      [
+        mq_id || null, name, email.toLowerCase().trim(), mobile, role_id,
+        address_line1 || '', address_line2 || '', city || '', state || '', pincode || '',
+        app_access ? 1 : 0, web_access ? 1 : 0, remarks || '',
+        id
+      ]
+    );
+
+    res.json({ success: true, message: 'User updated successfully' });
+  } catch (err) {
+    console.error('UPDATE USER ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error updating user', error: err.message });
   }
 });
 

@@ -16,13 +16,19 @@ const MainRoutes = {
       path: '/dashboard',
       component: () => import('@/views/dashboard/DefaultDashboard.vue')
     },
+    /*
     {
       name: 'Typography',
       path: '/typography',
       component: () => import('@/views/typography/TypographyPage.vue')
     },
     {
-      name: 'Colors',
+      name: 'SchoolAssignments',
+      path: '/school/assignments',
+      component: () => import('@/views/school/SchoolAssignmentPage.vue')
+    },
+    {
+      title: 'Gallery',
       path: '/colors',
       component: () => import('@/views/colors/ColorPage.vue')
     },
@@ -41,6 +47,8 @@ const MainRoutes = {
       path: '/sample-page',
       component: () => import('@/views/StarterPage.vue')
     },
+    */
+    /*
     {
       name: 'Stock',
       path: '/stock',
@@ -51,6 +59,7 @@ const MainRoutes = {
       path: '/approve-stock',
       component: () => import('@/views/stock/ApproveStockPage.vue')
     },
+    */
     {
       name: 'SchoolList',
       path: '/school',
@@ -70,6 +79,46 @@ const MainRoutes = {
       name: 'SchoolEdit',
       path: '/school/edit/:id',
       component: () => import('@/views/school/EditSchoolPage.vue')
+    },
+    {
+      name: 'SchoolAssignments',
+      path: '/school/assignments',
+      component: () => import('@/views/school/SchoolAssignmentPage.vue')
+    },
+    {
+      name: 'UserManagement',
+      path: '/management/users',
+      component: () => import('@/views/user/UserManagementPage.vue')
+    },
+    {
+      name: 'CreateUser',
+      path: '/management/users/create',
+      component: () => import('@/views/user/CreateUserPage.vue')
+    },
+    {
+      name: 'EditUser',
+      path: '/management/users/edit/:id',
+      component: () => import('@/views/user/EditUserPage.vue')
+    },
+    {
+      name: 'SchoolGallery',
+      path: '/school/gallery',
+      component: () => import('@/views/school/SchoolGalleryPage.vue')
+    },
+    {
+      name: 'SchoolGalleryDetail',
+      path: '/school/gallery/:id',
+      component: () => import('@/views/school/SchoolGalleryDetailPage.vue')
+    },
+    {
+      name: 'MatchReport',
+      path: '/reports/match',
+      component: () => import('@/views/reports/MatchReportPage.vue')
+    },
+    {
+      name: 'ParentsReport',
+      path: '/reports/parents',
+      component: () => import('@/views/reports/ParentsReportPage.vue')
     }
   ]
 };
