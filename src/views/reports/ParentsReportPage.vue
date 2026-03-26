@@ -59,16 +59,25 @@ const paginatedReports = computed(() => {
   return filteredReports.value.slice(start, start + perPage);
 });
 
-const stats = computed(() => ({
-  accessed: reports.value.length,
-  verified: reports.value.filter(r => String(r.otp_verified) === '0').length,
-  recent: reports.value.filter(r => {
+const stats = computed(() => {
+  const accessed = reports.value.length;
+  const verified = reports.value.filter(r => String(r.otp_verified) === '0').length;
+  const now = new Date();
+  const recent = reports.value.filter(r => {
     if (!r.request_date) return false;
-    const today = new Date().toISOString().split('T')[0];
-    const recordDate = new Date(r.request_date).toISOString().split('T')[0];
-    return recordDate === today;
-  }).length,
-}));
+    const d = new Date(r.request_date);
+    return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+
+  const trust = accessed > 0 ? Math.round((verified / accessed) * 100) : 100;
+
+  return {
+    accessed,
+    verified,
+    recent,
+    trust
+  };
+});
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '—';
@@ -91,196 +100,221 @@ const getDeviceIcon = (device: string) => {
   return 'laptop';
 };
 
-const verifiedPercent = computed(() => {
-  if (!stats.value.accessed) return 0;
-  return Math.round((stats.value.verified / stats.value.accessed) * 100);
-});
 const circleCircumference = 364.4;
-const circleOffset = computed(() => circleCircumference - (circleCircumference * verifiedPercent.value / 100));
+const circleOffset = computed(() => circleCircumference - (circleCircumference * (stats.value.trust || 0) / 100));
 
 onMounted(fetchReports);
 </script>
 
 <template>
-  <div class="min-h-screen bg-surface" style="font-family: 'Inter', sans-serif;">
-    <div class="p-8 max-w-7xl mx-auto space-y-10">
-
-      <!-- Header -->
-      <div class="flex justify-between items-end">
+  <div class="min-h-screen bg-[#f8fafc] p-4 lg:p-2 font-inter">
+    <div class="max-w-7xl mx-auto space-y-10">
+      <!-- Header Section -->
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div>
-          <h1 class="text-3xl font-extrabold text-slate-900 tracking-tight" style="font-family: 'Manrope', sans-serif;">
-            Parent Report Access
-          </h1>
-          <p class="text-on-surface-variant mt-1">Real-time monitoring of academic report visibility and verification.</p>
+          <nav
+            class="flex items-center gap-2 text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 font-manrope">
+            <span>Portal</span>
+            <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+            <span class="text-primary">Parent Access</span>
+          </nav>
+          <h2 class="text-4xl font-extrabold text-[#1e293b] tracking-tight font-manrope">Report Visibility Audit</h2>
+          <p class="text-slate-500 mt-1 font-inter">Monitor and manage institutional report visibility and verified
+            parent engagement.</p>
         </div>
-        <div class="flex gap-3">
-          <button class="px-4 py-2 bg-white border border-outline-variant rounded-xl text-sm font-semibold hover:bg-surface-container-low transition-colors flex items-center gap-2">
-            <span class="material-symbols-outlined text-sm">filter_list</span>
-            Advanced Filters
+        <div class="flex items-center gap-3">
+          <button
+            class="px-6 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2 font-manrope">
+            <span class="material-symbols-outlined text-[20px]">file_download</span>
+            Export Audit
           </button>
-          <button class="px-4 py-2 bg-primary text-white rounded-xl text-sm font-bold hover:opacity-95 transition-all shadow-md shadow-primary/20 flex items-center gap-2">
-            <span class="material-symbols-outlined text-sm">share</span>
+          <button
+            class="px-6 py-3 bg-primary text-white rounded-xl text-sm font-bold hover:bg-[#004a88] transition-all shadow-xl shadow-primary/20 flex items-center gap-2 font-manrope">
+            <span class="material-symbols-outlined text-[20px]">send_and_archive</span>
             Share Portal Link
           </button>
         </div>
       </div>
 
-      <!-- Stats Cards (3 cards) -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- Removed: Total Reports Sent card -->
-
-        <div class="bg-white p-6 rounded-2xl shadow-[0_8px_32px_rgba(0,28,58,0.04)] group hover:translate-y-[-2px] transition-all">
-          <div class="flex justify-between items-start mb-4">
-            <div class="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600">
-              <span class="material-symbols-outlined">visibility</span>
-            </div>
-            <span class="text-green-600 text-xs font-bold bg-green-50 px-2 py-1 rounded-md flex items-center gap-1">
-              <span class="material-symbols-outlined text-[14px]">trending_up</span>8%
-            </span>
+      <!-- Bento Stats Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Reports Accessed -->
+        <div class="relative bg-white p-6 rounded-2xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
+          <div class="absolute bottom-0 left-0 w-full h-1.5 bg-amber-500 rounded-b-2xl"></div>
+          <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 font-manrope">Reports Accessed
+          </p>
+          <div class="flex items-end justify-between">
+            <h3 class="text-3xl font-extrabold text-[#1e293b] font-manrope">{{ loading ? '—' :
+              stats.accessed.toLocaleString() }}</h3>
+            <span
+              class="text-amber-600 text-xs font-bold flex items-center bg-amber-50 px-2 py-1 rounded-lg font-inter">Visibility</span>
           </div>
-          <p class="text-on-surface-variant text-xs font-semibold mb-1">Reports Accessed</p>
-          <h3 class="text-3xl font-bold text-slate-900" style="font-family: 'Manrope', sans-serif;">
-            {{ loading ? '—' : stats.accessed.toLocaleString() }}
-          </h3>
         </div>
 
-        <div class="bg-white p-6 rounded-2xl shadow-[0_8px_32px_rgba(0,28,58,0.04)] group hover:translate-y-[-2px] transition-all">
-          <div class="flex justify-between items-start mb-4">
-            <div class="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center text-green-600">
-              <span class="material-symbols-outlined">verified_user</span>
-            </div>
-            <span class="text-green-600 text-xs font-bold bg-green-50 px-2 py-1 rounded-md flex items-center gap-1">
-              <span class="material-symbols-outlined text-[14px]">trending_up</span>{{ verifiedPercent }}%
-            </span>
+        <!-- OTP Verified -->
+        <div class="relative bg-white p-6 rounded-2xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
+          <div class="absolute bottom-0 left-0 w-full h-1.5 bg-emerald-500 rounded-b-2xl"></div>
+          <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 font-manrope">OTP Verified</p>
+          <div class="flex items-end justify-between">
+            <h3 class="text-3xl font-extrabold text-[#1e293b] font-manrope">{{ loading ? '—' :
+              stats.verified.toLocaleString() }}</h3>
+            <span
+              class="text-emerald-600 text-xs font-bold flex items-center bg-emerald-50 px-2 py-1 rounded-lg font-inter">Secure</span>
           </div>
-          <p class="text-on-surface-variant text-xs font-semibold mb-1">OTP Verified Sessions</p>
-          <h3 class="text-3xl font-bold text-slate-900" style="font-family: 'Manrope', sans-serif;">
-            {{ loading ? '—' : stats.verified.toLocaleString() }}
-          </h3>
         </div>
 
-        <div class="bg-white p-6 rounded-2xl shadow-[0_8px_32px_rgba(0,28,58,0.04)] group hover:translate-y-[-2px] transition-all">
-          <div class="flex justify-between items-start mb-4">
-            <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center text-purple-600">
-              <span class="material-symbols-outlined">download_done</span>
-            </div>
-            <span class="text-slate-400 text-xs font-bold bg-slate-50 px-2 py-1 rounded-md">Last 24h</span>
+        <!-- Recent Access -->
+        <div class="relative bg-white p-6 rounded-2xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
+          <div class="absolute bottom-0 left-0 w-full h-1.5 bg-violet-500 rounded-b-2xl"></div>
+          <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 font-manrope">Recent Access</p>
+          <div class="flex items-end justify-between">
+            <h3 class="text-3xl font-extrabold text-[#1e293b] font-manrope">{{ loading ? '—' :
+              stats.recent.toLocaleString() }}</h3>
+            <span
+              class="text-violet-600 text-xs font-bold flex items-center bg-violet-50 px-2 py-1 rounded-lg font-inter">Last
+              24h</span>
           </div>
-          <p class="text-on-surface-variant text-xs font-semibold mb-1">Recent Downloads</p>
-          <h3 class="text-3xl font-bold text-slate-900" style="font-family: 'Manrope', sans-serif;">
-            {{ loading ? '—' : stats.recent.toLocaleString() }}
-          </h3>
+        </div>
+
+        <!-- System Trust -->
+        <div class="relative bg-white p-6 rounded-2xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
+          <div class="absolute bottom-0 left-0 w-full h-1.5 bg-primary rounded-b-2xl"></div>
+          <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 font-manrope">System Trust</p>
+          <div class="flex items-end justify-between">
+            <h3 class="text-3xl font-extrabold text-primary font-manrope">{{ loading ? '—' : stats.trust }}%</h3>
+            <span
+              class="text-primary text-xs font-bold flex items-center bg-primary/5 px-2 py-1 rounded-lg font-inter">Certified</span>
+          </div>
         </div>
       </div>
 
-      <!-- Main Data Table -->
-      <div class="bg-white rounded-2xl shadow-[0_8px_32px_rgba(0,28,58,0.06)] overflow-hidden">
-
-        <!-- Filters Bar -->
-        <div class="p-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
-          <div class="flex items-center gap-4">
-            <div class="flex items-center bg-slate-100 rounded-lg p-1">
-              <button
-                @click="activeTab = 'all'; currentPage = 1"
-                :class="['px-4 py-1.5 rounded-md text-sm font-semibold transition-all', activeTab === 'all' ? 'bg-white shadow-sm text-primary' : 'text-on-surface-variant hover:text-primary']"
-              >All Reports</button>
-              <button
-                @click="activeTab = 'term-end'; currentPage = 1"
-                :class="['px-4 py-1.5 text-sm font-medium transition-colors', activeTab === 'term-end' ? 'bg-white shadow-sm rounded-md text-primary' : 'text-on-surface-variant hover:text-primary']"
-              >Term End</button>
-              <button
-                @click="activeTab = 'monthly'; currentPage = 1"
-                :class="['px-4 py-1.5 text-sm font-medium transition-colors', activeTab === 'monthly' ? 'bg-white shadow-sm rounded-md text-primary' : 'text-on-surface-variant hover:text-primary']"
-              >Monthly Progress</button>
+      <!-- Access Registry Table Section -->
+      <section
+        class="bg-white rounded-[32px] shadow-[0_8px_32px_rgba(0,28,58,0.04)] border border-slate-100 overflow-hidden">
+        <div
+          class="p-8 border-b border-slate-50 flex flex-col xl:flex-row items-start xl:items-center justify-between gap-6 bg-white">
+          <div class="flex flex-wrap items-center gap-6 w-full xl:w-auto">
+            <div class="flex items-center bg-slate-100/80 p-1.5 rounded-2xl">
+              <button @click="activeTab = 'all'; currentPage = 1"
+                :class="['px-6 py-2 rounded-xl text-xs font-bold transition-all font-manrope', activeTab === 'all' ? 'bg-white shadow-md text-primary' : 'text-slate-500 hover:text-primary']">All
+                Reports</button>
+              <button @click="activeTab = 'term-end'; currentPage = 1"
+                :class="['px-6 py-2 rounded-xl text-xs font-bold transition-all font-manrope', activeTab === 'term-end' ? 'bg-white shadow-md text-primary' : 'text-slate-500 hover:text-primary']">Term
+                End</button>
+              <button @click="activeTab = 'monthly'; currentPage = 1"
+                :class="['px-6 py-2 rounded-xl text-xs font-bold transition-all font-manrope', activeTab === 'monthly' ? 'bg-white shadow-md text-primary' : 'text-slate-500 hover:text-primary']">Monthly</button>
             </div>
-            <div class="relative">
-              <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-              <input
-                v-model="search"
-                type="text"
-                placeholder="Search parent, email, mobile..."
-                @input="currentPage = 1"
-                class="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-64"
-              />
+            <div class="relative flex-1 sm:flex-none sm:w-80">
+              <span
+                class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-[20px]">search</span>
+              <input v-model="search" type="text" placeholder="Search parents or email..."
+                class="w-full pl-12 pr-4 py-3 bg-slate-50 border-none focus:bg-white focus:ring-2 focus:ring-primary/20 rounded-2xl text-sm font-inter transition-all outline-none" />
             </div>
           </div>
           <div class="flex items-center gap-2">
-            <p class="text-xs font-semibold text-on-surface-variant mr-2">
-              Showing {{ paginatedReports.length }} of {{ filteredReports.length }} entries
-            </p>
-            <button @click="fetchReports" class="p-2 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-lg transition-all" title="Refresh">
+            <button @click="fetchReports"
+              class="p-3 text-slate-400 hover:text-primary hover:bg-slate-50 rounded-xl transition-all border border-slate-100">
               <span class="material-symbols-outlined text-xl">refresh</span>
             </button>
           </div>
         </div>
 
-        <!-- Table -->
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
+          <table class="w-full text-left">
             <thead>
-              <tr class="bg-slate-50 border-b border-slate-100">
-                <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">ID</th>
-                <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Parent Name</th>
-                <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Contact Details</th>
-                <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Student ID</th>
-                <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Report Type</th>
-                <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">OTP Verified</th>
-                <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">Access Time</th>
+              <tr class="bg-slate-50/50">
+                <th class="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-manrope">Ref ID
+                </th>
+                <th class="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-manrope">Parent
+                  Details</th>
+                <th class="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-manrope">
+                  Student Link</th>
+                <th class="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-manrope">Report
+                  Type</th>
+                <th
+                  class="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-manrope text-center">
+                  Status</th>
+                <th
+                  class="px-8 py-5 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-manrope text-right">
+                  Access Time</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-50">
               <template v-if="loading">
                 <tr>
-                  <td colspan="8" class="py-20 text-center">
-                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                    <p class="mt-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Loading...</p>
+                  <td colspan="6" class="py-24 text-center">
+                    <div class="flex flex-col items-center gap-4">
+                      <div class="w-10 h-10 border-4 border-slate-100 border-t-primary rounded-full animate-spin"></div>
+                      <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-manrope">Accessing
+                        Audit Registry...</p>
+                    </div>
                   </td>
                 </tr>
               </template>
               <template v-else-if="paginatedReports.length > 0">
-                <tr v-for="report in paginatedReports" :key="report.id" class="hover:bg-slate-50/60 transition-colors group">
-                  <td class="px-6 py-5 text-sm font-medium text-on-surface-variant">#RP-{{ report.id }}</td>
-                  <td class="px-6 py-5">
-                    <div class="flex items-center gap-3">
-                      <div :class="['w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0', getAvatarColor(report.id)]">
+                <tr v-for="report in paginatedReports" :key="report.id"
+                  class="hover:bg-slate-50/50 transition-all group">
+                  <td class="px-8 py-6">
+                    <span class="text-[11px] font-bold text-slate-400 font-manrope">#RP-{{
+                      report.id.toString().padStart(4, '0') }}</span>
+                  </td>
+                  <td class="px-8 py-6">
+                    <div class="flex items-center gap-4">
+                      <div
+                        :class="['w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm border border-black/5 font-manrope shadow-sm', getAvatarColor(report.id)]">
                         {{ getInitials(report.parent_name) }}
                       </div>
-                      <p class="text-sm font-bold text-slate-900">{{ report.parent_name || '—' }}</p>
+                      <div class="flex flex-col">
+                        <span class="font-bold text-slate-700 text-sm tracking-tight font-manrope">{{ report.parent_name
+                          || 'Anonymous Parent' }}</span>
+                        <span class="text-[11px] text-slate-400 font-inter">{{ report.email || '—' }}</span>
+                      </div>
                     </div>
                   </td>
-                  <td class="px-6 py-5">
-                    <p class="text-sm font-medium text-slate-900">{{ report.email || '—' }}</p>
-                    <p class="text-[11px] text-on-surface-variant">{{ report.mobile || '—' }}</p>
+                  <td class="px-8 py-6">
+                    <div class="flex flex-col">
+                      <span class="text-slate-700 font-bold text-xs font-manrope">{{ report.student_id ? 'MQ-' +
+                        report.student_id : '—' }}</span>
+                      <span class="text-[10px] text-slate-400 font-inter uppercase tracking-tighter">Verified
+                        Participant</span>
+                    </div>
                   </td>
-                  <td class="px-6 py-5 text-sm font-medium text-slate-700">
-                    {{ report.student_id ? 'MQ-' + report.student_id : '—' }}
-                  </td>
-                  <td class="px-6 py-5">
-                    <span class="px-2.5 py-1 bg-secondary-container/30 text-on-secondary-container text-[11px] font-bold rounded-lg border border-secondary-container/50">
-                      {{ report.report_type || 'General' }}
+                  <td class="px-8 py-6 text-sm">
+                    <span
+                      class="px-3 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold rounded-lg border border-slate-200 uppercase font-inter tracking-tight">
+                      {{ report.report_type?.replace('_', ' ') || 'General' }}
                     </span>
                   </td>
-                  <td class="px-6 py-5">
-                    <span v-if="String(report.otp_verified) === '0'" class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 text-[11px] font-bold rounded-lg border border-green-100">
-                      <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Verified
+                  <td class="px-8 py-6 text-center">
+                    <span v-if="String(report.otp_verified) === '1'"
+                      class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-100 font-manrope">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Verified
                     </span>
-                    <span v-else class="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-500 text-[11px] font-bold rounded-lg">
-                      <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Pending
+                    <span v-else
+                      class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-full border border-amber-100 font-manrope">
+                      <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>Pending Check
                     </span>
                   </td>
-                  <td class="px-6 py-5">
-                    <p class="text-sm font-medium text-slate-900">{{ formatDate(report.request_date) }}</p>
-                    <p class="text-[11px] text-on-surface-variant flex items-center gap-1">
-                      <span class="material-symbols-outlined text-[12px]">{{ getDeviceIcon(report.request_device) }}</span>
-                      {{ report.request_device || '—' }}
-                    </p>
+                  <td class="px-8 py-6 text-right">
+                    <div class="flex flex-col items-end">
+                      <p class="text-sm font-bold text-slate-700 font-manrope">{{ formatDate(report.request_date) }}</p>
+                      <p
+                        class="text-[11px] text-slate-400 font-inter flex items-center gap-1 uppercase tracking-tighter">
+                        <span class="material-symbols-outlined text-[14px]">{{ getDeviceIcon(report.request_device)
+                          }}</span>
+                        {{ report.request_device || 'Unknown' }}
+                      </p>
+                    </div>
                   </td>
                 </tr>
               </template>
               <tr v-else>
-                <td colspan="7" class="py-20 text-center opacity-40">
-                  <span class="material-symbols-outlined text-4xl">family_restroom</span>
-                  <p class="font-bold uppercase text-xs tracking-widest mt-2">No records found</p>
+                <td colspan="6" class="py-32 text-center opacity-40">
+                  <div class="flex flex-col items-center gap-3">
+                    <span class="material-symbols-outlined text-[64px] mb-2">face_retouching_off</span>
+                    <p class="font-bold uppercase text-[10px] tracking-widest font-manrope">No parent access discovered
+                    </p>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -288,91 +322,103 @@ onMounted(fetchReports);
         </div>
 
         <!-- Pagination -->
-        <div class="p-6 border-t border-slate-100 flex items-center justify-between">
-          <button
-            @click="currentPage > 1 ? currentPage-- : null"
-            :disabled="currentPage === 1"
-            class="flex items-center gap-1 px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-on-surface-variant hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <span class="material-symbols-outlined text-[16px]">chevron_left</span>Previous
-          </button>
-          <div class="flex items-center gap-1">
-            <template v-for="p in totalPages" :key="p">
-              <button
-                v-if="p <= 3 || p === totalPages || Math.abs(p - currentPage) <= 1"
-                @click="currentPage = p"
-                :class="['w-8 h-8 rounded-lg text-xs font-bold transition-all', p === currentPage ? 'bg-primary text-white' : 'text-on-surface-variant hover:bg-slate-100']"
-              >{{ p }}</button>
-              <span v-else-if="p === 4 && currentPage > 5" class="px-2 text-on-surface-variant">...</span>
-            </template>
+        <div class="px-8 py-5 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-manrope">Certified Audit Trail |
+            Entry
+            {{ (currentPage - 1) * perPage + 1 }} to {{ Math.min(currentPage * perPage, filteredReports.length) }}</p>
+          <div class="flex items-center gap-2">
+            <button @click="currentPage > 1 ? currentPage-- : null" :disabled="currentPage === 1"
+              class="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-white transition-all disabled:opacity-30">
+              <span class="material-symbols-outlined text-[20px]">chevron_left</span>
+            </button>
+            <div
+              class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-primary font-manrope shadow-sm">
+              {{ currentPage }} / {{ totalPages }}
+            </div>
+            <button @click="currentPage < totalPages ? currentPage++ : null" :disabled="currentPage === totalPages"
+              class="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-white transition-all disabled:opacity-30">
+              <span class="material-symbols-outlined text-[20px]">chevron_right</span>
+            </button>
           </div>
-          <button
-            @click="currentPage < totalPages ? currentPage++ : null"
-            :disabled="currentPage === totalPages"
-            class="flex items-center gap-1 px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-on-surface-variant hover:bg-slate-50 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            Next<span class="material-symbols-outlined text-[16px]">chevron_right</span>
-          </button>
         </div>
-      </div>
+      </section>
 
-      <!-- Bottom Section -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-10">
-        <!-- Security Audit Card -->
-        <div class="lg:col-span-2 bg-slate-50 rounded-2xl p-8 flex items-center justify-between border border-white">
-          <div class="max-w-md">
-            <h4 class="text-lg font-bold text-slate-900 mb-2" style="font-family: 'Manrope', sans-serif;">Automated Security Audit</h4>
-            <p class="text-sm text-on-surface-variant leading-relaxed">
-              System has verified {{ verifiedPercent }}% of sessions today. No unauthorized access attempts detected. Security protocols are operating within normal parameters.
+      <!-- Bottom Insight Panels -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-12">
+        <!-- Security Audit Panel -->
+        <div
+          class="lg:col-span-2 bg-white rounded-[32px] p-8 shadow-sm border border-slate-100 flex flex-col md:flex-row items-center justify-between gap-8 group hover:shadow-md transition-all">
+          <div class="flex-1 space-y-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center text-primary">
+                <span class="material-symbols-outlined">gpp_good</span>
+              </div>
+              <h4 class="text-xl font-bold text-slate-900 font-manrope">Automated Security Audit</h4>
+            </div>
+            <p class="text-sm text-slate-500 leading-relaxed font-inter">
+              System has successfully verified <strong class="text-primary">{{ stats.trust }}%</strong> of active parent
+              sessions today. Cross-reference analysis shows zero unauthorized access attempts from restricted IPs.
             </p>
-            <div class="mt-6 flex gap-4 items-center">
-              <div class="flex -space-x-2">
-                <div class="w-8 h-8 rounded-full bg-blue-200 border-2 border-white flex items-center justify-center text-blue-700 text-[10px] font-black">AU</div>
-                <div class="w-8 h-8 rounded-full bg-purple-200 border-2 border-white flex items-center justify-center text-purple-700 text-[10px] font-black">MK</div>
-                <div class="w-8 h-8 rounded-full bg-amber-200 border-2 border-white flex items-center justify-center text-amber-700 text-[10px] font-black">SR</div>
+            <div class="pt-4 flex items-center gap-4">
+              <div class="flex -space-x-3">
+                <div v-for="i in 3" :key="i"
+                  class="w-9 h-9 rounded-full border-2 border-white bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-600 shadow-sm">
+                  {{ ['JS', 'AK', 'MP'][i - 1] }}
+                </div>
               </div>
-              <span class="text-xs font-bold text-primary">+ 4 active auditors</span>
+              <span class="text-[11px] font-bold text-slate-400 uppercase tracking-widest font-manrope">+ 4 Active
+                Auditors</span>
             </div>
           </div>
-          <div class="hidden md:block shrink-0">
-            <div class="relative w-32 h-32">
-              <svg class="w-full h-full -rotate-90">
-                <circle class="text-slate-200" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" stroke-width="8"/>
-                <circle class="text-primary" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor"
-                  :stroke-dasharray="circleCircumference"
-                  :stroke-dashoffset="circleOffset"
-                  stroke-width="8" stroke-linecap="round"
-                  style="transition: stroke-dashoffset 1s ease;"
-                />
-              </svg>
-              <div class="absolute inset-0 flex flex-col items-center justify-center">
-                <span class="text-xl font-bold text-primary" style="font-family: 'Manrope', sans-serif;">{{ verifiedPercent }}%</span>
-                <span class="text-[9px] uppercase font-bold text-slate-400">Verified</span>
-              </div>
+
+          <div class="relative w-40 h-40 shrink-0">
+            <svg class="w-full h-full -rotate-90">
+              <circle class="text-slate-50" cx="80" cy="80" fill="transparent" r="72" stroke="currentColor"
+                stroke-width="12" />
+              <circle class="text-primary" cx="80" cy="80" fill="transparent" r="72" stroke="currentColor"
+                :stroke-dasharray="circleCircumference" :stroke-dashoffset="circleOffset" stroke-width="12"
+                stroke-linecap="round" style="transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1);" />
+            </svg>
+            <div class="absolute inset-0 flex flex-col items-center justify-center translate-y-[-2px]">
+              <span class="text-2xl font-black text-[#1e293b] font-manrope">{{ stats.trust }}%</span>
+              <span class="text-[9px] uppercase font-bold text-slate-400 tracking-widest font-manrope">Secure</span>
             </div>
           </div>
         </div>
 
-        <!-- System Status Card -->
-        <div class="bg-primary-container text-white rounded-2xl p-8 relative overflow-hidden group">
-          <div class="absolute -right-10 -bottom-10 opacity-10 group-hover:scale-110 transition-transform duration-700">
-            <span class="material-symbols-outlined" style="font-size: 160px;">verified_user</span>
+        <!-- Infrastructure Status -->
+        <div
+          class="bg-gradient-to-br from-slate-900 to-[#1e293b] p-8 rounded-[32px] text-white relative overflow-hidden flex flex-col justify-between group">
+          <div
+            class="absolute -right-16 -bottom-16 w-64 h-64 bg-white/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-1000">
           </div>
-          <h4 class="text-lg font-bold mb-2 relative z-10" style="font-family: 'Manrope', sans-serif;">System Status</h4>
-          <p class="text-sm text-white/80 leading-relaxed mb-6 relative z-10">All notification services (Email/SMS) are currently healthy.</p>
-          <div class="space-y-3 relative z-10">
-            <div class="flex items-center justify-between text-xs bg-white/10 p-2 rounded-lg backdrop-blur-sm">
-              <span class="font-semibold">SMS Gateway</span>
-              <span class="font-bold flex items-center gap-1">Online <span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span></span>
+
+          <div class="relative z-10">
+            <h4 class="text-lg font-bold mb-6 font-manrope flex items-center gap-2">
+              <span class="material-symbols-outlined text-emerald-400 text-[20px]">cloud_done</span>
+              Infrastructure Status
+            </h4>
+
+            <div class="space-y-4">
+              <div v-for="service in ['SMS Gateway', 'Email SMTP', 'CDN Node']" :key="service"
+                class="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-2xl backdrop-blur-md">
+                <span class="text-xs font-semibold text-white/70">{{ service }}</span>
+                <span class="flex items-center gap-2 text-[10px] font-bold text-emerald-400 uppercase">
+                  Online <div
+                    class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.5)]">
+                  </div>
+                </span>
+              </div>
             </div>
-            <div class="flex items-center justify-between text-xs bg-white/10 p-2 rounded-lg backdrop-blur-sm">
-              <span class="font-semibold">Email SMTP</span>
-              <span class="font-bold flex items-center gap-1">Online <span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span></span>
-            </div>
+          </div>
+
+          <div class="relative z-10 mt-8 pt-6 border-t border-white/10">
+            <p class="text-[10px] text-white/40 font-bold uppercase tracking-widest font-manrope">Last Health Check: {{
+              new
+                Date().toLocaleTimeString() }}</p>
           </div>
         </div>
       </div>
-
     </div>
   </div>
 </template>

@@ -546,7 +546,8 @@ app.get('/api/school-assignments', async (req, res) => {
       SELECT 
         (SELECT COUNT(*) FROM assign_school) as total_assignments,
         (SELECT COUNT(DISTINCT school_id) FROM assign_school) as active_institutions,
-        (SELECT COUNT(*) FROM users u LEFT JOIN assign_school asgn ON u.id = asgn.user_id WHERE asgn.id IS NULL) as pending_requests
+        (SELECT COUNT(*) FROM users u LEFT JOIN assign_school asgn ON u.id = asgn.user_id WHERE asgn.id IS NULL) as pending_requests,
+        (SELECT COUNT(*) FROM users) as total_users
     `);
 
     res.json({ success: true, assignments: rows, stats: stats });
@@ -576,13 +577,25 @@ app.get('/api/users-list', async (req, res) => {
     const [[stats]] = await db.query(`
       SELECT 
         COUNT(*) as total_users,
-        SUM(CASE WHEN role_id = 1 THEN 1 ELSE 0 END) as active_admins,
-        SUM(CASE WHEN role_id = 2 THEN 1 ELSE 0 END) as system_coaches,
+        SUM(CASE WHEN role_id = 3 THEN 1 ELSE 0 END) as total_ssgm,
+        SUM(CASE WHEN role_id IN (4, 5) THEN 1 ELSE 0 END) as total_coaches,
+        SUM(CASE WHEN role_id = 2 THEN 1 ELSE 0 END) as total_ops,
+        SUM(CASE WHEN role_id IN (1, 7) THEN 1 ELSE 0 END) as total_admins,
         SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as pending_access
       FROM users
     `);
 
-    res.json({ success: true, users: rows, stats: stats });
+    // Cast SUM results (which may be strings) to Numbers
+    const formattedStats = {
+      total_users: Number(stats.total_users),
+      total_ssgm: Number(stats.total_ssgm || 0),
+      total_coaches: Number(stats.total_coaches || 0),
+      total_ops: Number(stats.total_ops || 0),
+      total_admins: Number(stats.total_admins || 0),
+      pending_access: Number(stats.pending_access || 0)
+    };
+
+    res.json({ success: true, users: rows, stats: formattedStats });
   } catch (err) {
     console.error('FETCH USERS ERROR:', err);
     res.status(500).json({ success: false, message: 'Error fetching users', error: err.message });
@@ -698,6 +711,104 @@ app.put('/api/users/:id', async (req, res) => {
   } catch (err) {
     console.error('UPDATE USER ERROR:', err);
     res.status(500).json({ success: false, message: 'Error updating user', error: err.message });
+  }
+});
+
+// 🎓 ADD NEW STUDENT
+app.post('/api/students', async (req, res) => {
+  const {
+    mq_id, name, school_name, standard, division, status
+  } = req.body;
+  if (!name || !school_name || !standard) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  }
+  try {
+    // Look up the school ID
+    const [schoolRows] = await db.query('SELECT id FROM schools WHERE name = ?', [school_name]);
+    const school_id = schoolRows.length > 0 ? schoolRows[0].id : null;
+
+    const [result] = await db.query(
+      'INSERT INTO students (mq_id, name, school_id, std, division, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [mq_id, name, school_id, standard, division, status || '1']
+    );
+    res.json({ success: true, message: 'Student created successfully', studentId: result.insertId });
+  } catch (err) {
+    console.error('CREATE STUDENT ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error creating student', error: err.message });
+  }
+});
+
+// 🎓 GET ALL STUDENTS & DYNAMIC FILTERS
+app.get('/api/students', async (req, res) => {
+  try {
+    const [students] = await db.query(`
+      SELECT st.*, s.name as school_name 
+      FROM students st 
+      LEFT JOIN schools s ON st.school_id = s.id 
+      ORDER BY st.id DESC
+    `);
+    
+    // Fetch unique active standards
+    const [standardsResult] = await db.query('SELECT DISTINCT std as standard FROM students WHERE std IS NOT NULL AND std != "" ORDER BY std ASC');
+    const standards = standardsResult.map(row => row.standard);
+
+    // Fetch unique active divisions
+    const [divisionsResult] = await db.query('SELECT DISTINCT division FROM students WHERE division IS NOT NULL AND division != "" ORDER BY division ASC');
+    const divisions = divisionsResult.map(row => row.division);
+
+    // Fetch distinct schools from the actual students data
+    const [schoolsResult] = await db.query(`
+      SELECT DISTINCT s.name as school_name 
+      FROM students st 
+      JOIN schools s ON st.school_id = s.id 
+      WHERE s.name IS NOT NULL AND s.name != "" 
+      ORDER BY s.name ASC
+    `);
+    const schools = schoolsResult.map(row => row.school_name);
+
+    res.json({
+        success: true,
+        students,
+        filters: {
+            standards,
+            divisions,
+            schools
+        }
+    });
+  } catch (err) {
+    console.error('FETCH STUDENTS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching students', error: err.message });
+  }
+});
+
+app.put('/api/students/:id', async (req, res) => {
+  const { id } = req.params;
+  const { name, gender, school_name, standard, division, gr_number, mq_id, status } = req.body;
+
+  if (!name || !school_name || !standard) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  }
+
+  try {
+    // Look up the school ID from name
+    const [schoolRows] = await db.query('SELECT id FROM schools WHERE name = ?', [school_name]);
+    const school_id = schoolRows.length > 0 ? schoolRows[0].id : null;
+
+    // Map status string to int
+    const statusVal = (status === 'Active' || status === 1) ? 1 : 0;
+
+    await db.query(
+      `UPDATE students SET 
+        name = ?, gender = ?, school_id = ?, std = ?, division = ?, 
+        roll_number = ?, mq_id = ?, status = ?
+       WHERE id = ?`,
+      [name, gender || null, school_id, standard, division || null, gr_number || null, mq_id || null, statusVal, id]
+    );
+
+    res.json({ success: true, message: 'Student updated successfully' });
+  } catch (err) {
+    console.error('UPDATE STUDENT ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error updating student', error: err.message });
   }
 });
 

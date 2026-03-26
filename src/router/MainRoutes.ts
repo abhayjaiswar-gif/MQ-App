@@ -61,6 +61,21 @@ const MainRoutes = {
     },
     */
     {
+      name: 'StudentsList',
+      path: '/student',
+      component: () => import('@/views/student/StudentsListPage.vue')
+    },
+    {
+      name: 'AddStudent',
+      path: '/student/add',
+      component: () => import('@/views/student/AddStudentPage.vue')
+    },
+    {
+      name: 'UploadStudents',
+      path: '/student/upload',
+      component: () => import('@/views/student/UploadStudentsPage.vue')
+    },
+    {
       name: 'SchoolList',
       path: '/school',
       component: () => import('@/views/school/SchoolListPage.vue')

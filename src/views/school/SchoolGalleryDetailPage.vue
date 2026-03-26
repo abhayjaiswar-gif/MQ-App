@@ -10,6 +10,11 @@ const school = ref<any>(null);
 const galleryItems = ref<any[]>([]);
 const loading = ref(true);
 const fileInput = ref<HTMLInputElement | null>(null);
+const defaultImage = 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTIIwsL-pbkbiNEWxbRRwgfXGFp_KSROv6DrQ&s';
+
+const handleImageError = (event: Event) => {
+  (event.target as HTMLImageElement).src = defaultImage;
+};
 
 // Modal State
 const showUploadModal = ref(false);
@@ -124,6 +129,25 @@ const formatDate = (dateStr: string) => {
   const date = new Date(dateStr);
   return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
 };
+
+const downloadMedia = async (url: string, filename: string) => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.error('Download error:', error);
+    // Fallback to simple window.open if fetch fails (CORS etc)
+    window.open(url, '_blank');
+  }
+};
 </script>
 
 <template>
@@ -225,21 +249,6 @@ const formatDate = (dateStr: string) => {
             <span class="text-sm font-medium">All Schools</span>
           </button>
         </div>
-        <div class="flex-1 max-w-xl mx-8">
-          <div class="relative group">
-            <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline">search</span>
-            <input class="w-full bg-slate-50 border-none rounded-full py-2.5 pl-12 pr-4 text-sm focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all placeholder:text-outline/60" placeholder="Search across all galleries..." type="text"/>
-          </div>
-        </div>
-        <div class="flex items-center gap-2">
-          <button class="p-2 text-on-surface-variant hover:bg-slate-50 rounded-full relative">
-            <span class="material-symbols-outlined">notifications</span>
-            <span class="absolute top-2 right-2.5 w-2 h-2 bg-error rounded-full ring-2 ring-white"></span>
-          </button>
-          <button class="p-2 text-on-surface-variant hover:bg-slate-50 rounded-full">
-            <span class="material-symbols-outlined">settings</span>
-          </button>
-        </div>
       </header>
 
       <div v-if="loading" class="flex flex-col items-center justify-center py-20 text-on-surface-variant">
@@ -256,6 +265,7 @@ const formatDate = (dateStr: string) => {
               v-if="school.school_image" 
               :src="`http://localhost:3000/uploads/${school.school_image}`" 
               class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+              @error="handleImageError"
             />
             <div v-else class="w-full h-full bg-gradient-to-br from-primary/20 to-primary-container/20 flex items-center justify-center">
                <span class="material-symbols-outlined text-primary/10 text-[120px]">domain</span>
@@ -269,7 +279,7 @@ const formatDate = (dateStr: string) => {
               <div class="flex items-end gap-6">
                 <!-- Logo / Initial Avatar -->
                 <div class="hidden md:flex w-32 h-32 rounded-3xl bg-white shadow-2xl p-2 items-center justify-center border border-slate-50 relative -mb-6 z-10">
-                  <img v-if="school.school_logo" :src="`http://localhost:3000/uploads/${school.school_logo}`" class="w-full h-full object-contain" />
+                  <img v-if="school.school_logo" :src="`http://localhost:3000/uploads/${school.school_logo}`" class="w-full h-full object-contain" @error="handleImageError" />
                   <span v-else class="text-4xl font-black text-primary">{{ school.name?.charAt(0) }}</span>
                 </div>
 
@@ -320,14 +330,21 @@ const formatDate = (dateStr: string) => {
             <div v-if="galleryItems.length > 0" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
               <div v-for="item in galleryItems" :key="item.id" class="group relative aspect-square bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 p-0.5">
                 <div class="w-full h-full rounded-[10px] overflow-hidden">
-                  <img class="w-full h-full object-cover" :src="`http://localhost:3000/uploads/${item.file_path}`" :alt="item.caption" />
+                  <img class="w-full h-full object-cover" :src="`http://localhost:3000/uploads/${item.file_path}`" :alt="item.caption" @error="handleImageError" />
                 </div>
                 <div class="absolute inset-0 bg-white/90 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4 m-0.5 rounded-[10px]">
                   <p class="text-slate-900 text-xs font-bold">{{ item.caption || 'Untitled' }}</p>
                   <p class="text-slate-500 text-[10px] font-medium">{{ formatDate(item.uploaded_at) }}</p>
                 </div>
-                <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button class="bg-white/90 backdrop-blur p-1.5 rounded-lg text-slate-700 hover:text-primary transition-colors">
+                <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
+                  <button 
+                    @click="downloadMedia(`http://localhost:3000/uploads/${item.file_path}`, item.file_path)"
+                    class="bg-white/90 backdrop-blur p-1.5 rounded-lg text-slate-700 hover:text-primary transition-colors shadow-sm"
+                    title="Download Media"
+                  >
+                    <span class="material-symbols-outlined text-[18px]">download</span>
+                  </button>
+                  <button class="bg-white/90 backdrop-blur p-1.5 rounded-lg text-slate-700 hover:text-primary transition-colors shadow-sm">
                     <span class="material-symbols-outlined text-[18px]">more_vert</span>
                   </button>
                 </div>

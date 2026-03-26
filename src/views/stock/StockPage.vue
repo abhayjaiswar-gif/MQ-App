@@ -153,26 +153,100 @@ onMounted(() => {
   fetchSchools();
 });
 
-const expandedRequestId = ref<string | null>(null);
-const toggleTracker = (id: string) => {
-  expandedRequestId.value = expandedRequestId.value === id ? null : id;
-};
+const requests = ref([
+  { id: 'ORD-8821', itemName: 'Standard Football (Size 5)', quantity: 24, date: '2024-03-20', status: 'Processing', step: 4, statusClass: 'status-processing' },
+  { id: 'ORD-8815', itemName: 'Training Cones (Set of 50)', quantity: 12, date: '2024-03-18', status: 'Delivered', step: 5, statusClass: 'status-delivered' },
+  { id: 'ORD-8792', itemName: 'Breathable Bibs (Orange)', quantity: 48, date: '2024-03-15', status: 'SSGM Verified', step: 2, statusClass: 'status-pending' }
+]);
 
-const requests = ref([]); 
 const trackerSteps = ['Requested', 'SSGM Verified', 'Admin Approved', 'Processing', 'Delivered'];
+
+const metrics = computed(() => {
+  const totalItems = inventoryRows.value.length;
+  const pendingOrders = requests.value.filter(r => r.status !== 'Delivered').length;
+  const deliveredLast30 = requests.value.filter(r => r.status === 'Delivered').length;
+  
+  // Calculate low stock (mock logic: qty < 10)
+  let lowStock = 0;
+  inventoryRows.value.forEach(row => {
+    Object.values(row.months).forEach((m: any) => {
+      if (m.qty > 0 && m.qty < 5) lowStock++;
+    });
+  });
+
+  return {
+    totalItems,
+    lowStock,
+    pendingOrders,
+    deliveredLast30
+  };
+});
 </script>
 <template>
-  <div class="px-2 py-8 tailwind-wrapper min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-    <div class="max-w-7xl mx-auto p-4 sm:p-8">
-      <div class="mb-8 flex gap-4">
-        <button @click="activeTab = 'order'" :class="activeTab === 'order' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-500/30 ring-2 ring-offset-2 ring-blue-500 transform scale-105' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 hover:shadow-md'" class="px-8 py-3 rounded-xl text-sm font-extrabold tracking-wide transition-all duration-300 ease-out flex items-center gap-2">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
-          Order Stock
-        </button>
-        <button @click="activeTab = 'report'" :class="activeTab === 'report' ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-500/30 ring-2 ring-offset-2 ring-blue-500 transform scale-105' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 hover:shadow-md'" class="px-8 py-3 rounded-xl text-sm font-extrabold tracking-wide transition-all duration-300 ease-out flex items-center gap-2">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-          Stock Report Update
-        </button>
+  <div class="min-h-screen bg-[#f8fafc] p-4 lg:p-8 font-inter">
+    <div class="max-w-7xl mx-auto space-y-10">
+      <!-- Header Section -->
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <div>
+          <nav class="flex items-center gap-2 text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 font-manrope">
+            <span>Portal</span>
+            <span class="material-symbols-outlined text-[14px]">chevron_right</span>
+            <span class="text-primary">Inventory Management</span>
+          </nav>
+          <h2 class="text-4xl font-extrabold text-[#1e293b] tracking-tight font-manrope">Stock & Resource Hub</h2>
+          <p class="text-slate-500 mt-1 font-inter">Full-lifecycle tracking from monthly audits to institutional resource ordering.</p>
+        </div>
+        <div class="flex items-center gap-3 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200 shadow-sm">
+          <button @click="activeTab = 'order'" :class="['px-6 py-2.5 rounded-xl text-xs font-bold transition-all font-manrope', activeTab === 'order' ? 'bg-white shadow-md text-primary' : 'text-slate-500 hover:text-primary']">
+            Order Stock
+          </button>
+          <button @click="activeTab = 'report'" :class="['px-6 py-2.5 rounded-xl text-xs font-bold transition-all font-manrope', activeTab === 'report' ? 'bg-white shadow-md text-primary' : 'text-slate-500 hover:text-primary']">
+            Audit Update
+          </button>
+        </div>
+      </div>
+
+      <!-- Bento Stats Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <!-- Total Items -->
+        <div class="relative bg-white p-6 rounded-2xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
+          <div class="absolute bottom-0 left-0 w-full h-1.5 bg-blue-500 rounded-b-2xl"></div>
+          <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 font-manrope">Active Inventory</p>
+          <div class="flex items-end justify-between">
+            <h3 class="text-3xl font-extrabold text-[#1e293b] font-manrope">{{ metrics.totalItems }}</h3>
+            <span class="text-blue-600 text-xs font-bold flex items-center bg-blue-50 px-2 py-1 rounded-lg font-inter">SKUs Tracked</span>
+          </div>
+        </div>
+
+        <!-- Low Stock -->
+        <div class="relative bg-white p-6 rounded-2xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
+          <div class="absolute bottom-0 left-0 w-full h-1.5 bg-rose-500 rounded-b-2xl"></div>
+          <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 font-manrope">Low Stock Alerts</p>
+          <div class="flex items-end justify-between">
+            <h3 class="text-3xl font-extrabold text-rose-600 font-manrope">{{ metrics.lowStock }}</h3>
+            <span class="text-rose-600 text-[10px] font-bold flex items-center bg-rose-50 px-2 py-1 rounded-lg font-inter uppercase">Action Required</span>
+          </div>
+        </div>
+
+        <!-- Pending Orders -->
+        <div class="relative bg-white p-6 rounded-2xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
+          <div class="absolute bottom-0 left-0 w-full h-1.5 bg-amber-500 rounded-b-2xl"></div>
+          <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 font-manrope">Pending Orders</p>
+          <div class="flex items-end justify-between">
+            <h3 class="text-3xl font-extrabold text-amber-600 font-manrope">{{ metrics.pendingOrders }}</h3>
+            <span class="text-amber-600 text-xs font-bold flex items-center bg-amber-50 px-2 py-1 rounded-lg font-inter italic tracking-tight">Active Ops</span>
+          </div>
+        </div>
+
+        <!-- Delivered Recently -->
+        <div class="relative bg-white p-6 rounded-2xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
+          <div class="absolute bottom-0 left-0 w-full h-1.5 bg-emerald-500 rounded-b-2xl"></div>
+          <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 font-manrope">Delivered (30d)</p>
+          <div class="flex items-end justify-between">
+            <h3 class="text-3xl font-extrabold text-emerald-600 font-manrope">{{ metrics.deliveredLast30 }}</h3>
+            <span class="text-emerald-600 text-xs font-bold flex items-center bg-emerald-50 px-2 py-1 rounded-lg font-inter truncate">Fulfilled</span>
+          </div>
+        </div>
       </div>
       <div v-if="activeTab === 'order'" class="bg-white rounded-xl tracker-card p-6">
         <h2 class="text-lg font-semibold text-slate-8000 mb-6">Active and Past Requests</h2>

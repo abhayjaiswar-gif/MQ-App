@@ -15,7 +15,8 @@ import {
   PictureOutlined,
   FilePdfOutlined,
   TeamOutlined,
-  UserOutlined
+  UserOutlined,
+  IdcardOutlined
 } from '@ant-design/icons-vue';
 
 export interface menu {
@@ -55,6 +56,11 @@ const sidebarItem: menu[] = [
     title: 'User Management',
     icon: UserOutlined,
     to: '/management/users'
+  },
+  {
+    title: 'Student Directory',
+    icon: IdcardOutlined,
+    to: '/student'
   },
   {
     title: 'Gallery',
