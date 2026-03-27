@@ -10,14 +10,45 @@ const fs = require('fs');
 require('dotenv').config();
 const db = require('./db');
 
+// 📊 INITIALIZE GRADING SCALES TABLE
+const initGradingTable = async () => {
+    try {
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS grading_scales (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(50) NOT NULL,
+                min_percent INT NOT NULL,
+                max_percent INT NOT NULL,
+                descriptor TEXT,
+                icon VARCHAR(50),
+                color VARCHAR(20),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            )
+        `);
+        
+        const [rows] = await db.query("SELECT COUNT(*) as count FROM grading_scales");
+        if (rows[0].count === 0) {
+            await db.query(`
+                INSERT INTO grading_scales (name, min_percent, max_percent, descriptor, icon, color) VALUES
+                ('Excellent', 90, 100, 'Consistently exceeds academic expectations, demonstrates advanced critical thinking, and shows leadership in collaborative tasks.', 'verified', 'green'),
+                ('Good', 75, 89, 'Meets all academic requirements effectively, participates actively in class discussions, and shows steady improvement.', 'thumb_up', 'blue'),
+                ('Developing', 50, 74, 'Demonstrates partial understanding of concepts, requires occasional support to complete tasks, but showing potential.', 'trending_up', 'amber'),
+                ('Needs Improvement', 0, 49, 'Struggles to meet core requirements, requires significant intervention and scaffolded support to achieve learning outcomes.', 'warning', 'red')
+            `);
+        }
+    } catch (err) {
+        console.error('INIT GRADING TABLE ERROR:', err);
+    }
+};
+initGradingTable();
 const app = express();
 app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// 📁 MULTER CONFIGURATION
+app.use('/files', express.static(path.join(__dirname, 'files')));
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = 'uploads';
@@ -29,7 +60,18 @@ const storage = multer.diskStorage({
   }
 });
 const upload = multer({ storage });
-
+const templateStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = 'files/mqreporttemplates';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'test_format_' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const templateUpload = multer({ storage: templateStorage });
 const schoolUploadFields = upload.fields([
   { name: 'school_logo', maxCount: 1 },
   { name: 'school_image', maxCount: 1 },
@@ -37,30 +79,22 @@ const schoolUploadFields = upload.fields([
   { name: 'principal_signature_image', maxCount: 1 },
   { name: 'head_coach_signature_image', maxCount: 1 }
 ]);
-
 app.post('/api/login', async (req, res) => {
   console.log('\n--- LOGIN REQUEST ---');
   console.log('BODY:', req.body);
-
   const { email, password } = req.body;
-
-  // ✅ Validate input
   if (!email || !password) {
     return res.status(400).json({
       success: false,
       message: 'Email and password required'
     });
   }
-
   try {
     const formattedEmail = email.toLowerCase().trim();
-
     const [rows] = await db.query(
       'SELECT id, email, password, is_active, hash_key FROM users WHERE email = ?',
       [formattedEmail]
     );
-
-    // ❌ User not found
     if (rows.length === 0) {
       console.log('❌ USER NOT FOUND');
       return res.status(401).json({
@@ -68,11 +102,8 @@ app.post('/api/login', async (req, res) => {
         message: 'Incorrect email or password!'
       });
     }
-
     const user = rows[0];
     console.log('✅ USER FOUND:', user.email);
-
-    // ❌ Inactive
     if (user.is_active !== 1) {
       console.log('❌ USER INACTIVE');
       return res.status(403).json({
@@ -80,19 +111,11 @@ app.post('/api/login', async (req, res) => {
         message: 'Account inactive'
       });
     }
-
     const cleanPassword = password.trim();
     let isMatch = false;
-
-    // 🔍 Detect hash type
     const isSHA1 = user.password.length === 40;
     const isBcrypt = user.password.startsWith('$2');
-
     console.log('🔍 HASH TYPE:', isSHA1 ? 'SHA1' : isBcrypt ? 'BCRYPT' : 'UNKNOWN');
-
-    // =========================
-    // 🔐 SHA1 LOGIN (OLD USERS)
-    // =========================
     if (isSHA1) {
       const sha1 = crypto
         .createHash('sha1')
@@ -106,23 +129,16 @@ app.post('/api/login', async (req, res) => {
         isMatch = true;
 
         console.log('✅ SHA1 MATCH');
-
-        // 🔥 Upgrade to bcrypt
         const hashed = await bcrypt.hash(cleanPassword, 10);
         await db.query(
           'UPDATE users SET password = ? WHERE id = ?',
           [hashed, user.id]
         );
-
         console.log('🔄 Password upgraded to bcrypt');
       } else {
         console.log('❌ SHA1 MISMATCH');
       }
     }
-
-    // =========================
-    // 🔐 BCRYPT LOGIN (NEW USERS)
-    // =========================
     else if (isBcrypt) {
       isMatch = await bcrypt.compare(cleanPassword, user.password);
 
@@ -524,8 +540,7 @@ app.get('/api/parents-reports', async (req, res) => {
 // 🔗 GET ALL SCHOOL ASSIGNMENTS
 app.get('/api/school-assignments', async (req, res) => {
   try {
-    const [rows] = await db.query(`
-      SELECT 
+    const [rows] = await db.query(`SELECT 
         u.id as user_id, 
         u.name as user_name, 
         u.email, 
@@ -747,7 +762,7 @@ app.get('/api/students', async (req, res) => {
       LEFT JOIN schools s ON st.school_id = s.id 
       ORDER BY st.id DESC
     `);
-    
+
     // Fetch unique active standards
     const [standardsResult] = await db.query('SELECT DISTINCT std as standard FROM students WHERE std IS NOT NULL AND std != "" ORDER BY std ASC');
     const standards = standardsResult.map(row => row.standard);
@@ -767,13 +782,13 @@ app.get('/api/students', async (req, res) => {
     const schools = schoolsResult.map(row => row.school_name);
 
     res.json({
-        success: true,
-        students,
-        filters: {
-            standards,
-            divisions,
-            schools
-        }
+      success: true,
+      students,
+      filters: {
+        standards,
+        divisions,
+        schools
+      }
     });
   } catch (err) {
     console.error('FETCH STUDENTS ERROR:', err);
@@ -809,6 +824,249 @@ app.put('/api/students/:id', async (req, res) => {
   } catch (err) {
     console.error('UPDATE STUDENT ERROR:', err);
     res.status(500).json({ success: false, message: 'Error updating student', error: err.message });
+  }
+});
+
+// 🎓 GET ALL PARAMETERS
+app.get('/api/parameters', async (req, res) => {
+  try {
+    const [parameters] = await db.query('SELECT * FROM parameter_info ORDER BY id DESC');
+    res.json({ success: true, parameters });
+  } catch (err) {
+    console.error('FETCH PARAMETERS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching parameters', error: err.message });
+  }
+});
+
+// 🎓 GET GRADING CONFIG
+app.get('/api/grading-config', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM grading_scales ORDER BY id ASC');
+    res.json({ success: true, tiers: rows });
+  } catch (err) {
+    console.error('FETCH GRADING CONFIG ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching grading configuration' });
+  }
+});
+
+// 🎓 UPDATE GRADING CONFIG
+app.post('/api/grading-config', async (req, res) => {
+  const { tiers } = req.body;
+  if (!Array.isArray(tiers)) return res.status(400).json({ success: false, message: 'Invalid tiers data' });
+
+  const connection = await db.getConnection();
+  await connection.beginTransaction();
+  try {
+    for (const tier of tiers) {
+      await connection.query(
+        'UPDATE grading_scales SET min_percent = ?, max_percent = ?, descriptor = ? WHERE id = ?',
+        [tier.min_percent, tier.max_percent, tier.descriptor, tier.id]
+      );
+    }
+    await connection.commit();
+    res.json({ success: true, message: 'Grading configuration updated successfully' });
+  } catch (err) {
+    await connection.rollback();
+    console.error('UPDATE GRADING CONFIG ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error updating grading configuration' });
+  } finally {
+    connection.release();
+  }
+});
+
+// 🎓 CREATE PARAMETER
+app.post('/api/parameters', async (req, res) => {
+  const { parameter, title, description, test_display, ctype, clabel, video_link, chart_heading, chart_format, is_active } = req.body;
+
+  if (!title || !parameter) {
+    return res.status(400).json({ success: false, message: 'Title and System Key (parameter) are required' });
+  }
+
+  try {
+    const [result] = await db.query(
+      'INSERT INTO parameter_info (parameter, title, description, test_display, ctype, clabel, video_link, chart_heading, chart_format, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [parameter, title, description, test_display, ctype, clabel, video_link, chart_heading, chart_format, is_active]
+    );
+
+    res.json({ success: true, message: 'Parameter created successfully', id: result.insertId });
+  } catch (err) {
+    console.error('CREATE PARAMETER ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error creating parameter', error: err.message });
+  }
+});
+
+// 🎓 UPDATE PARAMETER
+app.put('/api/parameters/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, description, test_display, ctype, clabel, video_link, chart_heading, chart_format, is_active } = req.body;
+
+  if (!title) {
+    return res.status(400).json({ success: false, message: 'Title is required' });
+  }
+
+  try {
+    const [result] = await db.query(
+      'UPDATE parameter_info SET title = ?, description = ?, test_display = ?, ctype = ?, clabel = ?, video_link = ?, chart_heading = ?, chart_format = ?, is_active = ? WHERE id = ?',
+      [title, description, test_display, ctype, clabel, video_link, chart_heading, chart_format, is_active, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Parameter not found' });
+    }
+
+    res.json({ success: true, message: 'Parameter updated successfully' });
+  } catch (err) {
+    console.error('UPDATE PARAMETER ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error updating parameter', error: err.message });
+  }
+});
+
+// 🎓 DELETE PARAMETER
+app.delete('/api/parameters/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [result] = await db.query('DELETE FROM parameter_info WHERE id = ?', [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Parameter not found' });
+    }
+    res.json({ success: true, message: 'Parameter deleted successfully' });
+  } catch (err) {
+    console.error('DELETE PARAMETER ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error deleting parameter', error: err.message });
+  }
+});
+
+// 🎓 GET ALL EXAM FORMATS
+app.get('/api/exam-formats', async (req, res) => {
+  try {
+    const [formats] = await db.query('SELECT * FROM fitness_test_formats ORDER BY id DESC');
+    res.json({ success: true, formats });
+  } catch (err) {
+    console.error('FETCH EXAM FORMATS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching exam formats', error: err.message });
+  }
+});
+
+// 🎓 GET SINGLE EXAM FORMAT
+app.get('/api/exam-formats/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [formats] = await db.query('SELECT * FROM fitness_test_formats WHERE id = ?', [id]);
+    if (formats.length === 0) {
+      return res.status(404).json({ success: false, message: 'Format not found' });
+    }
+    const [parameters] = await db.query(
+      'SELECT parameter_id, parameter_order, is_required FROM fitness_test_format_parameters WHERE format_id = ? ORDER BY parameter_order',
+      [id]
+    );
+    res.json({ success: true, format: formats[0], selectedParameters: parameters });
+  } catch (err) {
+    console.error('FETCH EXAM FORMAT DETAIL ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching exam format details' });
+  }
+});
+
+// 🎓 CREATE EXAM FORMAT
+app.post('/api/exam-formats', templateUpload.single('background_image'), async (req, res) => {
+  const { test_name, test_title, academic_year, is_active, parameters } = req.body;
+  const background_image = req.file ? `files/mqreporttemplates/${req.file.filename}` : null;
+
+  const connection = await db.getConnection();
+  await connection.beginTransaction();
+
+  try {
+    const [formatResult] = await connection.query(
+      'INSERT INTO fitness_test_formats (test_name, test_title, academic_year, background_image, is_active, created_by) VALUES (?, ?, ?, ?, ?, ?)',
+      [test_name, test_title, academic_year, background_image, is_active || 1, 1] // Using 1 for created_by
+    );
+    const newFormatId = formatResult.insertId;
+
+    if (parameters) {
+      const paramsArray = JSON.parse(parameters);
+      for (const p of paramsArray) {
+        await connection.query(
+          'INSERT INTO fitness_test_format_parameters (format_id, parameter_id, parameter_order, is_required) VALUES (?, ?, ?, ?)',
+          [newFormatId, p.parameter_id, p.parameter_order, p.is_required]
+        );
+      }
+    }
+
+    await connection.commit();
+    res.json({ success: true, message: 'Exam format created successfully', id: newFormatId });
+  } catch (err) {
+    await connection.rollback();
+    console.error('CREATE EXAM FORMAT ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error creating exam format' });
+  } finally {
+    connection.release();
+  }
+});
+
+// 🎓 UPDATE EXAM FORMAT
+app.put('/api/exam-formats/:id', templateUpload.single('background_image'), async (req, res) => {
+  const { id } = req.params;
+  const { test_name, test_title, academic_year, is_active, parameters } = req.body;
+  const new_background_image = req.file ? `files/mqreporttemplates/${req.file.filename}` : null;
+
+  const connection = await db.getConnection();
+  await connection.beginTransaction();
+
+  try {
+    // 1. Get current image to delete if Replaced
+    let background_image_to_use = null;
+    const [currentFormat] = await connection.query('SELECT background_image FROM fitness_test_formats WHERE id = ?', [id]);
+
+    if (new_background_image) {
+      background_image_to_use = new_background_image;
+      if (currentFormat.length > 0 && currentFormat[0].background_image) {
+        const oldFile = path.join(__dirname, currentFormat[0].background_image);
+        if (fs.existsSync(oldFile)) fs.unlinkSync(oldFile);
+      }
+    } else {
+      background_image_to_use = currentFormat.length > 0 ? currentFormat[0].background_image : null;
+    }
+
+    // 2. Update Master Table
+    await connection.query(
+      'UPDATE fitness_test_formats SET test_name = ?, test_title = ?, academic_year = ?, background_image = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [test_name, test_title, academic_year, background_image_to_use, is_active, id]
+    );
+
+    // 3. Sync Parameters (Delete and Re-insert)
+    await connection.query('DELETE FROM fitness_test_format_parameters WHERE format_id = ?', [id]);
+    if (parameters) {
+      const paramsArray = JSON.parse(parameters);
+      for (const p of paramsArray) {
+        await connection.query(
+          'INSERT INTO fitness_test_format_parameters (format_id, parameter_id, parameter_order, is_required) VALUES (?, ?, ?, ?)',
+          [id, p.parameter_id, p.parameter_order, p.is_required]
+        );
+      }
+    }
+
+    await connection.commit();
+    res.json({ success: true, message: 'Exam format updated successfully' });
+  } catch (err) {
+    await connection.rollback();
+    console.error('UPDATE EXAM FORMAT ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error updating exam format' });
+  } finally {
+    connection.release();
+  }
+});
+
+// 🎓 DELETE EXAM FORMAT
+app.delete('/api/exam-formats/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [result] = await db.query('DELETE FROM fitness_test_formats WHERE id = ?', [id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ success: false, message: 'Exam format not found' });
+    }
+    res.json({ success: true, message: 'Exam format deleted successfully' });
+  } catch (err) {
+    console.error('DELETE EXAM FORMAT ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error deleting exam format', error: err.message });
   }
 });
 

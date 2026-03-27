@@ -134,6 +134,26 @@ const MainRoutes = {
       name: 'ParentsReport',
       path: '/reports/parents',
       component: () => import('@/views/reports/ParentsReportPage.vue')
+    },
+    {
+      name: 'Exams',
+      path: '/exams',
+      component: () => import('@/views/exams/ExamsPage.vue')
+    },
+    {
+      name: 'ExamManagement',
+      path: '/exams/all',
+      component: () => import('@/views/exams/ExamManagementPage.vue')
+    },
+    {
+      name: 'CreateExam',
+      path: '/exams/create',
+      component: () => import('@/views/exams/CreateTestPage.vue')
+    },
+    {
+      name: 'EditExam',
+      path: '/exams/edit/:id',
+      component: () => import('@/views/exams/CreateTestPage.vue')
     }
   ]
 };

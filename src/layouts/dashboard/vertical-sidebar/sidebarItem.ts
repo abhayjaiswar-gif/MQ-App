@@ -1,22 +1,14 @@
 // icons
 import {
-  QuestionOutlined,
   DashboardOutlined,
-  ChromeOutlined,
-  LoginOutlined,
-  ProfileOutlined,
-  FontSizeOutlined,
-  BgColorsOutlined,
-  BarcodeOutlined,
-  CrownOutlined,
-  LineChartOutlined,
-  CheckSquareOutlined,
   BankOutlined,
   PictureOutlined,
   FilePdfOutlined,
   TeamOutlined,
   UserOutlined,
-  IdcardOutlined
+  IdcardOutlined,
+  ShopOutlined,
+  CheckCircleOutlined
 } from '@ant-design/icons-vue';
 
 export interface menu {
@@ -36,46 +28,95 @@ export interface menu {
 }
 
 const sidebarItem: menu[] = [
-  { header: 'Navigation' },
+  { header: 'Overview' },
   {
     title: 'Dashboard',
     icon: DashboardOutlined,
     to: '/dashboard'
   },
+  
+  { header: 'Administration' },
   {
-    title: 'School',
+    title: 'School Management',
     icon: BankOutlined,
-    to: '/school'
-  },
-  {
-    title: 'School Assign',
-    icon: TeamOutlined,
-    to: '/school/assignments'
+    children: [
+      {
+        title: 'School List',
+        to: '/school'
+      },
+      {
+        title: 'School Assignments',
+        to: '/school/assignments'
+      },
+      {
+        title: 'Gallery',
+        to: '/school/gallery'
+      }
+    ]
   },
   {
     title: 'User Management',
     icon: UserOutlined,
-    to: '/management/users'
+    children: [
+      {
+        title: 'User Directory',
+        to: '/management/users'
+      }
+    ]
   },
+  
+  { header: 'Admissions' },
   {
-    title: 'Student Directory',
+    title: 'Student Hub',
     icon: IdcardOutlined,
-    to: '/student'
+    children: [
+      {
+        title: 'Student Directory',
+        to: '/student'
+      }
+    ]
   },
+  
+  { header: 'Academics' },
   {
-    title: 'Gallery',
-    icon: PictureOutlined,
-    to: '/school/gallery'
-  },
-  {
-    title: 'Match Report',
+    title: 'Exams & Curricula',
     icon: FilePdfOutlined,
-    to: '/reports/match'
+    children: [
+      {
+        title: 'Parameters Dashboard',
+        to: '/exams'
+      }
+    ]
+  },
+  
+  { header: 'Operations' },
+  {
+    title: 'Inventory',
+    icon: ShopOutlined,
+    children: [
+      {
+        title: 'Stock Management',
+        to: '/stock'
+      },
+      {
+        title: 'Approve Orders',
+        to: '/stock/approve'
+      }
+    ]
   },
   {
-    title: 'Parents Report Card',
-    icon: TeamOutlined,
-    to: '/reports/parents'
+    title: 'Reports',
+    icon: FilePdfOutlined,
+    children: [
+      {
+        title: 'Match Report',
+        to: '/reports/match'
+      },
+      {
+        title: 'Parents Report Card',
+        to: '/reports/parents'
+      }
+    ]
   }
 ];
 
