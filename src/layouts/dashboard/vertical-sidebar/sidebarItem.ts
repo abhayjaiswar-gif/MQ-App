@@ -85,6 +85,10 @@ const sidebarItem: menu[] = [
       {
         title: 'Parameters Dashboard',
         to: '/exams'
+      },
+      {
+        title: 'Fill Marks',
+        to: '/exams/fill-marks'
       }
     ]
   },

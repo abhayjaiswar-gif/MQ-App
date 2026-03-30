@@ -12,8 +12,8 @@ const db = require('./db');
 
 // 📊 INITIALIZE GRADING SCALES TABLE
 const initGradingTable = async () => {
-    try {
-        await db.query(`
+  try {
+    await db.query(`
             CREATE TABLE IF NOT EXISTS grading_scales (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(50) NOT NULL,
@@ -26,20 +26,20 @@ const initGradingTable = async () => {
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
             )
         `);
-        
-        const [rows] = await db.query("SELECT COUNT(*) as count FROM grading_scales");
-        if (rows[0].count === 0) {
-            await db.query(`
+
+    const [rows] = await db.query("SELECT COUNT(*) as count FROM grading_scales");
+    if (rows[0].count === 0) {
+      await db.query(`
                 INSERT INTO grading_scales (name, min_percent, max_percent, descriptor, icon, color) VALUES
                 ('Excellent', 90, 100, 'Consistently exceeds academic expectations, demonstrates advanced critical thinking, and shows leadership in collaborative tasks.', 'verified', 'green'),
                 ('Good', 75, 89, 'Meets all academic requirements effectively, participates actively in class discussions, and shows steady improvement.', 'thumb_up', 'blue'),
                 ('Developing', 50, 74, 'Demonstrates partial understanding of concepts, requires occasional support to complete tasks, but showing potential.', 'trending_up', 'amber'),
                 ('Needs Improvement', 0, 49, 'Struggles to meet core requirements, requires significant intervention and scaffolded support to achieve learning outcomes.', 'warning', 'red')
             `);
-        }
-    } catch (err) {
-        console.error('INIT GRADING TABLE ERROR:', err);
     }
+  } catch (err) {
+    console.error('INIT GRADING TABLE ERROR:', err);
+  }
 };
 initGradingTable();
 const app = express();
@@ -195,6 +195,7 @@ app.post('/api/login', async (req, res) => {
 app.post('/api/register', async (req, res) => {
   const { firstname, lastname, email, password } = req.body;
 
+  // ✅ Validation
   if (!firstname || !lastname || !email || !password) {
     return res.status(400).json({
       success: false,
@@ -206,10 +207,20 @@ app.post('/api/register', async (req, res) => {
     const formattedEmail = email.toLowerCase().trim();
     const fullName = `${firstname} ${lastname}`.trim();
     const hashedPassword = await bcrypt.hash(password.trim(), 10);
-    const addedDate = new Date().toISOString().slice(0, 19).replace('T', ' '); // YYYY-MM-DD HH:MM:SS
+    const addedDate = new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace('T', ' ');
 
-    // Check if user already exists
-    const [existing] = await db.query('SELECT id FROM users WHERE email = ?', [formattedEmail]);
+    // ✅ Generate UNIQUE hash_key (FIX)
+    const hashKey = crypto.randomBytes(20).toString("hex");
+
+    // ✅ Check if user already exists
+    const [existing] = await db.query(
+      'SELECT id FROM users WHERE email = ?',
+      [formattedEmail]
+    );
+
     if (existing.length > 0) {
       return res.status(400).json({
         success: false,
@@ -217,22 +228,22 @@ app.post('/api/register', async (req, res) => {
       });
     }
 
-    // Insert new user
-    // Using defaults for other columns as per the provided table structure
+    // ✅ Insert user (INCLUDING hash_key)
     const [result] = await db.query(
       `INSERT INTO users (
         email, password, name, is_active, 
         is_super_admin, role_id, added_date, 
         mobile, address_line1, address_line2, 
         city, state, pincode, remarks, profile_pic,
-        app_access, web_access, added_by, added_ip
-      ) VALUES (?, ?, ?, 1, 0, 2, ?, '', '', '', '', '', '', '', '', 1, 1, 0, '127.0.0.1')`,
-      [formattedEmail, hashedPassword, fullName, addedDate]
+        app_access, web_access, added_by, added_ip,
+        hash_key
+      ) VALUES (?, ?, ?, 1, 0, 2, ?, '', '', '', '', '', '', '', '', 1, 1, 0, '127.0.0.1', ?)`,
+      [formattedEmail, hashedPassword, fullName, addedDate, hashKey]
     );
 
     console.log('🎉 REGISTRATION SUCCESS:', formattedEmail);
 
-    return res.json({
+    return res.status(201).json({
       success: true,
       message: 'User registered successfully',
       userId: result.insertId,
@@ -241,6 +252,7 @@ app.post('/api/register', async (req, res) => {
 
   } catch (err) {
     console.error('❌ REGISTRATION ERROR:', err);
+
     return res.status(500).json({
       success: false,
       message: 'Server error during registration',
@@ -248,7 +260,6 @@ app.post('/api/register', async (req, res) => {
     });
   }
 });
-
 // 🏫 GET SCHOOLS API (Filtered by Gallery existence if requested)
 app.get('/api/schools', async (req, res) => {
   const { hasGallery } = req.query;
@@ -939,7 +950,7 @@ app.delete('/api/parameters/:id', async (req, res) => {
 // 🎓 GET ALL EXAM FORMATS
 app.get('/api/exam-formats', async (req, res) => {
   try {
-    const [formats] = await db.query('SELECT * FROM fitness_test_formats ORDER BY id DESC');
+    const [formats] = await db.query('SELECT id, test_name, test_title, academic_year FROM fitness_test_formats WHERE is_active = 1 ORDER BY test_name');
     res.json({ success: true, formats });
   } catch (err) {
     console.error('FETCH EXAM FORMATS ERROR:', err);
@@ -1067,6 +1078,372 @@ app.delete('/api/exam-formats/:id', async (req, res) => {
   } catch (err) {
     console.error('DELETE EXAM FORMAT ERROR:', err);
     res.status(500).json({ success: false, message: 'Error deleting exam format', error: err.message });
+  }
+});
+
+
+app.get('/api/exam-formats', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+            SELECT id, test_name, test_title, academic_year 
+            FROM fitness_test_formats 
+            WHERE is_active = 1 
+            ORDER BY test_name
+        `);
+
+    res.json({ success: true, formats: rows });
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+/* ======================================================
+   2. FILTERS
+====================================================== */
+app.get('/api/fill-marks/filters', async (req, res) => {
+  const { school_id } = req.query;
+
+  try {
+    const [schools] = await db.query(`
+            SELECT id, name FROM schools ORDER BY name
+        `);
+
+    let standards;
+    if (school_id) {
+      [standards] = await db.query(`
+                SELECT DISTINCT std AS name, std AS id
+                FROM students
+                WHERE school_id = ?
+                ORDER BY CAST(std AS UNSIGNED)
+            `, [school_id]);
+    } else {
+      [standards] = await db.query(`
+                SELECT std_code AS id, name 
+                FROM stds_master 
+                WHERE is_active = 1
+            `);
+    }
+
+    const divisions = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+    const terms = ['Term 1', 'Term 2'];
+
+    res.json({
+      success: true,
+      filters: { schools, standards, divisions, terms }
+    });
+
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+/* ======================================================
+   3. FORMAT PARAMETERS
+====================================================== */
+app.get('/api/fill-marks/format/:id', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+            SELECT 
+                fp.parameter_id AS id,
+                fp.parameter_order,
+                fp.is_required,
+                pi.title, 
+                pi.ctype, 
+                pi.description
+            FROM fitness_test_format_parameters fp
+            JOIN parameter_info pi ON fp.parameter_id = pi.id
+            WHERE fp.format_id = ?
+            ORDER BY fp.parameter_order
+        `, [req.params.id]);
+
+    res.json({ success: true, parameters: rows });
+
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+/* ======================================================
+   4. STUDENTS + MARKS + RANGES
+====================================================== */
+app.get('/api/fill-marks/students', async (req, res) => {
+  const { school_id, std, division, format_id, term } = req.query;
+  if (!school_id || !std || !division || !format_id || !term) {
+    return res.json({ success: false, error: 'Missing parameters' });
+  }
+
+  // Normalize term
+  let normalizedTerm = term;
+  if (term === 'Term 1' || term === '1') normalizedTerm = 'term1';
+  else if (term === 'Term 2' || term === '2') normalizedTerm = 'term2';
+
+  try {
+    /* ---------- 1. STUDENTS ---------- */
+    const [students] = await db.query(`
+            SELECT a.*, b.name as school_name
+            FROM students a
+            LEFT JOIN schools b ON a.school_id = b.id
+            WHERE a.school_id = ?
+            AND a.std = ?
+            AND a.division = ?
+            ORDER BY a.id
+        `, [school_id, std, division]);
+
+    if (students.length === 0) {
+      return res.json({ success: true, students: [], ranges: [] });
+    }
+
+    const studentIds = students.map(s => s.id);
+
+    /* ---------- 2. PARAMETERS ---------- */
+    const [params] = await db.query(`
+            SELECT fp.parameter_id, pi.title, pi.ctype
+            FROM fitness_test_format_parameters fp
+            JOIN parameter_info pi ON fp.parameter_id = pi.id
+            WHERE fp.format_id = ?
+        `, [format_id]);
+
+    /* ---------- 3. EXISTING MARKS ---------- */
+    const [results] = await db.query(`
+            SELECT ftr.student_id, ftrv.parameter_id, ftrv.parameter_value
+            FROM fitness_test_results ftr
+            LEFT JOIN fitness_test_result_values ftrv 
+                ON ftr.id = ftrv.result_id
+            WHERE ftr.format_id = ?
+            AND ftr.term = ?
+            AND ftr.student_id IN (?)
+        `, [format_id, normalizedTerm, studentIds]);
+
+    const marksMap = {};
+
+    results.forEach(r => {
+      if (!marksMap[r.student_id]) {
+        marksMap[r.student_id] = {};
+      }
+
+      let value = r.parameter_value;
+
+      const param = params.find(p => p.parameter_id == r.parameter_id);
+
+      // YES/NO conversion (same as PHP)
+      if (param && ['yes/no', 'Yes/No', 'boolean', 'Boolean'].includes(param.ctype)) {
+        if (value === '1.00') value = 'Yes';
+        if (value === '0.00') value = 'No';
+      }
+
+      marksMap[r.student_id][r.parameter_id] = value;
+    });
+
+    /* ---------- 4. ATTACH MARKS ---------- */
+    const finalStudents = students.map(s => ({
+      ...s,
+      marks: marksMap[s.id] || {}
+    }));
+
+    /* ---------- 5. PARAMETER RANGES ---------- */
+    let ranges = [];
+
+    if (params.length > 0) {
+      const paramIds = params.map(p => p.parameter_id);
+
+      let query = `
+                SELECT 
+                    pr.parameter AS parameter_id,
+                    pr.min_male,
+                    pr.max_male,
+                    pr.min_female,
+                    pr.max_female,
+                    pi.title,
+                    pr.std_code
+                FROM parameter_ranges pr
+                JOIN parameter_info pi ON pr.parameter = pi.id
+                WHERE pr.parameter IN (?)
+            `;
+
+      const queryParams = [paramIds];
+
+      if (std) {
+        query += ` AND pr.std_code IN (?, 0) ORDER BY pr.std_code DESC`;
+        queryParams.push(std);
+      }
+
+      const [rangeRows] = await db.query(query, queryParams);
+      
+      const seenRange = new Set();
+      ranges = [];
+      
+      for (const row of rangeRows) {
+        // Fallback: If std_code specific row has null values (min_male is null), we ignore it and let the std_code = 0 row handle it.
+        if (!seenRange.has(row.parameter_id)) {
+            if (row.min_male === null && row.max_male === null) {
+                continue; // Skip completely null rows to allow std_code = 0 fallback
+            }
+            ranges.push(row);
+            seenRange.add(row.parameter_id);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      students: finalStudents,
+      ranges
+    });
+
+  } catch (err) {
+    res.json({ success: false, error: err.message });
+  }
+});
+
+/* ======================================================
+   5. SAVE MARKS (PHP Parity)
+====================================================== */
+app.post('/api/fill-marks/save', async (req, res) => {
+  const {
+    format_id, school_id, std, division, term,
+    entry_mode = 'division',
+    examiner_name = '', examiner_signature_id = 0,
+    marks = [], partial_save = false
+  } = req.body;
+
+  // ── 1. Normalize term ──
+  let normalizedTerm = term;
+  if (term === 'Term 1' || term === '1') normalizedTerm = 'term1';
+  else if (term === 'Term 2' || term === '2') normalizedTerm = 'term2';
+
+  // ── 2. Validate ──
+  if (!format_id || !school_id || !normalizedTerm || marks.length === 0) {
+    return res.json({ success: false, message: 'Missing required parameters' });
+  }
+  if (!['term1', 'term2'].includes(normalizedTerm)) {
+    return res.json({ success: false, message: `Invalid term: ${normalizedTerm}` });
+  }
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // ── 3. Fetch format info ──
+    const [[format]] = await conn.query('SELECT * FROM fitness_test_formats WHERE id = ? AND is_active = 1', [format_id]);
+    if (!format) {
+      conn.release();
+      return res.json({ success: false, message: 'Test format not found or inactive' });
+    }
+    const academic_year = format.academic_year;
+
+    // ── 4. Fetch format parameters (for Yes/No detection) ──
+    const [params] = await conn.query(`
+      SELECT fp.parameter_id, pi.title, pi.ctype
+      FROM fitness_test_format_parameters fp
+      JOIN parameter_info pi ON fp.parameter_id = pi.id
+      WHERE fp.format_id = ?
+    `, [format_id]);
+
+    const paramMap = {};
+    params.forEach(p => { paramMap[p.parameter_id] = p; });
+
+    // ── 5. Group marks by student ──
+    const studentMarks = {};
+    marks.forEach(m => {
+      const sid = parseInt(m.student_id);
+      const pid = parseInt(m.parameter_id);
+      if (!sid || !pid) return;
+      if (!studentMarks[sid]) studentMarks[sid] = [];
+      studentMarks[sid].push({ parameter_id: pid, value: m.value });
+    });
+
+    let savedCount = 0;
+    let savedItems = [];
+    const testDate = new Date().toISOString().slice(0, 10);
+
+    // ── 6. Process each student ──
+    for (const [studentIdStr, marksData] of Object.entries(studentMarks)) {
+      const studentId = parseInt(studentIdStr);
+
+      // Check if result already exists for this student + format + term + academic_year
+      const [existingRows] = await conn.query(
+        `SELECT id FROM fitness_test_results
+         WHERE format_id = ? AND student_id = ? AND academic_year = ? AND term = ?`,
+        [format_id, studentId, academic_year, normalizedTerm]
+      );
+
+      let resultId;
+
+      if (existingRows.length > 0) {
+        // ── UPDATE existing result ──
+        resultId = existingRows[0].id;
+        await conn.query(
+          `UPDATE fitness_test_results SET examiner_name = ?, examiner_signature_id = ?, updated_at = NOW() WHERE id = ?`,
+          [examiner_name, examiner_signature_id || null, resultId]
+        );
+
+        // Delete existing parameter values for clean re-insert
+        await conn.query('DELETE FROM fitness_test_result_values WHERE result_id = ?', [resultId]);
+
+      } else {
+        // ── INSERT new result ──
+        const reportKey = 'FT_' + testDate.replace(/-/g, '') + '_' + Math.random().toString(16).slice(2, 10).toUpperCase();
+        const [insertRes] = await conn.query(
+          `INSERT INTO fitness_test_results
+           (format_id, student_id, academic_year, term, test_date, examiner_id, examiner_name, examiner_signature_id, report_key)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [format_id, studentId, academic_year, normalizedTerm, testDate, 0, examiner_name, examiner_signature_id || null, reportKey]
+        );
+        resultId = insertRes.insertId;
+      }
+
+      // ── 7. Insert parameter values ──
+      // Deduplicate by parameter_id
+      const seen = {};
+      const uniqueMarks = [];
+      marksData.forEach(m => {
+        if (!seen[m.parameter_id]) { uniqueMarks.push(m); seen[m.parameter_id] = true; }
+      });
+
+      for (const mark of uniqueMarks) {
+        let storageValue = mark.value;
+        if (storageValue === '' || storageValue === null || storageValue === undefined) continue;
+
+        // Yes/No → 1/0 conversion
+        const paramInfo = paramMap[mark.parameter_id];
+        const isYesNo = paramInfo && ['yes/no', 'boolean', 'y/n', 'true/false', 't/f'].includes((paramInfo.ctype || '').toLowerCase());
+        if (isYesNo) {
+          if (String(storageValue).toLowerCase() === 'yes') storageValue = '1';
+          else if (String(storageValue).toLowerCase() === 'no') storageValue = '0';
+        }
+
+        await conn.query(
+          `INSERT INTO fitness_test_result_values (result_id, parameter_id, parameter_value, created_at)
+           VALUES (?, ?, ?, NOW())`,
+          [resultId, mark.parameter_id, storageValue]
+        );
+
+        savedItems.push({ student_id: studentId, parameter_id: mark.parameter_id });
+      }
+
+      savedCount++;
+    }
+
+    await conn.commit();
+
+    const message = partial_save
+      ? `Progress saved! ${savedItems.length} parameter values saved.`
+      : `Successfully saved marks for ${savedCount} students.`;
+
+    res.json({
+      success: true,
+      message,
+      saved_count: savedCount,
+      format_name: format.test_name,
+      academic_year
+    });
+
+  } catch (err) {
+    await conn.rollback();
+    console.error('SAVE FILL-MARKS ERROR:', err);
+    res.json({ success: false, error: err.message });
+  } finally {
+    conn.release();
   }
 });
 

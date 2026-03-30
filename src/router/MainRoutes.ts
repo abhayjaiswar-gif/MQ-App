@@ -154,6 +154,11 @@ const MainRoutes = {
       name: 'EditExam',
       path: '/exams/edit/:id',
       component: () => import('@/views/exams/CreateTestPage.vue')
+    },
+    {
+      name: 'FillMarks',
+      path: '/exams/fill-marks',
+      component: () => import('@/views/exams/FillMarksPage.vue')
     }
   ]
 };
