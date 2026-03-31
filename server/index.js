@@ -1447,6 +1447,81 @@ app.post('/api/fill-marks/save', async (req, res) => {
   }
 });
 
+// 🎓 GET STANDARDS
+app.get('/api/standards', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT std_code as id, name, std_code 
+      FROM stds_master 
+      WHERE is_active = 1 
+      ORDER BY CAST(std_code AS UNSIGNED)
+    `);
+    res.json({ success: true, standards: rows });
+  } catch (err) {
+    console.error('GET STANDARDS ERROR:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 🎓 GET PARAMETER GRADES
+app.get('/api/parameter-grades', async (req, res) => {
+  try {
+    const { parameter, std } = req.query;
+    if (!parameter) {
+      return res.status(400).json({ success: false, message: "parameter missing" });
+    }
+    
+    // Fallback to std=0 if not provided
+    const stdCode = std ? parseInt(std) : 0;
+    
+    const [rows] = await db.query(
+      'SELECT * FROM parameter_grades WHERE parameter = ? AND std = ? ORDER BY max_score DESC',
+      [parameter, stdCode]
+    );
+    res.json({ success: true, grades: rows });
+  } catch (err) {
+    console.error('GET PARAMETER GRADES ERROR:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 🎓 POST PARAMETER GRADES
+app.post('/api/parameter-grades/save', async (req, res) => {
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    
+    const { parameter, std_codes, grades } = req.body;
+    if (!parameter || !grades || !Array.isArray(std_codes)) {
+        throw new Error("Missing parameter, grades array or std_codes array");
+    }
+    
+    for (const std of std_codes) {
+        const stdCode = parseInt(std) || 0;
+        
+        // Delete existing bounds for this combination
+        await conn.query('DELETE FROM parameter_grades WHERE parameter = ? AND std = ?', [parameter, stdCode]);
+        
+        // Insert new bounds
+        for (const g of grades) {
+            await conn.query(
+                'INSERT INTO parameter_grades (std, parameter, min_score, max_score, grade, grade_label) VALUES (?, ?, ?, ?, ?, ?)',
+                [stdCode, parameter, g.min_score || 0, g.max_score || 0, g.grade || '', g.grade_label || '']
+            );
+        }
+    }
+    
+    await conn.commit();
+    res.json({ success: true, message: "Parameter grades saved successfully for all selected standards!" });
+  } catch (err) {
+    await conn.rollback();
+    console.error('SAVE PARAMETER GRADES ERROR:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    conn.release();
+  }
+});
+
 app.listen(3000, () => {
   console.log('🚀 Server running on http://localhost:3000');
 });
