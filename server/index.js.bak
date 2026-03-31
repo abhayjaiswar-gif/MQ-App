@@ -1240,46 +1240,46 @@ app.get('/api/fill-marks/students', async (req, res) => {
       marks: marksMap[s.id] || {}
     }));
 
-    /* ---------- 5. PARAMETER RANGES (From parameter_grades) ---------- */
+    /* ---------- 5. PARAMETER RANGES ---------- */
     let ranges = [];
 
     if (params.length > 0) {
       const paramIds = params.map(p => p.parameter_id);
-      const allPossibleIds = [...paramIds, ...paramIds.map(id => `param${id}`)];
 
-      // We query all grades for these parameters and the specific standard AND standard 0
       let query = `
                 SELECT 
-                    parameter AS parameter_id,
-                    MIN(min_score) as min_val,
-                    MAX(max_score) as max_val,
-                    std as std_code
-                FROM parameter_grades
-                WHERE parameter IN (?)
-                AND std IN (?, 0)
-                GROUP BY parameter, std
-                ORDER BY std DESC
+                    pr.parameter AS parameter_id,
+                    pr.min_male,
+                    pr.max_male,
+                    pr.min_female,
+                    pr.max_female,
+                    pi.title,
+                    pr.std_code
+                FROM parameter_ranges pr
+                JOIN parameter_info pi ON pr.parameter = pi.id
+                WHERE pr.parameter IN (?)
             `;
 
-      const [rangeRows] = await db.query(query, [allPossibleIds, std || 0]);
+      const queryParams = [paramIds];
+
+      if (std) {
+        query += ` AND pr.std_code IN (?, 0) ORDER BY pr.std_code DESC`;
+        queryParams.push(std);
+      }
+
+      const [rangeRows] = await db.query(query, queryParams);
       
       const seenRange = new Set();
       ranges = [];
       
       for (const row of rangeRows) {
-        let normalizedId = row.parameter_id;
-        if (typeof normalizedId === 'string' && normalizedId.startsWith('param')) {
-          const idNum = parseInt(normalizedId.replace('param', ''));
-          if (!isNaN(idNum)) normalizedId = idNum;
-        }
-
-        if (!seenRange.has(normalizedId)) {
-            // Because we ordered by std DESC, we take the specific std first, then fallback to 0
-            ranges.push({
-                ...row,
-                parameter_id: normalizedId
-            });
-            seenRange.add(normalizedId);
+        // Fallback: If std_code specific row has null values (min_male is null), we ignore it and let the std_code = 0 row handle it.
+        if (!seenRange.has(row.parameter_id)) {
+            if (row.min_male === null && row.max_male === null) {
+                continue; // Skip completely null rows to allow std_code = 0 fallback
+            }
+            ranges.push(row);
+            seenRange.add(row.parameter_id);
         }
       }
     }
@@ -1474,10 +1474,9 @@ app.get('/api/parameter-grades', async (req, res) => {
     // Fallback to std=0 if not provided
     const stdCode = std ? parseInt(std) : 0;
     
-    // Support matching both '92' and 'param92'
     const [rows] = await db.query(
-      'SELECT * FROM parameter_grades WHERE parameter IN (?, ?) AND std = ? ORDER BY max_score DESC',
-      [parameter, `param${parameter}`, stdCode]
+      'SELECT * FROM parameter_grades WHERE parameter = ? AND std = ? ORDER BY max_score DESC',
+      [parameter, stdCode]
     );
     res.json({ success: true, grades: rows });
   } catch (err) {
@@ -1496,27 +1495,24 @@ app.post('/api/parameter-grades/save', async (req, res) => {
     if (!parameter || !grades || !Array.isArray(std_codes)) {
         throw new Error("Missing parameter, grades array or std_codes array");
     }
-
-    // Ensure we follow the 'paramX' naming convention seen in user's DB
-    const dbParameterId = parameter.toString().startsWith('param') ? parameter : `param${parameter}`;
     
     for (const std of std_codes) {
         const stdCode = parseInt(std) || 0;
         
-        // Delete existing bounds using both formats to clean up if necessary
-        await conn.query('DELETE FROM parameter_grades WHERE parameter IN (?, ?) AND std = ?', [parameter, dbParameterId, stdCode]);
+        // Delete existing bounds for this combination
+        await conn.query('DELETE FROM parameter_grades WHERE parameter = ? AND std = ?', [parameter, stdCode]);
         
         // Insert new bounds
         for (const g of grades) {
             await conn.query(
                 'INSERT INTO parameter_grades (std, parameter, min_score, max_score, grade, grade_label) VALUES (?, ?, ?, ?, ?, ?)',
-                [stdCode, dbParameterId, g.min_score || 0, g.max_score || 0, g.grade || '', g.grade_label || '']
+                [stdCode, parameter, g.min_score || 0, g.max_score || 0, g.grade || '', g.grade_label || '']
             );
         }
     }
     
     await conn.commit();
-    res.json({ success: true, message: "Parameter grades saved successfully!" });
+    res.json({ success: true, message: "Parameter grades saved successfully for all selected standards!" });
   } catch (err) {
     await conn.rollback();
     console.error('SAVE PARAMETER GRADES ERROR:', err);
