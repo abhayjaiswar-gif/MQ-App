@@ -3,6 +3,17 @@ import { ref, onMounted, watch } from 'vue';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 
+const toastMessage = ref('');
+const toastType = ref('success');
+
+const showToast = (message, type = 'success') => {
+    toastMessage.value = message;
+    toastType.value = type;
+    setTimeout(() => {
+        toastMessage.value = '';
+    }, 4000); // Auto-hide after 4 seconds
+};
+
 const examFormats = ref([]);
 const schoolsList = ref([]);
 const standardsList = ref([]);
@@ -111,16 +122,19 @@ const fetchStudentsWithMarks = async () => {
 // RANGE TEXT
 // ─────────────────────────────
 const getRangeText = (paramId) => {
-    const range = ranges.value.find(r => r.parameter_id === parseInt(paramId));
+    const range = ranges.value.find(r => r.parameter_id == paramId);
     if (!range) return '';
 
-    const minMale = parseFloat(range.min_male) || 0;
-    const maxMale = parseFloat(range.max_male) || 999999;
-    const minFemale = parseFloat(range.min_female) || 0;
-    const maxFemale = parseFloat(range.max_female) || 999999;
+    const minMale = range.min_male !== null && range.min_male !== undefined && range.min_male !== '' ? parseFloat(range.min_male) : null;
+    const maxMale = range.max_male !== null && range.max_male !== undefined && range.max_male !== '' ? parseFloat(range.max_male) : null;
+    const minFemale = range.min_female !== null && range.min_female !== undefined && range.min_female !== '' ? parseFloat(range.min_female) : null;
+    const maxFemale = range.max_female !== null && range.max_female !== undefined && range.max_female !== '' ? parseFloat(range.max_female) : null;
 
-    const minValue = Math.min(minMale, minFemale);
-    const maxValue = Math.max(maxMale, maxFemale);
+    const mins = [minMale, minFemale].filter(n => n !== null && !isNaN(n));
+    const maxs = [maxMale, maxFemale].filter(n => n !== null && !isNaN(n));
+
+    const minValue = mins.length ? Math.min(...mins) : 0;
+    const maxValue = maxs.length ? Math.max(...maxs) : 999999;
 
     if (minValue > 0 || maxValue < 999999) {
         return `Range: ${minValue} - ${maxValue}`;
@@ -135,24 +149,37 @@ const getRangeText = (paramId) => {
 const isInvalid = (student, paramId, value) => {
     if (value === '' || value === null || value === undefined) return false;
 
-    const range = ranges.value.find(r => r.parameter_id === parseInt(paramId));
+    const range = ranges.value.find(r => r.parameter_id == paramId);
     if (!range) return false;
 
     const numValue = parseFloat(value);
-    if (isNaN(numValue)) return false;
+    if (isNaN(numValue)) return true;
 
-    const minMale = parseFloat(range.min_male) || 0;
-    const maxMale = parseFloat(range.max_male) || 999999;
-    const minFemale = parseFloat(range.min_female) || 0;
-    const maxFemale = parseFloat(range.max_female) || 999999;
+    const minMale = range.min_male !== null && range.min_male !== undefined && range.min_male !== '' ? parseFloat(range.min_male) : null;
+    const maxMale = range.max_male !== null && range.max_male !== undefined && range.max_male !== '' ? parseFloat(range.max_male) : null;
+    const minFemale = range.min_female !== null && range.min_female !== undefined && range.min_female !== '' ? parseFloat(range.min_female) : null;
+    const maxFemale = range.max_female !== null && range.max_female !== undefined && range.max_female !== '' ? parseFloat(range.max_female) : null;
 
-    const minValue = Math.min(minMale, minFemale);
-    const maxValue = Math.max(maxMale, maxFemale);
+    const mins = [minMale, minFemale].filter(n => n !== null && !isNaN(n));
+    const maxs = [maxMale, maxFemale].filter(n => n !== null && !isNaN(n));
+
+    const minValue = mins.length ? Math.min(...mins) : 0;
+    const maxValue = maxs.length ? Math.max(...maxs) : 999999;
 
     if (minValue > 0 || maxValue < 999999) {
         return numValue < minValue || numValue > maxValue;
     }
 
+    return false;
+};
+
+const hasInvalidMarks = (student) => {
+    if (!student.marks) return false;
+    for (const param of parameters.value) {
+        if (isInvalid(student, param.id, student.marks[param.id])) {
+            return true;
+        }
+    }
     return false;
 };
 
@@ -166,7 +193,7 @@ const submitAll = async () => {
     for (const student of students.value) {
         for (const param of parameters.value) {
             if (isInvalid(student, param.id, student.marks[param.id])) {
-                alert(`Invalid marks for ${student.name} (${param.title})`);
+                showToast(`Invalid marks for ${student.name} (${param.title})`, 'error');
                 return;
             }
         }
@@ -189,7 +216,7 @@ const submitAll = async () => {
         });
 
         if (marksArray.length === 0) {
-            alert('No marks to save');
+            showToast('No marks to save', 'error');
             return;
         }
 
@@ -210,14 +237,14 @@ const submitAll = async () => {
 
         const data = await res.json();
         if (data.success) {
-            alert(data.message || 'All marks submitted successfully!');
+            showToast('Progress saved successfully!', 'success');
         } else {
-            alert('Error: ' + (data.message || data.error || 'Unknown error'));
+            showToast('Error: ' + (data.message || data.error || 'Unknown error'), 'error');
         }
 
     } catch (e) {
         console.error(e);
-        alert('Network error saving marks');
+        showToast('Network error saving marks', 'error');
     } finally {
         isSavingAll.value = false;
     }
@@ -242,7 +269,7 @@ const aiFillMarks = () => {
         });
     });
 
-    alert('AI filled marks!');
+    showToast('AI filled marks!', 'success');
 };
 
 // ─────────────────────────────
@@ -250,7 +277,7 @@ const aiFillMarks = () => {
 // ─────────────────────────────
 const exportTemplate = async () => {
     if (students.value.length === 0 || parameters.value.length === 0) {
-        alert('Load students and parameters first');
+        showToast('Load students and parameters first', 'error');
         return;
     }
 
@@ -376,7 +403,7 @@ const handleBulkUpload = async (event) => {
     });
 
     if (headerRowIdx === -1) {
-        alert('Invalid template');
+        showToast('Invalid template uploaded', 'error');
         return;
     }
 
@@ -421,7 +448,7 @@ const handleBulkUpload = async (event) => {
         }
     });
 
-    alert('Excel imported!');
+    showToast('Excel data imported successfully!', 'success');
     event.target.value = '';
 };
 
@@ -447,7 +474,17 @@ watch([selectedStandard, selectedDivision, selectedTerm], fetchStudentsWithMarks
 onMounted(fetchFilters);
 </script>
 <template>
-    <div class="bg-surface text-on-surface antialiased flex min-h-screen overflow-hidden font-inter text-sm">
+    <div class="bg-surface text-on-surface antialiased flex min-h-screen overflow-hidden font-inter text-sm relative">
+        <!-- Custom Toast Notification -->
+        <div v-if="toastMessage" 
+            class="fixed bottom-8 right-8 z-[9999] px-6 py-4 rounded-2xl shadow-xl border font-manrope font-extrabold flex items-center gap-3 transition-all duration-300 animate-in slide-in-from-bottom-8 fade-in"
+            :class="toastType === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'">
+            <span class="material-symbols-outlined text-[24px]">
+                {{ toastType === 'success' ? 'check_circle' : 'error' }}
+            </span>
+            <span class="text-sm tracking-tight">{{ toastMessage }}</span>
+        </div>
+
         <main class="flex-1 flex flex-col h-screen overflow-y-auto no-scrollbar pb-20">
             <div class="p-8 space-y-8 max-w-[1600px] mx-auto w-full">
                 <!-- Header -->
@@ -570,13 +607,12 @@ onMounted(fetchFilters);
                                         <div class="flex flex-col items-center gap-1">
                                             <span class="block line-clamp-1 truncate max-w-[130px] leading-tight">{{
                                                 param.title }}</span>
-                                            <div class="flex items-center gap-1 mt-0.5">
+                                            <div class="flex flex-col items-center gap-1 mt-0.5">
                                                 <span
                                                     class="block text-[7px] font-bold py-0.5 px-2 bg-slate-100 rounded-full w-fit">{{
                                                         param.ctype }}</span>
                                                 <span v-if="getRangeText(param.id)"
-                                                    class="flex items-center gap-0.5 text-[8px] font-extrabold text-sky-600 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-100">
-                                                    <span class="material-symbols-outlined text-[10px]">info</span>
+                                                    class="whitespace-nowrap flex items-center gap-0.5 text-[8px] font-extrabold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-sky-100">
                                                     {{ getRangeText(param.id) }}
                                                 </span>
                                             </div>
@@ -611,7 +647,7 @@ onMounted(fetchFilters);
                                     </td>
                                 </tr>
                                 <tr v-else v-for="(student, index) in students" :key="student.id"
-                                    class="hover:bg-slate-50/80 transition-all group border-l-4 border-transparent hover:border-primary">
+                                    :class="['transition-all group border-l-4', hasInvalidMarks(student) ? '!border-red-500 bg-red-50/50 outline outline-1 outline-red-400' : 'border-transparent hover:border-primary hover:bg-slate-50/80']">
                                     <td class="px-6 py-5 text-[11px] font-bold text-slate-400 font-manrope">{{
                                         String(index + 1).padStart(2, '0') }}</td>
                                     <td class="px-6 py-5">
@@ -646,18 +682,19 @@ onMounted(fetchFilters);
                                             </select>
                                         </template>
                                         <template v-else>
-                                            <div
-                                                class="relative min-h-[50px] flex flex-col items-center justify-center">
+                                            <div class="relative min-h-[50px] flex flex-col items-center justify-center">
                                                 <input v-model="student.marks[param.id]"
-                                                    class="w-[90px] text-center bg-slate-50/50 border rounded-xl text-[11px] font-bold py-2 focus:ring-4 focus:ring-primary/10 focus:border-primary shadow-sm transition-all font-manrope outline-none"
+                                                    class="w-[90px] text-center border rounded-xl text-[11px] font-bold py-2 shadow-sm transition-all font-manrope outline-none"
                                                     :type="param.ctype === 'Text' ? 'text' : 'number'"
                                                     :placeholder="param.clabel || '0.0'"
-                                                    :class="isInvalid(student, param.id, student.marks[param.id]) ? 'border-red-400 ring-4 ring-red-50 bg-red-50/30' : 'border-slate-200'" />
+                                                    :class="isInvalid(student, param.id, student.marks[param.id]) 
+                                                            ? '!border-red-500 !ring-2 !ring-red-200 !bg-red-50 text-red-700' 
+                                                            : 'bg-slate-50/50 border-slate-200 text-slate-700 focus:ring-4 focus:ring-primary/10 focus:border-primary'" />
 
                                                 <!-- Validation Message -->
                                                 <div v-if="isInvalid(student, param.id, student.marks[param.id])"
-                                                    class="absolute -bottom-2.5 left-0 right-0 text-[8px] text-red-500 font-extrabold text-center uppercase tracking-tighter animate-pulse truncate px-1">
-                                                    Out of Range!
+                                                    class="absolute -bottom-2.5 left-0 right-0 text-[8px] text-red-600 font-extrabold text-center uppercase tracking-tighter animate-pulse truncate px-1">
+                                                    Out of Range
                                                 </div>
                                             </div>
                                         </template>
