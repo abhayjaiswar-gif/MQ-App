@@ -1,15 +1,11 @@
 <template>
-  <div class="logo">
-    <RouterLink to="/dashboard" aria-label="logo" style="text-decoration: none; display: flex; align-items: center;">
-      <span style="font-size: 26px; font-weight: 900; letter-spacing: -0.5px; font-family: 'Inter', system-ui, sans-serif;">
-        <span :style="{ color: darkprimary }">Marcos</span><span :style="{ color: primary }">quay</span>
-      </span>
+  <div class="logo flex justify-center items-center w-full">
+    <RouterLink to="/dashboard" aria-label="logo" style="text-decoration: none; display: flex; align-items: center; justify-content: center; width: 100%;">
+      <img :src="logoUrl" alt="Marcosquay Logo" style="height: 55px; max-width: 100%; object-fit: contain;" />
     </RouterLink>
   </div>
 </template>
 <script setup lang="ts">
-import { ref } from 'vue';
 import { RouterLink } from 'vue-router';
-const primary = ref('rgb(var(--v-theme-primary))');
-const darkprimary = ref('rgb(var(--v-theme-darkprimary))');
+import logoUrl from '@/assets/new_logo.png';
 </script>

@@ -1,610 +1,863 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+import { 
+  getSchools, 
+  getEquipmentOrders, 
+  addEquipmentOrder,
+  getStockReports,
+  addStockReport
+} from '@/services/api';
 
-// --- AUTH & CONFIG ---
-const authStore = useAuthStore();
-const isAdmin = computed(() => authStore.user?.role_id === 1);
-const currentYear = new Date().getFullYear();
+// ─── Types ───────────────────────────────────────────────────────────────────
+interface EquipmentOrder {
+  id: number;
+  sku_name: string;
+  qty: number;
+  school_id: number;
+  school_name: string;
+  size: string;
+  created_at: string;
+  approve_ssgm: number | null;
+  approve_admin: number | null;
+  status_delivery: string | null;
+  user_id: number;
+  delivery_date: string | null;
+  image_path: string | null;
+}
 
-// --- STATE ---
-const activeTab = ref('report'); // Default to stock report as per user request
-const schools = ref<any[]>([]);
-const selectedSchoolId = ref<number | null>(null);
-const availableMonths = ref<Record<number, string>>({});
-const inventoryRows = ref<any[]>([]);
-const autosaveStatus = ref<{ message: string; type: 'success' | 'error' | 'info' | null }>({ message: '', type: null });
+interface StockReport {
+  id: number;
+  school_id: number;
+  school_name: string;
+  report_date: string;
+  file_path: string;
+  role_id: number;
+  uploader_name: string;
+}
 
-// Autocomplete
-const equipmentSearch = ref('');
-const searchResults = ref<any[]>([]);
-const showResults = ref(false);
+interface School {
+  id: number;
+  name: string;
+}
 
-const isModalOpen = ref(false);
+interface EquipmentItem {
+  sku_name: string;
+  qty: number | null;
+  size: string;
+}
+
+// ─── State ───────────────────────────────────────────────────────────────────
+const activeTab = ref<'order' | 'report'>('report');
+const expandedOrderId = ref<number | null>(null);
+
+// Orders
+const orders = ref<EquipmentOrder[]>([]);
+const ordersLoading = ref(false);
+const ordersError = ref('');
+
+// Pagination
+const currentPage = ref(1);
+const perPage = 5;
+
+// Filter
+const filterStatus = ref('all');
+const filterSchool = ref('all');
+const showFilterDropdown = ref(false);
+
+// Stock Reports
+const stockReports = ref<StockReport[]>([]);
+const reportsLoading = ref(false);
+const reportsError = ref('');
+const filterMonth = ref('');
+const filterDate = ref('');
+
+// Schools dropdown
+const schools = ref<School[]>([]);
+
+// Order Modal
+const isOrderModalOpen = ref(false);
+const orderForm = ref({
+  school_id: '' as string | number,
+  items: [{ sku_name: '', qty: null as number | null, size: '' }] as EquipmentItem[],
+  equipment_list_image: null as File | null,
+});
+const orderSubmitting = ref(false);
+const orderSuccess = ref('');
+const orderError = ref('');
+
+// Report Modal
 const isReportModalOpen = ref(false);
-
-// --- METHODS ---
-
-const fetchSchools = async () => {
-  try {
-    const resp = await fetch('http://localhost:3000/api/schools');
-    const data = await resp.json();
-    if (data.success) schools.value = data.schools;
-  } catch (err) {
-    console.error('Fetch schools error:', err);
-  }
-};
-
-const fetchAvailableMonths = async (schoolId: number) => {
-  try {
-    const resp = await fetch('http://localhost:3000/api/available-months', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ school_id: schoolId, year: currentYear })
-    });
-    const data = await resp.json();
-    if (data.success) availableMonths.value = data.months;
-  } catch (err) {
-    console.error('Fetch months error:', err);
-  }
-};
-
-const fetchSchoolEquipments = async (schoolId: number) => {
-  try {
-    const resp = await fetch('http://localhost:3000/api/school-equipments', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ school_id: schoolId, year: currentYear })
-    });
-    const data = await resp.json();
-    inventoryRows.value = data.map((item: any) => {
-      const stockMap: any = {};
-      item.stock?.forEach((s: any) => {
-        stockMap[s.month_no] = {
-          size: s.size || '',
-          qty: s.qty || 0,
-          damage: s.damage || 0,
-          warehouse_qty: s.warehouse_qty || 0,
-          warehouse_damage: s.warehouse_damage || 0
-        };
-      });
-      return { id: item.id, name: item.value, months: stockMap };
-    });
-  } catch (err) {
-    console.error('Fetch equipments error:', err);
-  }
-};
-
-const handleSearch = async () => {
-  if (equipmentSearch.value.length < 1) {
-    searchResults.value = [];
-    return;
-  }
-  try {
-    const resp = await fetch(`http://localhost:3000/api/equipment?term=${equipmentSearch.value}`);
-    const data = await resp.json();
-    searchResults.value = data;
-    showResults.value = true;
-  } catch (err) {
-    console.error('Search error:', err);
-  }
-};
-
-const addEquipment = (item: any) => {
-  if (inventoryRows.value.some(r => r.id === item.id)) return;
-  const stockMap: any = {};
-  Object.keys(availableMonths.value).forEach(m => {
-    stockMap[m] = { size: '', qty: 0, damage: 0, warehouse_qty: 0, warehouse_damage: 0 };
-  });
-  inventoryRows.value.push({ id: item.id, name: item.value || item.name, months: stockMap });
-  equipmentSearch.value = '';
-  showResults.value = false;
-};
-
-const autosaveTimers: Record<string, any> = {};
-const handleAutosave = (itemId: number, monthNo: string, field: string, value: any) => {
-  const key = `${itemId}_${monthNo}_${field}`;
-  if (autosaveTimers[key]) clearTimeout(autosaveTimers[key]);
-  autosaveTimers[key] = setTimeout(async () => {
-    autosaveStatus.value = { message: 'Saving...', type: 'info' };
-    try {
-      const resp = await fetch('http://localhost:3000/api/autosave-stock', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ school_id: selectedSchoolId.value, equipment_id: itemId, month_no: monthNo, field, value })
-      });
-      const data = await resp.json();
-      if (data.success) {
-        autosaveStatus.value = { message: 'Autosaved!', type: 'success' };
-        setTimeout(() => { if (autosaveStatus.value.message === 'Autosaved!') autosaveStatus.value.type = null; }, 2000);
-      } else {
-        autosaveStatus.value = { message: 'Save failed', type: 'error' };
-      }
-    } catch (err) {
-      autosaveStatus.value = { message: 'Connection error', type: 'error' };
-    }
-  }, 700);
-};
-
-const calculateDiff = (row: any, monthNo: string, field: 'qty' | 'damage') => {
-  const monthKeys = Object.keys(availableMonths.value).sort((a: any, b: any) => parseInt(a) - parseInt(b));
-  const currentIndex = monthKeys.indexOf(monthNo);
-  if (currentIndex <= 0) return null;
-  const prevMonthNo = monthKeys[currentIndex - 1];
-  const currVal = parseInt(row.months[monthNo]?.[field]) || 0;
-  const prevVal = parseInt(row.months[prevMonthNo]?.[field]) || 0;
-  const diff = currVal - prevVal;
-  if (diff === 0) return { text: '=', class: 'text-slate-400' };
-  return { text: diff > 0 ? `+${diff} ↑` : `${diff} ↓`, class: diff > 0 ? 'text-green-600' : 'text-red-500' };
-};
-
-const removeRow = (id: number) => {
-  inventoryRows.value = inventoryRows.value.filter(r => r.id !== id);
-};
-
-watch(selectedSchoolId, (newId) => {
-  if (newId) {
-    fetchAvailableMonths(newId);
-    fetchSchoolEquipments(newId);
-  }
+const reportForm = ref({
+  school_id: '' as string | number,
+  report_date: new Date().toISOString().split('T')[0],
+  file_main: null as File | null,
 });
+const reportSubmitting = ref(false);
+const reportSuccess = ref('');
+const reportError = ref('');
 
-onMounted(() => {
-  fetchSchools();
-});
+// Template refs
+const equipmentImageInput = ref<HTMLInputElement | null>(null);
 
-const requests = ref([
-  { id: 'ORD-8821', itemName: 'Standard Football (Size 5)', quantity: 24, date: '2024-03-20', status: 'Processing', step: 4, statusClass: 'status-processing' },
-  { id: 'ORD-8815', itemName: 'Training Cones (Set of 50)', quantity: 12, date: '2024-03-18', status: 'Delivered', step: 5, statusClass: 'status-delivered' },
-  { id: 'ORD-8792', itemName: 'Breathable Bibs (Orange)', quantity: 48, date: '2024-03-15', status: 'SSGM Verified', step: 2, statusClass: 'status-pending' }
-]);
+const authStore = useAuthStore();
+const BASE_URL = 'http://localhost:3000'; // Base URL for static assets (uploads)
 
+// ─── Tracker Steps ────────────────────────────────────────────────────────────
 const trackerSteps = ['Requested', 'SSGM Verified', 'Admin Approved', 'Processing', 'Delivered'];
 
-const metrics = computed(() => {
-  const totalItems = inventoryRows.value.length;
-  const pendingOrders = requests.value.filter(r => r.status !== 'Delivered').length;
-  const deliveredLast30 = requests.value.filter(r => r.status === 'Delivered').length;
-  
-  // Calculate low stock (mock logic: qty < 10)
-  let lowStock = 0;
-  inventoryRows.value.forEach(row => {
-    Object.values(row.months).forEach((m: any) => {
-      if (m.qty > 0 && m.qty < 5) lowStock++;
-    });
-  });
+// ─── Computed ─────────────────────────────────────────────────────────────────
+const processedOrders = computed(() => {
+  return orders.value.map(row => {
+    let step = 1;
+    let status = 'Pending SSGM';
+    let statusClass = 'status-pending';
 
-  return {
-    totalItems,
-    lowStock,
-    pendingOrders,
-    deliveredLast30
-  };
+    if (row.approve_ssgm === 1) {
+      step = 2;
+      status = 'Pending Admin';
+      statusClass = 'status-pending';
+      if (row.approve_admin === 1) {
+        step = 3;
+        status = 'Admin Approved';
+        statusClass = 'status-processing';
+        if (row.status_delivery === 'Processing') {
+          step = 4;
+          status = 'Processing Delivery';
+          statusClass = 'status-processing';
+        } else if (row.status_delivery === 'Delivered') {
+          step = 5;
+          status = 'Delivered';
+          statusClass = 'status-delivered';
+        }
+      } else if (row.approve_admin === 0) {
+        status = 'Rejected by Admin';
+        statusClass = 'status-rejected';
+      }
+    } else if (row.approve_ssgm === 0) {
+      status = 'Rejected by SSGM';
+      statusClass = 'status-rejected';
+    }
+
+    const ssgmStatus = row.approve_ssgm === null ? 'pending' : row.approve_ssgm === 1 ? 'approved' : 'rejected';
+    const adminStatus = row.approve_admin === null ? 'pending' : row.approve_admin === 1 ? 'approved' : 'rejected';
+    const deliveryStatus = row.status_delivery === null ? 'pending' : row.status_delivery === 'Delivered' ? 'approved' : row.status_delivery === 'Rejected' ? 'rejected' : 'pending';
+    const deliveryDate = row.delivery_date ? formatDate(row.delivery_date) : 'Admin Gives';
+
+    return {
+      ...row,
+      step,
+      status,
+      statusClass,
+      ssgmStatus,
+      adminStatus,
+      deliveryStatus,
+      deliveryDate,
+    };
+  });
+});
+
+const filteredOrders = computed(() => {
+  return processedOrders.value.filter(o => {
+    const statusOk = filterStatus.value === 'all' || String(o.step) === filterStatus.value;
+    const schoolOk = filterSchool.value === 'all' || String(o.school_id) === filterSchool.value;
+    return statusOk && schoolOk;
+  });
+});
+
+const totalPages = computed(() => Math.ceil(filteredOrders.value.length / perPage));
+
+const paginatedOrders = computed(() => {
+  const start = (currentPage.value - 1) * perPage;
+  return filteredOrders.value.slice(start, start + perPage);
+});
+
+// ─── Stats ────────────────────────────────────────────────────────────────────
+const stats = computed(() => ({
+  total:      processedOrders.value.length,
+  pendingSsgm: processedOrders.value.filter(o => o.step === 1).length,
+  inLogistics: processedOrders.value.filter(o => o.step === 4).length,
+  completed:   processedOrders.value.filter(o => o.step === 5).length,
+}));
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function formatDate(dateString: string) {
+  if (!dateString) return 'Invalid Date';
+  let date: Date = new Date(dateString);
+  if (isNaN(date.getTime())) {
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+      date = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    }
+  }
+  if (isNaN(date.getTime())) return 'Invalid Date';
+  return date.toLocaleString('default', { month: 'long' });
+}
+
+function statusLabel(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function goPage(p: number) {
+  if (p < 1 || p > totalPages.value) return;
+  currentPage.value = p;
+}
+
+function applyFilter() {
+  currentPage.value = 1;
+  showFilterDropdown.value = false;
+}
+
+function resetFilter() {
+  filterStatus.value = 'all';
+  filterSchool.value = 'all';
+  currentPage.value = 1;
+  showFilterDropdown.value = false;
+}
+
+// ─── API Calls ────────────────────────────────────────────────────────────────
+async function fetchOrders() {
+  ordersLoading.value = true;
+  ordersError.value = '';
+  try {
+    const response = await getEquipmentOrders();
+    orders.value = response.data || [];
+  } catch (e: any) {
+    ordersError.value = e || 'Error loading orders';
+    orders.value = [];
+  } finally {
+    ordersLoading.value = false;
+  }
+}
+
+async function fetchStockReports() {
+  reportsLoading.value = true;
+  reportsError.value = '';
+  try {
+    const data = await getStockReports(filterMonth.value, filterDate.value);
+    stockReports.value = Array.isArray(data) ? data : [];
+  } catch (e: any) {
+    reportsError.value = e.message || 'Error loading reports';
+    stockReports.value = [];
+  } finally {
+    reportsLoading.value = false;
+  }
+}
+
+// Local fetch logic removed in favor of @/services/api
+
+async function fetchSchools() {
+  try {
+    const data = await getSchools();
+    schools.value = data || [];
+  } catch {
+    schools.value = [];
+  }
+}
+
+// ─── Order Modal ──────────────────────────────────────────────────────────────
+function addEquipmentRow() {
+  orderForm.value.items.push({ sku_name: '', qty: null, size: '' });
+}
+
+function removeEquipmentRow(index: number) {
+  if (orderForm.value.items.length > 1) {
+    orderForm.value.items.splice(index, 1);
+  }
+}
+
+function onEquipmentImageChange(e: Event) {
+  const input = e.target as HTMLInputElement;
+  orderForm.value.equipment_list_image = input.files?.[0] ?? null;
+}
+
+function openOrderModal() {
+  orderForm.value = { school_id: '', items: [{ sku_name: '', qty: null, size: '' }], equipment_list_image: null };
+  orderError.value = '';
+  orderSuccess.value = '';
+  isOrderModalOpen.value = true;
+}
+
+function closeOrderModal() {
+  isOrderModalOpen.value = false;
+}
+
+async function submitOrderForm() {
+  orderError.value = '';
+  orderSuccess.value = '';
+
+  if (!orderForm.value.school_id) { orderError.value = 'Please select a school.'; return; }
+
+  const hasValidItems = orderForm.value.items.some(
+    i => i.sku_name.trim() !== '' && (i.qty ?? 0) > 0 && i.size.trim() !== ''
+  );
+
+  if (!hasValidItems && !orderForm.value.equipment_list_image) {
+    orderError.value = 'Please add equipment items or upload an image.';
+    return;
+  }
+
+  orderSubmitting.value = true;
+  try {
+    await addEquipmentOrder({
+      school_id: orderForm.value.school_id,
+      items: orderForm.value.items,
+      image: orderForm.value.equipment_list_image
+    });
+
+    orderSuccess.value = 'Equipment order placed successfully!';
+    await fetchOrders();
+    setTimeout(() => { isOrderModalOpen.value = false; }, 1200);
+  } catch (e: any) {
+    orderError.value = e.message || 'Failed to place order.';
+  } finally {
+    orderSubmitting.value = false;
+  }
+}
+
+// ─── Report Modal ─────────────────────────────────────────────────────────────
+function onReportFileChange(e: Event) {
+  const input = e.target as HTMLInputElement;
+  reportForm.value.file_main = input.files?.[0] ?? null;
+}
+
+function openReportModal() {
+  reportForm.value = { school_id: '', report_date: new Date().toISOString().split('T')[0], file_main: null };
+  reportError.value = '';
+  reportSuccess.value = '';
+  isReportModalOpen.value = true;
+}
+
+function closeReportModal() {
+  isReportModalOpen.value = false;
+}
+
+async function submitReportForm() {
+  reportError.value = '';
+  reportSuccess.value = '';
+
+  if (!reportForm.value.school_id) { reportError.value = 'Please select a school.'; return; }
+  if (!reportForm.value.file_main) { reportError.value = 'Please upload an Image or PDF file.'; return; }
+
+  const ext = reportForm.value.file_main.name.split('.').pop()?.toLowerCase() ?? '';
+  if (!['jpg', 'jpeg', 'png', 'pdf'].includes(ext)) {
+    reportError.value = 'Only JPG, JPEG, PNG or PDF allowed.';
+    return;
+  }
+
+  reportSubmitting.value = true;
+  try {
+    await addStockReport({
+      school_id: reportForm.value.school_id,
+      report_date: reportForm.value.report_date,
+      file_main: reportForm.value.file_main
+    });
+    
+    reportSuccess.value = 'Stock report added successfully!';
+    await fetchStockReports();
+    setTimeout(() => { isReportModalOpen.value = false; }, 1200);
+  } catch (e: any) {
+    reportError.value = e.message || 'Failed to submit report.';
+  } finally {
+    reportSubmitting.value = false;
+  }
+}
+
+// ─── Lifecycle ────────────────────────────────────────────────────────────────
+onMounted(async () => {
+  await fetchSchools();
+  fetchOrders();
+  fetchStockReports();
+  setInterval(async () => { await fetchOrders(); }, 30000);
 });
 </script>
+
 <template>
-  <div class="min-h-screen bg-[#f8fafc] p-4 lg:p-8 font-inter">
-    <div class="max-w-7xl mx-auto space-y-10">
-      <!-- Header Section -->
-      <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div>
-          <nav class="flex items-center gap-2 text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 font-manrope">
-            <span>Portal</span>
-            <span class="material-symbols-outlined text-[14px]">chevron_right</span>
-            <span class="text-primary">Inventory Management</span>
-          </nav>
-          <h2 class="text-4xl font-extrabold text-[#1e293b] tracking-tight font-manrope">Stock & Resource Hub</h2>
-          <p class="text-slate-500 mt-1 font-inter">Full-lifecycle tracking from monthly audits to institutional resource ordering.</p>
-        </div>
-        <div class="flex items-center gap-3 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200 shadow-sm">
-          <button @click="activeTab = 'order'" :class="['px-6 py-2.5 rounded-xl text-xs font-bold transition-all font-manrope', activeTab === 'order' ? 'bg-white shadow-md text-primary' : 'text-slate-500 hover:text-primary']">
-            Order Stock
-          </button>
-          <button @click="activeTab = 'report'" :class="['px-6 py-2.5 rounded-xl text-xs font-bold transition-all font-manrope', activeTab === 'report' ? 'bg-white shadow-md text-primary' : 'text-slate-500 hover:text-primary']">
-            Audit Update
-          </button>
-        </div>
+  <div class="px-2 py-8 tailwind-wrapper min-h-screen bg-gradient-to-br from-slate-100 to-slate-100">
+    <div class="max-w-7xl mx-auto p-4 sm:p-8">
+
+      <!-- ─── Tabs ─────────────────────────────────────────────────── -->
+      <div class="mb-8 flex gap-4 flex-wrap">
+        <button
+          @click="activeTab = 'report'"
+          :class="activeTab === 'report'
+            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-500/30 ring-2 ring-offset-2 ring-blue-500 scale-105'
+            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 hover:shadow-md'"
+          class="px-8 py-3 rounded-xl text-sm font-extrabold tracking-wide transition-all duration-300 ease-out flex items-center gap-2"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          Stock Report
+        </button>
+        <button
+          @click="activeTab = 'order'"
+          :class="activeTab === 'order'
+            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-500/30 ring-2 ring-offset-2 ring-blue-500 scale-105'
+            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 hover:shadow-md'"
+          class="px-8 py-3 rounded-xl text-sm font-extrabold tracking-wide transition-all duration-300 ease-out flex items-center gap-2"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+          Order Tracker
+        </button>
       </div>
 
-      <!-- Bento Stats Grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <!-- Total Items -->
-        <div class="relative bg-white p-6 rounded-2xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
-          <div class="absolute bottom-0 left-0 w-full h-1.5 bg-blue-500 rounded-b-2xl"></div>
-          <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 font-manrope">Active Inventory</p>
-          <div class="flex items-end justify-between">
-            <h3 class="text-3xl font-extrabold text-[#1e293b] font-manrope">{{ metrics.totalItems }}</h3>
-            <span class="text-blue-600 text-xs font-bold flex items-center bg-blue-50 px-2 py-1 rounded-lg font-inter">SKUs Tracked</span>
-          </div>
-        </div>
+      <!-- ═══════════════════ ORDER TRACKER TAB ═══════════════════ -->
+      <div v-if="activeTab === 'order'">
 
-        <!-- Low Stock -->
-        <div class="relative bg-white p-6 rounded-2xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
-          <div class="absolute bottom-0 left-0 w-full h-1.5 bg-rose-500 rounded-b-2xl"></div>
-          <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 font-manrope">Low Stock Alerts</p>
-          <div class="flex items-end justify-between">
-            <h3 class="text-3xl font-extrabold text-rose-600 font-manrope">{{ metrics.lowStock }}</h3>
-            <span class="text-rose-600 text-[10px] font-bold flex items-center bg-rose-50 px-2 py-1 rounded-lg font-inter uppercase">Action Required</span>
+        <!-- Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 class="text-2xl font-bold text-slate-900">Request Tracker</h1>
+            <p class="text-sm text-slate-500 mt-1">Monitor your equipment procurement lifecycle in real-time.</p>
           </div>
-        </div>
-
-        <!-- Pending Orders -->
-        <div class="relative bg-white p-6 rounded-2xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
-          <div class="absolute bottom-0 left-0 w-full h-1.5 bg-amber-500 rounded-b-2xl"></div>
-          <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 font-manrope">Pending Orders</p>
-          <div class="flex items-end justify-between">
-            <h3 class="text-3xl font-extrabold text-amber-600 font-manrope">{{ metrics.pendingOrders }}</h3>
-            <span class="text-amber-600 text-xs font-bold flex items-center bg-amber-50 px-2 py-1 rounded-lg font-inter italic tracking-tight">Active Ops</span>
-          </div>
-        </div>
-
-        <!-- Delivered Recently -->
-        <div class="relative bg-white p-6 rounded-2xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
-          <div class="absolute bottom-0 left-0 w-full h-1.5 bg-emerald-500 rounded-b-2xl"></div>
-          <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 font-manrope">Delivered (30d)</p>
-          <div class="flex items-end justify-between">
-            <h3 class="text-3xl font-extrabold text-emerald-600 font-manrope">{{ metrics.deliveredLast30 }}</h3>
-            <span class="text-emerald-600 text-xs font-bold flex items-center bg-emerald-50 px-2 py-1 rounded-lg font-inter truncate">Fulfilled</span>
-          </div>
-        </div>
-      </div>
-      <div v-if="activeTab === 'order'" class="bg-white rounded-xl tracker-card p-6">
-        <h2 class="text-lg font-semibold text-slate-8000 mb-6">Active and Past Requests</h2>
-        <!-- BEGIN: RequestTable -->
-        <div class="table-container overflow-x-auto">
-          <table class="w-full text-left border-collapse min-w-[800px]" id="requests-table">
-            <thead>
-              <tr class="bg-slate-50 border-b border-slate-200">
-                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Request ID</th>
-                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Item Name</th>
-                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Quantity</th>
-                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Requested Date</th>
-                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
-                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-200 table-body">
-              <template v-for="req in requests" :key="req.id">
-                <tr class="transition-colors" :class="expandedRequestId === req.id ? 'bg-blue-50/50 hover:bg-slate-50' : 'hover:bg-slate-50'">
-                  <td class="px-6 py-4 text-sm text-slate-700">{{ req.id }}</td>
-                  <td class="px-6 py-4 text-sm text-slate-700">{{ req.itemName }}</td>
-                  <td class="px-6 py-4 text-sm text-slate-700">{{ req.quantity }}</td>
-                  <td class="px-6 py-4 text-sm text-slate-700">{{ req.date }}</td>
-                  <td class="px-6 py-4">
-                    <span class="status-badge" :class="req.statusClass">{{ req.status }}</span>
-                  </td>
-                  <td class="px-6 py-4">
-                    <button @click="toggleTracker(req.id)" class="border border-blue-600 text-blue-600 px-4 py-1.5 rounded-md text-sm font-medium hover:bg-blue-50">
-                      {{ expandedRequestId === req.id ? 'Hide Tracker' : 'Track Status' }}
-                    </button>
-                  </td>
-                </tr>
-                <tr v-if="expandedRequestId === req.id" class="bg-blue-50/30">
-                  <td class="px-6 py-8" colspan="6">
-                    <div class="bg-white border border-blue-100 rounded-lg p-4 sm:p-8 shadow-sm overflow-x-auto" data-purpose="track-status-detail">
-                      <h3 class="text-sm font-bold text-slate-800 mb-8">Track Status: {{ req.id }}</h3>
-                      <div class="flex items-center justify-between min-w-[600px] max-w-5xl mx-auto pb-4">
-                        <template v-for="(stepStr, index) in trackerSteps" :key="stepStr">
-                          <div class="flex flex-col items-center gap-3 relative">
-                            <!-- Completed Step -->
-                            <div v-if="req.step > index + 1 || (req.step === 5 && index === 4)" class="w-10 h-10 rounded-full bg-green-600 flex items-center justify-center text-white">
-                              <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path>
-                              </svg>
-                            </div>
-                            <!-- Active Step -->
-                            <div v-else-if="req.step === index + 1" class="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center text-white ring-4 ring-blue-50">
-                              <svg v-if="stepStr === 'Processing'" class="h-6 w-6 animate-spin" fill="none" stroke="currentColor" style="animation-duration: 3s;" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-                              </svg>
-                              <div v-else class="w-3 h-3 rounded-full bg-white"></div>
-                            </div>
-                            <!-- Pending Step -->
-                            <div v-else class="w-10 h-10 rounded-full bg-slate-300 flex items-center justify-center text-white">
-                            </div>
-                            <span class="text-xs font-medium whitespace-nowrap" :class="req.step >= index + 1 ? 'text-slate-800' : 'text-slate-400'">{{ stepStr }}</span>
-                          </div>
-
-                          <!-- Line connecting steps -->
-                          <div v-if="index < 4" class="flex-grow h-[2px] mx-4 self-center -mt-6" :class="req.step > index + 1 ? (req.step === index + 2 ? 'bg-blue-600' : 'bg-green-600') : 'bg-slate-200'">
-                            <div v-if="req.step > index + 1" class="flex justify-end -mt-1.5">
-                              <svg fill="none" height="12" viewBox="0 0 12 12" width="12" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M4 2L8 6L4 10" :stroke="req.step === index + 2 ? '#2563eb' : '#16a34a'" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
-                              </svg>
-                            </div>
-                          </div>
-                        </template>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              </template>
-            </tbody>
-          </table>
-        </div>
-        <!-- END: RequestTable -->
-      </div>
-      
-      <!-- Stock Report Update Tab Content -->
-      <div v-else-if="activeTab === 'report'" class="bg-white rounded-xl tracker-card p-6 animate-fade-in">
-        
-        <!-- TOP CONTROLS -->
-        <div class="flex flex-wrap items-end gap-6 mb-8">
-          <!-- SCHOOL SELECT -->
-          <div class="w-full sm:w-auto min-w-[300px]">
-            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Select School</label>
-            <select v-model="selectedSchoolId" class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm font-semibold outline-none shadow-sm">
-              <option :value="null">-- Select School --</option>
-              <option v-for="s in schools" :key="s.id" :value="s.id">
-                {{ s.name }} ({{ s.school_code }})
-              </option>
-            </select>
-          </div>
-
-          <!-- EQUIPMENT SEARCH -->
-          <div class="w-full sm:w-auto flex-grow relative" v-if="selectedSchoolId">
-            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Add Equipment</label>
+          <div class="flex items-center gap-3 relative">
+            <!-- Filter Button -->
             <div class="relative">
-              <input 
-                v-model="equipmentSearch" 
-                @input="handleSearch"
-                @focus="showResults = true"
-                type="text" 
-                class="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all text-sm font-semibold outline-none shadow-sm"
-                placeholder="Search to add item..."
-              />
-              <!-- Autocomplete Dropdown -->
-              <div v-if="showResults && searchResults.length" class="absolute z-[100] w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl max-h-60 overflow-y-auto">
-                <div 
-                  v-for="res in searchResults" 
-                  :key="res.id"
-                  @click="addEquipment(res)"
-                  class="px-4 py-3 hover:bg-blue-50 cursor-pointer text-sm font-medium text-slate-700 border-b border-slate-50 last:border-0 transition-colors"
-                >
-                  {{ res.value }}
+              <button
+                @click="showFilterDropdown = !showFilterDropdown"
+                class="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors shadow-sm"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h18M6 8h12M9 12h6M11 16h2" />
+                </svg>
+                Filter
+              </button>
+              <!-- Filter Dropdown -->
+              <div
+                v-if="showFilterDropdown"
+                v-click-outside="() => showFilterDropdown = false"
+                class="absolute right-0 top-11 z-50 bg-white border border-slate-200 rounded-xl shadow-xl p-4 w-56"
+              >
+                <div class="mb-3">
+                  <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Status</label>
+                  <select v-model="filterStatus" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="all">All Statuses</option>
+                    <option value="1">Pending SSGM</option>
+                    <option value="2">SSGM Verified</option>
+                    <option value="3">Admin Approved</option>
+                    <option value="4">Processing</option>
+                    <option value="5">Delivered</option>
+                  </select>
+                </div>
+                <div class="mb-4">
+                  <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">School</label>
+                  <select v-model="filterSchool" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="all">All Schools</option>
+                    <option v-for="s in schools" :key="s.id" :value="String(s.id)">{{ s.name }}</option>
+                  </select>
+                </div>
+                <div class="flex gap-2">
+                  <button @click="resetFilter" class="flex-1 px-3 py-2 border border-slate-300 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-50 transition-colors">Reset</button>
+                  <button @click="applyFilter" class="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 transition-colors">Apply</button>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- AUTOSAVE STATUS -->
-          <div v-if="autosaveStatus.type" class="ml-auto mb-2 pr-2">
-            <span :class="{
-              'bg-blue-100 text-blue-700': autosaveStatus.type === 'info',
-              'bg-green-100 text-green-700': autosaveStatus.type === 'success',
-              'bg-red-100 text-red-700': autosaveStatus.type === 'error'
-            }" class="px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-sm border border-current transition-all">
-              <div v-if="autosaveStatus.type === 'info'" class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-              {{ autosaveStatus.message }}
-            </span>
+            <!-- New Order Button -->
+            <button
+              @click="openOrderModal"
+              class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              New Request
+            </button>
           </div>
         </div>
 
-        <!-- DYNAMIC STOCK TABLE -->
-        <div v-if="selectedSchoolId" class="table-container shadow-sm border-slate-100">
-          <table class="w-full text-left border-collapse min-w-max">
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Total Requests</p>
+            <p class="text-3xl font-bold text-slate-900">{{ stats.total }}</p>
+            <p class="text-xs text-slate-400 mt-2">All orders</p>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Pending SSGM</p>
+            <p class="text-3xl font-bold text-amber-600">{{ stats.pendingSsgm }}</p>
+            <p class="text-xs text-slate-400 mt-2">Awaiting verification</p>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">In Logistics</p>
+            <p class="text-3xl font-bold text-blue-600">{{ stats.inLogistics }}</p>
+            <p class="text-xs text-blue-500 mt-2">Processing delivery</p>
+          </div>
+          <div class="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+            <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Completed</p>
+            <p class="text-3xl font-bold text-green-600">{{ stats.completed }}</p>
+            <p class="text-xs text-slate-400 mt-2">Delivered</p>
+          </div>
+        </div>
+
+        <!-- Loading / Error -->
+        <div v-if="ordersLoading" class="bg-white rounded-xl border border-slate-200 p-10 text-center text-slate-500 text-sm shadow-sm">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
+          Loading orders…
+        </div>
+        <div v-else-if="ordersError" class="bg-white rounded-xl border border-red-200 p-6 text-center text-red-600 text-sm shadow-sm">{{ ordersError }}</div>
+
+        <!-- Orders List Card -->
+        <div v-else>
+
+          <!-- Empty -->
+          <div v-if="filteredOrders.length === 0" class="py-16 text-center text-slate-400">
+            <svg class="w-12 h-12 mx-auto mb-3 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+            <p class="font-semibold">No orders found</p>
+            <p class="text-sm mt-1">Try adjusting your filters or create a new request.</p>
+          </div>
+
+          <!-- Order Rows -->
+          <template v-for="(order, idx) in paginatedOrders" :key="order.id">
+            <div
+  class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-4 hover:shadow-md transition-all"              :class="expandedOrderId === order.id ? 'bg-blue-50/40' : 'hover:bg-slate-50/60'"
+            >
+              <div class="p-5">
+                <!-- Row Top: badge + name + actions -->
+                <div class="flex items-start justify-between gap-4 mb-4">
+                  <div class="flex-1 min-w-0">
+                    <!-- Badge row -->
+                    <div class="flex items-center gap-2 flex-wrap mb-1.5">
+                      <span class="order-id-badge">ORD-{{ String(order.id).padStart(4, '0') }}</span>
+                      <span class="text-xs text-slate-400">{{ order.created_at }}</span>
+                      <span class="status-badge" :class="order.statusClass">{{ order.status }}</span>
+                      <a
+                        v-if="order.image_path"
+                        :href="`${BASE_URL}/${order.image_path}`"
+                        target="_blank"
+                        class="text-blue-500 hover:text-blue-700 text-xs font-semibold underline"
+                      >View Image</a>
+                    </div>
+                    <!-- Name & meta -->
+                    <p class="text-base font-bold text-slate-800 truncate">{{ order.sku_name }} <span class="font-normal text-slate-500">(x{{ order.qty }})</span></p>
+                    <p class="text-sm text-slate-500 mt-0.5">{{ order.school_name }}{{ order.size ? ' · ' + order.size : '' }}</p>
+                  </div>
+                  <!-- Actions -->
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      @click="expandedOrderId = expandedOrderId === order.id ? null : order.id"
+                      class="flex items-center gap-1.5 px-3 py-1.5 border border-blue-500 text-blue-600 rounded-lg text-xs font-semibold hover:bg-blue-50 transition-colors"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      {{ expandedOrderId === order.id ? 'Hide' : 'Track' }}
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Visual Tracker Steps (always visible, inline) -->
+                <div class="flex items-center min-w-0 overflow-x-auto pb-1">
+                  <template v-for="(stepLabel, index) in trackerSteps" :key="stepLabel">
+                    <div class="flex flex-col items-center gap-1.5 flex-shrink-0">
+                      <!-- Circle -->
+                      <div
+                        v-if="order.step > index + 1"
+                        class="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center shadow-sm shadow-green-200"
+                      >
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                          <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                      </div>
+                      <div
+                        v-else-if="order.step === index + 1"
+                        class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center ring-4 ring-blue-100 shadow-sm shadow-blue-200"
+                      >
+                        <div class="w-2.5 h-2.5 rounded-full bg-white animate-pulse" />
+                      </div>
+                      <div v-else class="w-8 h-8 rounded-full bg-slate-200 border-2 border-slate-300 flex items-center justify-center" />
+                      <!-- Label -->
+                      <span
+                        class="text-[10px] font-semibold whitespace-nowrap"
+                        :class="order.step > index + 1 ? 'text-green-600' : order.step === index + 1 ? 'text-blue-600' : 'text-slate-400'"
+                      >{{ stepLabel }}</span>
+                    </div>
+                    <!-- Connector line -->
+                    <div
+                      v-if="index < trackerSteps.length - 1"
+                      class="flex-grow h-[2px] mx-2 self-start mt-4 min-w-[20px]"
+                      :class="order.step > index + 1 ? 'bg-green-400' : 'bg-slate-200'"
+                    />
+                  </template>
+                </div>
+              </div>
+
+              <!-- Expanded Detail Row -->
+              <div v-if="expandedOrderId === order.id" class="border-t border-blue-100 bg-white px-6 py-5">
+                <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Order Details</h4>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <p class="text-xs text-slate-400 mb-1">SSGM Status</p>
+                    <span class="status-badge" :class="`status-${order.ssgmStatus}`">{{ statusLabel(order.ssgmStatus) }}</span>
+                  </div>
+                  <div>
+                    <p class="text-xs text-slate-400 mb-1">Admin Status</p>
+                    <span class="status-badge" :class="`status-${order.adminStatus}`">{{ statusLabel(order.adminStatus) }}</span>
+                  </div>
+                  <div>
+                    <p class="text-xs text-slate-400 mb-1">Delivery</p>
+                    <span class="status-badge" :class="`status-${order.deliveryStatus}`">{{ statusLabel(order.deliveryStatus) }}</span>
+                  </div>
+                  <div>
+                    <p class="text-xs text-slate-400 mb-1">Delivery Date</p>
+                    <p class="font-semibold text-slate-700">{{ order.deliveryDate }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- Footer / Pagination -->
+          <div class="flex items-center justify-between px-5 py-3 bg-slate-50 border-t border-slate-100">
+            <span class="text-sm text-slate-500">
+              Showing {{ Math.min((currentPage - 1) * perPage + 1, filteredOrders.length) }}–{{ Math.min(currentPage * perPage, filteredOrders.length) }} of {{ filteredOrders.length }} requests
+            </span>
+            <div class="flex items-center gap-1.5">
+              <button
+                @click="goPage(currentPage - 1)"
+                :disabled="currentPage === 1"
+                class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 text-sm font-semibold disabled:opacity-40 hover:bg-slate-100 transition-colors"
+              >‹</button>
+              <button
+                v-for="p in totalPages"
+                :key="p"
+                @click="goPage(p)"
+                :class="p === currentPage ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-100'"
+                class="w-8 h-8 flex items-center justify-center rounded-lg border text-sm font-semibold transition-colors"
+              >{{ p }}</button>
+              <button
+                @click="goPage(currentPage + 1)"
+                :disabled="currentPage === totalPages"
+                class="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-600 text-sm font-semibold disabled:opacity-40 hover:bg-slate-100 transition-colors"
+              >›</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- END ORDER TRACKER TAB -->
+
+      <!-- ═══════════════════ STOCK REPORT TAB ═══════════════════ -->
+      <div v-else-if="activeTab === 'report'" class="bg-white rounded-xl tracker-card p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <h2 class="text-lg font-semibold text-slate-800">Stock Reports</h2>
+          <div class="flex flex-wrap items-center gap-3">
+            <select
+              v-model="filterMonth"
+              @change="fetchStockReports"
+              class="px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Months</option>
+              <option v-for="m in 12" :key="m" :value="m">{{ new Date(2000, m-1, 1).toLocaleString('default', { month: 'long' }) }}</option>
+            </select>
+            <input
+              type="date"
+              v-model="filterDate"
+              @change="fetchStockReports"
+              class="px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              @click="openReportModal"
+              class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium shadow-sm flex items-center gap-2 transition-colors"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              Add Report
+            </button>
+          </div>
+        </div>
+
+        <div v-if="reportsLoading" class="text-center py-10 text-slate-500 text-sm">Loading reports…</div>
+        <div v-else-if="reportsError" class="text-center py-6 text-red-600 text-sm">{{ reportsError }}</div>
+
+        <div v-else class="table-container overflow-x-auto">
+          <table class="w-full text-left border-collapse min-w-[700px]">
             <thead>
-              <tr class="bg-slate-50/80 backdrop-blur-sm sticky top-0 z-20">
-                <th rowspan="2" class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-r border-slate-200 text-center w-16">Sr</th>
-                <th rowspan="2" class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-200 min-w-[200px]">Item Details</th>
-                <template v-for="(name, id) in availableMonths" :key="id">
-                  <th :colspan="isAdmin ? 5 : 3" class="px-6 py-3 text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] text-center border-b border-l border-slate-200 bg-blue-50/30">
-                    {{ name }}
-                  </th>
-                </template>
-                <th rowspan="2" class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-l border-slate-200 text-center">Trends</th>
-                <th rowspan="2" class="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-l border-slate-200 text-center w-20">Action</th>
-              </tr>
-              <tr class="bg-slate-50/50 text-[9px] font-bold text-slate-500 uppercase tracking-wider">
-                <template v-for="(name, id) in availableMonths" :key="id">
-                  <th class="px-3 py-2 border-b border-l border-slate-200 text-center">Size</th>
-                  <th class="px-3 py-2 border-b border-slate-100 text-center">Sch Qty</th>
-                  <th class="px-3 py-2 border-b border-slate-100 text-center">Sch Dmg</th>
-                  <th v-if="isAdmin" class="px-3 py-2 border-b border-slate-100 text-center bg-orange-50/30">WH Qty</th>
-                  <th v-if="isAdmin" class="px-3 py-2 border-b border-slate-100 text-center bg-orange-50/30 font-black">WH Dmg</th>
-                </template>
+              <tr class="bg-slate-50 border-b border-slate-400">
+                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">School Name</th>
+                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Date</th>
+                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Month</th>
+                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Uploader</th>
+                <th class="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider">Document</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100 cursor-default">
-              <tr v-for="(row, idx) in inventoryRows" :key="row.id" class="hover:bg-blue-50/30 transition-colors group">
-                <td class="px-6 py-4 text-xs font-bold text-slate-400 text-center border-r border-slate-50 group-hover:text-blue-500">{{ idx + 1 }}</td>
-                <td class="px-6 py-4 border-slate-50">
-                  <div class="text-sm font-bold text-slate-800">{{ row.name }}</div>
-                  <div class="text-[10px] text-slate-400 font-medium">ID: {{ row.id }}</div>
-                </td>
-                
-                <template v-for="(name, mId) in availableMonths" :key="mId">
-                  <!-- SIZE -->
-                  <td class="px-2 py-3 border-l border-slate-50">
-                    <input v-model="row.months[mId].size" @input="handleAutosave(row.id, mId, 'size', row.months[mId].size)" type="text" class="w-full px-2 py-1.5 bg-transparent group-hover:bg-white border-transparent border focus:border-blue-300 rounded text-center text-xs font-semibold focus:outline-none transition-all" placeholder="-">
-                  </td>
-                  <!-- SCH QTY -->
-                  <td class="px-2 py-3">
-                    <input v-model.number="row.months[mId].qty" @input="handleAutosave(row.id, mId, 'qty', row.months[mId].qty)" type="number" class="w-full px-2 py-1.5 bg-transparent group-hover:bg-white border-transparent border focus:border-blue-300 rounded text-center text-xs font-bold text-blue-700 focus:outline-none transition-all" min="0">
-                  </td>
-                  <!-- SCH DMG -->
-                  <td class="px-2 py-3">
-                    <input v-model.number="row.months[mId].damage" @input="handleAutosave(row.id, mId, 'damage', row.months[mId].damage)" type="number" class="w-full px-2 py-1.5 bg-transparent group-hover:bg-white border-transparent border focus:border-red-300 rounded text-center text-xs font-bold text-red-600 focus:outline-none transition-all" min="0">
-                  </td>
-                  <!-- ADMIN FIELDS -->
-                  <td v-if="isAdmin" class="px-2 py-3 bg-orange-50/10">
-                    <input v-model.number="row.months[mId].warehouse_qty" @input="handleAutosave(row.id, mId, 'warehouse_qty', row.months[mId].warehouse_qty)" type="number" class="w-full px-2 py-1.5 bg-transparent group-hover:bg-white border-transparent border focus:border-orange-300 rounded text-center text-xs font-bold text-indigo-700 focus:outline-none transition-all" min="0">
-                  </td>
-                  <td v-if="isAdmin" class="px-2 py-3 bg-orange-50/10">
-                    <input v-model.number="row.months[mId].warehouse_damage" @input="handleAutosave(row.id, mId, 'warehouse_damage', row.months[mId].warehouse_damage)" type="number" class="w-full px-2 py-1.5 bg-transparent group-hover:bg-white border-transparent border focus:border-orange-300 rounded text-center text-xs font-bold text-red-800 focus:outline-none transition-all" min="0">
-                  </td>
-                </template>
-
-                <!-- TRENDS -->
-                <td class="px-6 py-4 border-l border-slate-50 text-center">
-                  <div class="flex flex-col gap-1">
-                    <template v-for="(name, mId) in availableMonths" :key="mId">
-                      <div v-if="calculateDiff(row, mId, 'qty')" class="text-[9px] font-black whitespace-nowrap bg-white px-2 py-1 rounded-md shadow-sm border border-slate-100 flex items-center justify-between gap-3">
-                        <span class="text-slate-400">{{ availableMonths[mId].substring(0,3) }}:</span>
-                        <span :class="calculateDiff(row, mId, 'qty')?.class">{{ calculateDiff(row, mId, 'qty')?.text }}</span>
-                      </div>
-                    </template>
-                  </div>
-                </td>
-
-                <!-- REMOVE -->
-                <td class="px-6 py-4 border-l border-slate-50 text-center">
-                  <button @click="removeRow(row.id)" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all transform hover:scale-110 active:scale-90 opacity-0 group-hover:opacity-100">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                  </button>
+            <tbody class="divide-y divide-slate-400 table-body">
+              <tr v-for="rep in stockReports" :key="rep.id" class="hover:bg-slate-50 transition-colors">
+                <td class="px-6 py-4 text-sm text-slate-700">{{ rep.school_name }}</td>
+                <td class="px-6 py-4 text-sm text-slate-700">{{ rep.report_date }}</td>
+                <td class="px-6 py-4 text-sm text-slate-700">{{ formatDate(rep.report_date) }}</td>
+                <td class="px-6 py-4 text-sm text-slate-700">{{ rep.uploader_name }}</td>
+                <td class="px-6 py-4 text-sm">
+                  <a
+                    :href="`${BASE_URL}/${rep.file_path}`"
+                    target="_blank"
+                    class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-semibold rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    View
+                  </a>
                 </td>
               </tr>
-
-              <!-- EMPTY STATE -->
-              <tr v-if="inventoryRows.length === 0">
-                <td :colspan="10" class="px-6 py-20 text-center">
-                   <div class="flex flex-col items-center gap-4 text-slate-300">
-                    <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
-                    <span class="text-sm font-extrabold uppercase tracking-widest">{{ selectedSchoolId ? 'No equipments added yet. Search to start.' : 'Please select a school to begin.' }}</span>
-                   </div>
-                </td>
+              <tr v-if="stockReports.length === 0">
+                <td colspan="5" class="px-6 py-10 text-center text-sm text-slate-500">No reports found.</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
-      
-    </div>
-    
-    <!-- Floating Action Button -->
-    <button v-if="activeTab === 'order'" @click="isModalOpen = true" class="fixed bottom-8 right-8 bg-blue-600 hover:bg-blue-700 text-white rounded-full p-4 shadow-lg transition-transform hover:scale-105 z-50 flex items-center justify-center" aria-label="Add Request">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
-      </svg>
-    </button>
+      <!-- END STOCK REPORT TAB -->
 
-    <!-- Modal Overlay -->
-    <div v-if="isModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-      <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
-        <!-- Modal Header -->
-        <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-          <h3 class="text-lg font-semibold text-slate-800">New Stock Request</h3>
-          <button @click="isModalOpen = false" class="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-md hover:bg-slate-200">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
-        </div>
-        
-        <!-- Modal Body -->
-        <div class="p-6 max-h-[75vh] overflow-y-auto">
-          <p class="text-sm text-slate-600 mb-5">Please provide the details for the new stock request.</p>
-          <div class="space-y-5">
-            <!-- School Name -->
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">School Name</label>
-              <select class="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow text-sm bg-white">
-                <option value="" disabled selected>Select School</option>
-                <option value="school1">School 1</option>
-                <option value="school2">School 2</option>
-                <option value="school3">School 3</option>
+    </div>
+
+    <!-- ═══════════════════ ORDER MODAL ═══════════════════ -->
+    <Teleport to="body">
+      <div v-if="isOrderModalOpen" class="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden ring-1 ring-slate-100 max-h-[90vh] flex flex-col">
+          <div class="px-6 py-4 border-b border-slate-400 flex justify-between items-center bg-slate-50 shrink-0">
+            <h3 class="text-lg font-semibold text-slate-800">New Equipment Order</h3>
+            <button @click="closeOrderModal" class="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-md hover:bg-slate-400">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div class="flex-1 overflow-y-auto px-6 py-6">
+            <div class="mb-6">
+              <label class="block text-sm font-semibold text-slate-700 mb-2">School Name</label>
+              <select v-model="orderForm.school_id" class="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                <option value="">Select School</option>
+                <option v-for="school in schools" :key="school.id" :value="school.id">{{ school.name }}</option>
               </select>
             </div>
-            
-            <!-- Equipment Items -->
-            <div>
-              <div class="flex items-center justify-between mb-2">
-                <label class="block text-sm font-medium text-slate-700">Equipment Items</label>
-              </div>
-              <div class="p-4 border border-slate-200 rounded-lg bg-slate-50 space-y-3">
-                <div class="grid grid-cols-12 gap-3">
-                  <div class="col-span-12 sm:col-span-6">
-                    <label class="block text-xs font-medium text-slate-600 mb-1">SKU Name</label>
-                    <input type="text" class="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow text-sm bg-white" placeholder="Item SKU" />
+
+            <div class="mb-8">
+              <label class="block text-base font-semibold text-slate-800 mb-4">Equipment Items</label>
+              <div class="border border-slate-400 rounded-lg overflow-hidden">
+                <div class="bg-slate-50 border-b border-slate-300 grid grid-cols-12 gap-0">
+                  <div class="px-4 py-4 text-sm font-semibold text-slate-700 uppercase tracking-wider col-span-7">SKU Name</div>
+                  <div class="px-4 py-4 text-sm font-semibold text-slate-700 uppercase tracking-wider col-span-3 text-center">Quantity</div>
+                  <div class="px-4 py-4 text-sm font-semibold text-slate-700 uppercase tracking-wider col-span-1 text-center">Delete</div>
+                </div>
+                <div v-for="(item, index) in orderForm.items" :key="index" class="border-b border-slate-300 last:border-b-0 grid grid-cols-12 gap-0 hover:bg-slate-50">
+                  <div class="col-span-7 px-4 py-3">
+                    <input v-model="item.sku_name" placeholder="Enter SKU name" class="w-full px-3 py-2.5 border border-slate-300 rounded text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                   </div>
-                  <div class="col-span-6 sm:col-span-3">
-                    <label class="block text-xs font-medium text-slate-600 mb-1">Qty</label>
-                    <input type="number" min="1" class="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow text-sm bg-white" placeholder="1" />
+                  <div class="col-span-3 px-3 py-3">
+                    <input v-model.number="item.qty" type="number" placeholder="0" min="0" class="w-full px-3 py-2.5 border border-slate-300 rounded text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center" />
                   </div>
-                  <div class="col-span-6 sm:col-span-3">
-                    <label class="block text-xs font-medium text-slate-600 mb-1">Size</label>
-                    <input type="text" class="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow text-sm bg-white" placeholder="e.g. M, L" />
+                  <div class="col-span-2 px-4 py-3 flex justify-center">
+                    <button v-if="orderForm.items.length > 1" @click="removeEquipmentRow(index)" class="text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors p-2 rounded">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
-                <button type="button" class="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center mt-2">
-                  <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                  Add another item
-                </button>
+              </div>
+              <button @click="addEquipmentRow" class="mt-4 text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-2 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Add More Equipment
+              </button>
+            </div>
+
+            <div class="mb-8">
+              <label class="block text-base font-semibold text-slate-800 mb-4">Upload Equipment List</label>
+              <div class="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
+                <input type="file" @change="onEquipmentImageChange" accept="image/*,.pdf" class="hidden" ref="equipmentImageInput" />
+                <div class="space-y-3">
+                  <svg class="w-12 h-12 mx-auto text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <div>
+                    <p class="text-sm text-slate-600 mb-2">Click to upload or drag and drop</p>
+                    <p class="text-xs text-slate-500">SVG, PNG, JPG or GIF (max. 800x400px)</p>
+                  </div>
+                  <button @click="equipmentImageInput?.click()" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">Select File</button>
+                  <div v-if="orderForm.equipment_list_image" class="mt-3 text-sm text-slate-600">
+                    <p class="font-medium">Selected: {{ orderForm.equipment_list_image.name }}</p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <!-- Upload Equipment List -->
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Upload Equipment List (Optional)</label>
-              <input type="file" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 border border-slate-300 rounded-md bg-white cursor-pointer" />
-              <p class="mt-1.5 text-xs text-slate-500">You can upload a photo of the equipment list if it’s long.</p>
-            </div>
+            <div v-if="orderSuccess" class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">{{ orderSuccess }}</div>
+            <div v-if="orderError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{{ orderError }}</div>
+          </div>
+
+          <div class="px-6 py-4 border-t border-slate-200 flex justify-end gap-3 bg-slate-50 shrink-0">
+            <button @click="closeOrderModal" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium">Cancel</button>
+            <button @click="submitOrderForm" :disabled="orderSubmitting" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+              <svg v-if="orderSubmitting" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              {{ orderSubmitting ? 'Submitting...' : 'Submit Order' }}
+            </button>
           </div>
         </div>
-        
-        <!-- Modal Footer -->
-        <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-          <button @click="isModalOpen = false" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-100 text-sm font-medium transition-colors">Cancel</button>
-          <button @click="isModalOpen = false" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-medium shadow-sm transition-colors">Submit Request</button>
-        </div>
       </div>
-    </div>
-    
-    <!-- Report Modal Overlay -->
-    <div v-if="isReportModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 transition-all duration-300">
-      <div class="bg-white rounded-2xl shadow-2xl shadow-blue-900/20 w-full max-w-lg overflow-hidden transform transition-all ring-1 ring-slate-100">
-        <!-- Modal Header -->
-        <div class="px-6 py-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-          <h3 class="text-lg font-semibold text-slate-800">Add Stock Report</h3>
-          <button @click="isReportModalOpen = false" class="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-md hover:bg-slate-200">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-            </svg>
-          </button>
-        </div>
-        
-        <!-- Modal Body -->
-        <div class="p-6 max-h-[75vh] overflow-y-auto">
-          <div class="space-y-5">
-            <!-- School Name -->
+    </Teleport>
+
+    <!-- ═══════════════════ REPORT MODAL ═══════════════════ -->
+    <Teleport to="body">
+      <div v-if="isReportModalOpen" class="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden ring-1 ring-slate-100">
+          <div class="px-6 py-4 border-b border-slate-400 flex justify-between items-center bg-slate-50">
+            <h3 class="text-lg font-semibold text-slate-800">Add Monthly Stock Report</h3>
+            <button @click="closeReportModal" class="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-md hover:bg-slate-200">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div class="p-6 space-y-5">
+            <div v-if="reportSuccess" class="p-3 bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg">{{ reportSuccess }}</div>
+            <div v-if="reportError" class="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">{{ reportError }}</div>
             <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">School Name</label>
-              <select class="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow text-sm bg-white">
-                <option value="" disabled selected>Select School</option>
-                <option value="school1">School 1</option>
-                <option value="school2">School 2</option>
-                <option value="school3">School 3</option>
+              <label class="block text-sm font-medium text-slate-700 mb-1">School <span class="text-red-500">*</span></label>
+              <select v-model="reportForm.school_id" class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">Select School</option>
+                <option v-for="s in schools" :key="s.id" :value="s.id">{{ s.name }}</option>
               </select>
             </div>
-            
-            <!-- Upload Image -->
             <div>
-              <label class="block text-sm font-bold text-slate-700 mb-2">Add Report Image</label>
-              <div class="relative group cursor-pointer mt-1">
-                <div class="absolute inset-0 bg-blue-50/50 border-2 border-dashed border-blue-300 rounded-xl group-hover:bg-blue-100 group-hover:border-blue-500 transition-colors duration-300 pointer-events-none"></div>
-                <input type="file" accept="image/*" class="relative z-10 block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer bg-transparent focus:outline-none" />
-              </div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Date <span class="text-red-500">*</span></label>
+              <input type="date" v-model="reportForm.report_date" class="w-full px-3 py-2 border border-slate-300 rounded-md text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
-
-            <!-- Upload PDF -->
             <div>
-              <label class="block text-sm font-bold text-slate-700 mb-2">Upload PDF Document</label>
-              <div class="relative group cursor-pointer mt-1">
-                <div class="absolute inset-0 bg-red-50/50 border-2 border-dashed border-red-300 rounded-xl group-hover:bg-red-100 group-hover:border-red-500 transition-colors duration-300 pointer-events-none"></div>
-                <input type="file" accept=".pdf" class="relative z-10 block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-bold file:bg-red-600 file:text-white hover:file:bg-red-700 cursor-pointer bg-transparent focus:outline-none" />
+              <label class="block text-sm font-bold text-slate-700 mb-2">Upload Image / PDF <span class="text-red-500">*</span></label>
+              <div class="relative group cursor-pointer">
+                <div class="absolute inset-0 bg-blue-50/50 border-2 border-dashed border-blue-300 rounded-xl group-hover:bg-blue-100 group-hover:border-blue-500 transition-colors pointer-events-none" />
+                <input type="file" accept=".jpg,.jpeg,.png,.pdf" @change="onReportFileChange" class="relative z-10 block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-4 file:rounded-l-lg file:border-0 file:text-sm file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer bg-transparent focus:outline-none" />
               </div>
+              <p class="mt-1.5 text-xs text-slate-500">JPG, PNG, PDF allowed.</p>
             </div>
           </div>
-        </div>
-        
-        <!-- Modal Footer -->
-        <div class="px-6 py-5 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
-          <button @click="isReportModalOpen = false" class="px-5 py-2.5 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-200 text-sm font-bold transition-colors">Cancel</button>
-          <button @click="isReportModalOpen = false" class="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-blue-500/30 transition-all transform hover:scale-105 active:scale-95">Submit Report</button>
+          <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3">
+            <button @click="closeReportModal" class="px-5 py-2.5 border border-slate-300 text-slate-700 rounded-xl hover:bg-slate-200 text-sm font-bold transition-colors">Cancel</button>
+            <button @click="submitReportForm" :disabled="reportSubmitting" class="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-sm font-bold shadow-lg transition-all disabled:opacity-60 flex items-center gap-2">
+              <svg v-if="reportSubmitting" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"/>
+              </svg>
+              {{ reportSubmitting ? 'Saving…' : 'Save Report' }}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-
+    </Teleport>
   </div>
 </template>
 
@@ -614,71 +867,44 @@ const metrics = computed(() => {
   color: #0f172a;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(15px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+.order-id-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 5px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  letter-spacing: 0.02em;
 }
 
 .status-badge {
-  padding: 6px 14px;
+  padding: 3px 10px;
   border-radius: 9999px;
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   font-weight: 700;
   display: inline-flex;
   letter-spacing: 0.025em;
   align-items: center;
   justify-content: center;
   border: 1px solid transparent;
+  white-space: nowrap;
 }
-.status-pending { background-color: #fef3c7; color: #b45309; border-color: #fde68a; }
+.status-pending    { background-color: #fef3c7; color: #b45309; border-color: #fde68a; }
+.status-approved   { background-color: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+.status-rejected   { background-color: #fef2f2; color: #b91c1c; border-color: #fecaca; }
 .status-processing { background-color: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
-.status-delivered { background-color: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
-.status-rejected { background-color: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+.status-delivered  { background-color: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
 
 .tracker-card {
-  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05)!important;
-  border: 1px solid #f1f5f9!important;
-  transition: all 0.3s ease;
-}
-
-.tracker-card:hover {
-  box-shadow: 0 25px 35px -5px rgb(0 0 0 / 0.07), 0 10px 15px -6px rgb(0 0 0 / 0.05)!important;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.05), 0 8px 10px -6px rgb(0 0 0 / 0.05) !important;
+  border: 1px solid #f1f5f9 !important;
 }
 
 .table-container {
-  overflow-x: auto;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
-  max-width: 100%;
+  border: 1px solid #94a3b8;
 }
 
-table {
-  width: max-content !important;
-  min-width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-.table-body tr {
-  border-bottom: 1px solid #f1f5f9;
-}
-.table-body tr:last-child {
-  border-bottom: none;
-}
-
-/* Chrome, Safari, Edge, Opera */
-input::-webkit-outer-spin-button,
-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-/* Firefox */
-input[type=number] {
-  -moz-appearance: textfield;
-}
+table { border-collapse: collapse; }
 </style>

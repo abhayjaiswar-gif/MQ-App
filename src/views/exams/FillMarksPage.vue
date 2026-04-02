@@ -175,15 +175,7 @@ const hasInvalidMarks = (student) => {
 const submitAll = async () => {
     if (students.value.length === 0) return;
 
-    // VALIDATION
-    for (const student of students.value) {
-        for (const param of parameters.value) {
-            if (isInvalid(student, param.id, student.marks[param.id])) {
-                showToast(`Invalid marks for ${student.name} (${param.title})`, 'error');
-                return;
-            }
-        }
-    }
+    // (REMOVED VALIDATION BLOCK TO ALLOW SAVING OUT-OF-RANGE MARKS AS REQUESTED)
 
     isSavingAll.value = true;
 
@@ -633,7 +625,7 @@ onMounted(fetchFilters);
                                     </td>
                                 </tr>
                                 <tr v-else v-for="(student, index) in students" :key="student.id"
-                                    :class="['transition-all group border-l-4', hasInvalidMarks(student) ? '!border-red-500 bg-red-50/50 outline outline-1 outline-red-400' : 'border-transparent hover:border-primary hover:bg-slate-50/80']">
+                                    :class="['transition-all group border-l-4', hasInvalidMarks(student) ? '!border-red-500 bg-red-100/50 outline outline-1 outline-red-400' : 'border-transparent hover:border-primary hover:bg-slate-50/80']">
                                     <td class="px-6 py-5 text-[11px] font-bold text-slate-400 font-manrope">{{
                                         String(index + 1).padStart(2, '0') }}</td>
                                     <td class="px-6 py-5">

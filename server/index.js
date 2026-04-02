@@ -7,8 +7,77 @@ const morgan = require('morgan');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const QRCode = require('qrcode');
+const { PDFDocument, rgb, StandardFonts, degrees, PageSizes } = require('pdf-lib');
+const archiver = require('archiver');
 require('dotenv').config();
 const db = require('./db');
+
+// ── UTILS ──
+function wrapText(text, maxW, font, fontSize) {
+  const words = text.split(/\s+/);
+  const lines = [];
+  let currentLine = words[0];
+
+  for (let i = 1; i < words.length; i++) {
+    const word = words[i];
+    const width = font.widthOfTextAtSize(currentLine + " " + word, fontSize);
+    if (width < maxW) {
+      currentLine += " " + word;
+    } else {
+      lines.push(currentLine);
+      currentLine = word;
+    }
+  }
+  lines.push(currentLine);
+  return lines;
+}
+
+// ── GET OR CREATE REPORT KEY (Matched to Legacy PHP Logic) ──
+async function getOrCreateReportKey(resultId, db) {
+  try {
+    // 1. Check if table exists
+    const [tables] = await db.query("SHOW TABLES LIKE 'fitness_test_report_access'");
+    if (tables.length === 0) {
+      console.log(`[PDF] Table 'fitness_test_report_access' missing, using simple fallback`);
+      return `fitness-${resultId}B${Math.floor(Date.now() / 1000)}`;
+    }
+
+    // 2. Already exists?
+    const [existing] = await db.query("SELECT report_key FROM fitness_test_report_access WHERE result_id = ?", [resultId]);
+    if (existing.length > 0 && existing[0].report_key) {
+      return existing[0].report_key;
+    }
+
+    // 3. Not found, create new one based on result details
+    const [[result]] = await db.query(`
+      SELECT ftr.*, s.name as student_name, s.std, s.division 
+      FROM fitness_test_results ftr 
+      JOIN students s ON ftr.student_id = s.id 
+      WHERE ftr.id = ?
+    `, [resultId]);
+
+    if (!result) return `fitness-${resultId}B${Math.floor(Date.now() / 1000)}`;
+
+    // 4. Mimic generateUniqueReportKey hashing logic
+    // $base_string = $result->id . '-' . $result->student_id . '-' . $result->format_id . '-' . $result->academic_year . '-' . $result->term;
+    // $hash = md5($base_string . time() . rand(1000, 9999));
+    // return substr($hash, 0, 12) . 'B' . $result->id;
+    const baseString = `${result.id}-${result.student_id}-${result.format_id}-${result.academic_year}-${result.term}`;
+    const randPart = Math.floor(Math.random() * 9000) + 1000;
+    const hashData = baseString + Math.floor(Date.now() / 1000) + randPart;
+    const hash = crypto.createHash('md5').update(hashData).digest('hex');
+    const reportKey = hash.substring(0, 12) + 'B' + result.id;
+
+    // 5. Insert
+    await db.query("INSERT INTO fitness_test_report_access (result_id, report_key, created_at) VALUES (?, ?, NOW())", [resultId, reportKey]);
+    return reportKey;
+
+  } catch (err) {
+    console.error('[PDF] Error in getOrCreateReportKey:', err);
+    return `fitness-${resultId}B${Math.floor(Date.now() / 1000)}`;
+  }
+}
 
 // 📊 INITIALIZE GRADING SCALES TABLE
 const initGradingTable = async () => {
@@ -740,23 +809,46 @@ app.put('/api/users/:id', async (req, res) => {
   }
 });
 
-// 🎓 ADD NEW STUDENT
+// 🎓 ADD NEW STUDENT (Smart Endpoint: Supports IDs and Names)
 app.post('/api/students', async (req, res) => {
   const {
-    mq_id, name, school_name, standard, division, status
+    mq_id, name, school_id, school_name, std, standard, division, status, roll_number
   } = req.body;
-  if (!name || !school_name || !standard) {
-    return res.status(400).json({ success: false, message: 'Missing required fields' });
-  }
-  try {
-    // Look up the school ID
-    const [schoolRows] = await db.query('SELECT id FROM schools WHERE name = ?', [school_name]);
-    const school_id = schoolRows.length > 0 ? schoolRows[0].id : null;
 
+  // 1. Unified field resolution (std/standard, school_id/school_name)
+  const resolvedStd = std || standard;
+  const resolvedName = name;
+  let resolvedSchoolId = school_id;
+
+  if (!resolvedName || !resolvedStd) {
+    return res.status(400).json({ success: false, message: 'Missing mandatory fields (Name, Standard)' });
+  }
+
+  try {
+    // 2. Resolve school_id from school_name if needed
+    if (!resolvedSchoolId && school_name) {
+      const [schoolRows] = await db.query('SELECT id FROM schools WHERE name = ?', [school_name]);
+      if (schoolRows.length > 0) resolvedSchoolId = schoolRows[0].id;
+    }
+
+    if (!resolvedSchoolId) {
+      return res.status(400).json({ success: false, message: 'Invalid or missing School' });
+    }
+
+    // 3. Duplicate check for MQ ID (if provided)
+    if (mq_id) {
+        const [existing] = await db.query('SELECT id FROM students WHERE mq_id = ? AND mq_id IS NOT NULL', [mq_id]);
+        if (existing.length > 0) {
+            return res.status(400).json({ success: false, message: `Student with MQ ID ${mq_id} already exists` });
+        }
+    }
+
+    // 4. Insert Student
     const [result] = await db.query(
-      'INSERT INTO students (mq_id, name, school_id, std, division, status) VALUES (?, ?, ?, ?, ?, ?)',
-      [mq_id, name, school_id, standard, division, status || '1']
+      'INSERT INTO students (mq_id, name, school_id, std, division, roll_number, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [mq_id || null, resolvedName, resolvedSchoolId, resolvedStd, division || '', roll_number || '', status || '1']
     );
+    
     res.json({ success: true, message: 'Student created successfully', studentId: result.insertId });
   } catch (err) {
     console.error('CREATE STUDENT ERROR:', err);
@@ -1197,7 +1289,7 @@ app.get('/api/fill-marks/students', async (req, res) => {
 
     /* ---------- 2. PARAMETERS ---------- */
     const [params] = await db.query(`
-            SELECT fp.parameter_id, pi.title, pi.ctype
+            SELECT fp.parameter_id, pi.title, pi.ctype, pi.parameter
             FROM fitness_test_format_parameters fp
             JOIN parameter_info pi ON fp.parameter_id = pi.id
             WHERE fp.format_id = ?
@@ -1244,42 +1336,42 @@ app.get('/api/fill-marks/students', async (req, res) => {
     let ranges = [];
 
     if (params.length > 0) {
-      const paramIds = params.map(p => p.parameter_id);
-      const allPossibleIds = [...paramIds, ...paramIds.map(id => `param${id}`)];
+      const parameterToIdMap = {};
+      params.forEach(p => {
+        if (p.parameter) parameterToIdMap[p.parameter] = p.parameter_id;
+      });
 
-      // We query all grades for these parameters and the specific standard AND standard 0
-      let query = `
-                SELECT 
-                    parameter AS parameter_id,
-                    MIN(min_score) as min_val,
-                    MAX(max_score) as max_val,
-                    std as std_code
-                FROM parameter_grades
-                WHERE parameter IN (?)
-                AND std IN (?, 0)
-                GROUP BY parameter, std
-                ORDER BY std DESC
-            `;
+      const paramIdentifiers = Object.keys(parameterToIdMap);
 
-      const [rangeRows] = await db.query(query, [allPossibleIds, std || 0]);
-      
-      const seenRange = new Set();
-      ranges = [];
-      
-      for (const row of rangeRows) {
-        let normalizedId = row.parameter_id;
-        if (typeof normalizedId === 'string' && normalizedId.startsWith('param')) {
-          const idNum = parseInt(normalizedId.replace('param', ''));
-          if (!isNaN(idNum)) normalizedId = idNum;
-        }
+      if (paramIdentifiers.length > 0) {
+        // We query all grades for these parameters and the specific standard AND standard 0
+        let query = `
+                  SELECT 
+                      parameter,
+                      MIN(min_score) as min_val,
+                      MAX(max_score) as max_val,
+                      std as std_code
+                  FROM parameter_grades
+                  WHERE parameter IN (?)
+                  AND std IN (?, 0)
+                  GROUP BY parameter, std
+                  ORDER BY std DESC
+              `;
 
-        if (!seenRange.has(normalizedId)) {
-            // Because we ordered by std DESC, we take the specific std first, then fallback to 0
+        const [rangeRows] = await db.query(query, [paramIdentifiers, std || 0]);
+
+        const seenRange = new Set();
+        ranges = [];
+
+        for (const row of rangeRows) {
+          const originalParamId = parameterToIdMap[row.parameter];
+          if (originalParamId && !seenRange.has(originalParamId)) {
             ranges.push({
-                ...row,
-                parameter_id: normalizedId
+              ...row,
+              parameter_id: originalParamId
             });
-            seenRange.add(normalizedId);
+            seenRange.add(originalParamId);
+          }
         }
       }
     }
@@ -1470,14 +1562,14 @@ app.get('/api/parameter-grades', async (req, res) => {
     if (!parameter) {
       return res.status(400).json({ success: false, message: "parameter missing" });
     }
-    
+
     // Fallback to std=0 if not provided
     const stdCode = std ? parseInt(std) : 0;
-    
+
     // Support matching both '92' and 'param92'
     const [rows] = await db.query(
       'SELECT * FROM parameter_grades WHERE parameter IN (?, ?) AND std = ? ORDER BY max_score DESC',
-      [parameter, `param${parameter}`, stdCode]
+      [parameter, parameter, stdCode]
     );
     res.json({ success: true, grades: rows });
   } catch (err) {
@@ -1491,30 +1583,22 @@ app.post('/api/parameter-grades/save', async (req, res) => {
   const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
-    
     const { parameter, std_codes, grades } = req.body;
     if (!parameter || !grades || !Array.isArray(std_codes)) {
-        throw new Error("Missing parameter, grades array or std_codes array");
+      throw new Error("Missing parameter, grades array or std_codes array");
+    }
+    const dbParameterId = parameter.toString().startsWith('param') ? parameter : parameter;
+    for (const std of std_codes) {
+      const stdCode = parseInt(std) || 0;
+      await conn.query('DELETE FROM parameter_grades WHERE parameter IN (?, ?) AND std = ?', [parameter, dbParameterId, stdCode]);
+      for (const g of grades) {
+        await conn.query(
+          'INSERT INTO parameter_grades (std, parameter, min_score, max_score, grade, grade_label) VALUES (?, ?, ?, ?, ?, ?)',
+          [stdCode, dbParameterId, g.min_score || 0, g.max_score || 0, g.grade || '', g.grade_label || '']
+        );
+      }
     }
 
-    // Ensure we follow the 'paramX' naming convention seen in user's DB
-    const dbParameterId = parameter.toString().startsWith('param') ? parameter : `param${parameter}`;
-    
-    for (const std of std_codes) {
-        const stdCode = parseInt(std) || 0;
-        
-        // Delete existing bounds using both formats to clean up if necessary
-        await conn.query('DELETE FROM parameter_grades WHERE parameter IN (?, ?) AND std = ?', [parameter, dbParameterId, stdCode]);
-        
-        // Insert new bounds
-        for (const g of grades) {
-            await conn.query(
-                'INSERT INTO parameter_grades (std, parameter, min_score, max_score, grade, grade_label) VALUES (?, ?, ?, ?, ?, ?)',
-                [stdCode, dbParameterId, g.min_score || 0, g.max_score || 0, g.grade || '', g.grade_label || '']
-            );
-        }
-    }
-    
     await conn.commit();
     res.json({ success: true, message: "Parameter grades saved successfully!" });
   } catch (err) {
@@ -1523,6 +1607,1126 @@ app.post('/api/parameter-grades/save', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   } finally {
     conn.release();
+  }
+});
+
+
+// 🎓 GRADING HELPER (PHP Parity)
+function calculateGrade(value, ranges) {
+  if (value === null || value === '' || value === 'AB' || value === 'ab' || value === 'Ab') {
+    return 'A+';
+  }
+  const val = parseFloat(value);
+  if (isNaN(val)) return 'A+';
+
+  for (const range of ranges) {
+    if (val >= range.min_score && val <= range.max_score) {
+      return range.grade;
+    }
+  }
+  return 'A+';
+}
+
+// 🎓 GET STUDENTS FOR REPORT CARD
+app.get('/api/reports/students', async (req, res) => {
+  try {
+    const { school_id, std, division, academic_year, term } = req.query;
+
+    let query = `
+            SELECT DISTINCT s.id, s.name, s.mq_id, s.std, s.division, ftr.id as result_id
+            FROM students s
+            JOIN fitness_test_results ftr ON s.id = ftr.student_id
+            WHERE 1=1
+        `;
+
+    const params = [];
+    if (school_id) { query += ' AND s.school_id = ?'; params.push(school_id); }
+    if (std) { query += ' AND s.std = ?'; params.push(std); }
+    if (division) { query += ' AND s.division = ?'; params.push(division); }
+    if (academic_year) { query += ' AND ftr.academic_year = ?'; params.push(academic_year); }
+    if (term) {
+      let normalizedTerm = term;
+      if (term === '1') normalizedTerm = 'term1';
+      if (term === '2') normalizedTerm = 'term2';
+      query += ' AND ftr.term = ?'; params.push(normalizedTerm);
+    }
+
+    // ── Pagination/Lazy Load Support ──
+    const limit = parseInt(req.query.limit) || 10000;
+    const offset = parseInt(req.query.offset) || 0;
+
+    // Get total count
+    const countQuery = `SELECT COUNT(DISTINCT s.id) as total FROM students s JOIN fitness_test_results ftr ON s.id = ftr.student_id WHERE 1=1 ${query.split('WHERE 1=1')[1]}`;
+    const [[{ total }]] = await db.query(countQuery, params);
+
+    // Grouping by student ID to avoid duplicates (Term 1 & 2 usually create 2 rows)
+    query = query.replace('SELECT s.id, s.name, s.mq_id, s.std, s.division, ftr.id as result_id', 'SELECT s.id, s.name, s.mq_id, s.std, s.division, MAX(ftr.id) as result_id');
+    query += ' GROUP BY s.id ORDER BY s.name ASC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const [rows] = await db.query(query, params);
+    res.json({ success: true, students: rows, total });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 🎓 GET DETAILED REPORT DATA
+app.get('/api/reports/data/:result_id', async (req, res) => {
+  try {
+    const { result_id } = req.params;
+
+    // 1. Get Result & Student & School Info
+    const [[result]] = await db.query(`
+            SELECT ftr.*, s.name as student_name, s.mq_id, s.std, s.division, 
+                   sch.name as school_name, sch.school_logo
+            FROM fitness_test_results ftr
+            JOIN students s ON ftr.student_id = s.id
+            JOIN schools sch ON s.school_id = sch.id
+            WHERE ftr.id = ?
+        `, [result_id]);
+
+    if (!result) return res.status(404).json({ success: false, message: 'Result not found' });
+
+    // 2. Get Parameters for this format
+    const [params] = await db.query(`
+            SELECT pi.id, pi.title, pi.parameter, pi.ctype, ftrv.parameter_value
+            FROM fitness_test_format_parameters fp
+            JOIN parameter_info pi ON fp.parameter_id = pi.id
+            LEFT JOIN fitness_test_result_values ftrv ON pi.id = ftrv.parameter_id AND ftrv.result_id = ?
+            WHERE fp.format_id = ?
+            ORDER BY fp.parameter_order
+        `, [result_id, result.format_id]);
+
+    // 3. Get Grading Ranges for this standard
+    const [ranges] = await db.query(`
+            SELECT * FROM parameter_grades 
+            WHERE std IN (?, 0)
+        `, [result.std]);
+
+    // 4. Calculate Grades
+    const reportData = params.map(p => {
+      const paramRanges = ranges.filter(r => r.parameter === p.parameter);
+      const grade = calculateGrade(p.parameter_value, paramRanges);
+      return {
+        ...p,
+        grade
+      };
+    });
+
+    res.json({
+      success: true,
+      student: {
+        name: result.student_name,
+        mq_id: result.mq_id,
+        std: result.std,
+        division: result.division,
+        school: result.school_name
+      },
+      results: reportData
+    });
+
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────
+// 📄 PDF GENERATION + ZIP DOWNLOAD
+// ─────────────────────────────────────────────────────────────────
+
+const PDF_TEMP_DIR = path.join(__dirname, 'temp', 'pdfs');
+if (!fs.existsSync(PDF_TEMP_DIR)) fs.mkdirSync(PDF_TEMP_DIR, { recursive: true });
+
+// Helper: draw a rounded rectangle
+function drawRoundedRect(page, x, y, w, h, color) {
+  page.drawRectangle({ x, y, width: w, height: h, color, borderColor: color, borderWidth: 0 });
+}
+
+// Helper: normalize std to numeric for grade lookup (same as PHP)
+function normalizeStd(std) {
+  const map = {
+    'Nursery': '-2', 'Jr.Kg': '-1', 'Jr Kg': '-1', 'JrKg': '-1',
+    'Sr.Kg': '0', 'Sr Kg': '0', 'SrKg': '0',
+    'I': '1', 'II': '2', 'III': '3', 'IV': '4', 'V': '5',
+    'VI': '6', 'VII': '7', 'VIII': '8', 'IX': '9', 'X': '10',
+    'XI': '11', 'XII': '12',
+  };
+  const match = String(std).match(/^([IVX]+|Nursery|Jr\.?Kg|Sr\.?Kg)/i);
+  if (match && map[match[1]]) return map[match[1]];
+  return String(std);
+}
+
+// Helper: get grade color as rgb
+function gradeToColor(grade) {
+  const g = (grade || '').toUpperCase();
+  if (g === 'A+') return rgb(0.243, 0.612, 0.882); // light blue
+  if (g === 'A') return rgb(0.243, 0.612, 0.882);
+  if (g === 'B+') return rgb(0.902, 0.569, 0.22); // orange
+  if (g === 'B') return rgb(0.902, 0.569, 0.22);
+  return rgb(0.58, 0.65, 0.65);
+}
+
+// ── Helper: Draw QR Code Section (Ported from PHP) ──
+async function addQRCodeSection(pdfDoc, page, resultId, yMM, helpers) {
+  const { px, py, fontBold, fontReg, black, white, gray, width, height } = helpers;
+
+  // Matching PHP legacy code exactly:
+  const marginX = 10;
+  const boxW = 210 - (marginX * 2); // 190mm
+  const boxH = 60;
+  const boxX = px(marginX);
+  const boxYMM = yMM + 3;
+
+  const qrSize = 52;
+  const logoSize = 12;
+  const innerTopPad = 6;
+  const radius = 3.5;
+  const bgPadding = 2.0;
+
+  // 1. Draw border box
+  page.drawRectangle({
+    x: boxX, y: py(boxYMM, boxH),
+    width: px(boxW), height: px(boxH),
+    borderColor: black,
+    borderWidth: 0.7
+  });
+
+  // 2. Generate QR Code
+  const reportKey = await getOrCreateReportKey(resultId, db);
+  const qrUrl = `https://app.marcosquay.com/reportcard/index.php?k=${reportKey}`;
+  console.log(`[PDF] Generated QR URL for result_id ${resultId}: ${qrUrl}`);
+
+  try {
+    const qrDataUri = await QRCode.toDataURL(qrUrl, { margin: 1, errorCorrectionLevel: 'H' });
+    const qrImageBytes = Buffer.from(qrDataUri.split(',')[1], 'base64');
+    const qrImg = await pdfDoc.embedPng(qrImageBytes);
+
+    const qrX = boxX + px(6);
+    const qrY = py(boxYMM, boxH) + px(innerTopPad + (boxH - innerTopPad * 2 - qrSize) / 2);
+
+    page.drawImage(qrImg, {
+      x: qrX, y: qrY,
+      width: px(qrSize), height: px(qrSize)
+    });
+
+    // ── MQ Logo in center of QR ──
+    const mqLogoPath = path.join(__dirname, '../src/assets/new_logo.png');
+    if (fs.existsSync(mqLogoPath)) {
+      const mqBytes = fs.readFileSync(mqLogoPath);
+      const mqLogo = await pdfDoc.embedPng(mqBytes);
+
+      const qrCenterX = qrX + px(qrSize / 2);
+      const qrCenterY = qrY + px(qrSize / 2);
+      const bgW = px(logoSize + (2 * bgPadding));
+
+      // White background for logo (rounded-ish)
+      page.drawRectangle({
+        x: qrCenterX - bgW / 2, y: qrCenterY - bgW / 2,
+        width: bgW, height: bgW,
+        color: white,
+        opacity: 1
+      });
+
+      const mqDims = mqLogo.scaleToFit(px(logoSize), px(logoSize));
+      page.drawImage(mqLogo, {
+        x: qrCenterX - mqDims.width / 2,
+        y: qrCenterY - mqDims.height / 2,
+        width: mqDims.width,
+        height: mqDims.height
+      });
+    }
+  } catch (err) {
+    console.error('QR Error:', err);
+  }
+
+  // 3. Text content
+  const textX = boxX + px(qrSize + 14); // qrX(box+6) + qrSize + 8
+  const textW = px(boxW - (qrSize + 20));
+  const lineH = 5.5;
+
+  const subtitles = [
+    "Simple explanations of each activity",
+    "Videos showing how each test works",
+    "Progress tracking across the year"
+  ];
+
+  const textTitle = "Scan the QR code to unlock:";
+  const totalLines = 1 + subtitles.length + 1; // title + subs + 1 space
+  const textHeightTotal = lineH * totalLines;
+
+  let textY = py(boxYMM, boxH) + px(boxH) - px((boxH - textHeightTotal) / 2 + lineH);
+
+  // Title (14pt Bold)
+  page.drawText(textTitle, {
+    x: textX, y: textY,
+    size: 14, font: fontBold, color: rgb(0.15, 0.15, 0.15)
+  });
+
+  textY -= px(lineH * 2);
+
+  // Subtitles (12pt Bold)
+  for (const sub of subtitles) {
+    page.drawText("• " + sub, {
+      x: textX, y: textY,
+      size: 12, font: fontBold, color: rgb(0.15, 0.15, 0.15)
+    });
+    textY -= px(lineH);
+  }
+
+  return boxYMM + boxH + 5;
+}
+
+// 📄 BUILD PDF FOR ONE RESULT — with optional simplified options
+async function buildReportPDF(resultId, options = {}) {
+  const {
+    selectedTerm = 'both', // 'term1', 'term2', or 'both'
+    showScanner = false
+  } = options;
+
+  // ── 1. Fetch result + student + school ──
+  const [[result]] = await db.query(`
+        SELECT ftr.*, ft.test_name, ft.test_title, ft.academic_year,
+               s.name as student_name, s.mq_id, s.std, s.division, s.gender, s.school_id,
+               sch.name as school_name, sch.school_logo,
+               sch.show_principal_signature, sch.principal_name, sch.principal_designation, sch.principal_signature_image,
+               sch.head_coach_name, sch.head_coach_designation,
+               sch.show_head_coach_signature, sch.head_coach_signature_image
+        FROM fitness_test_results ftr
+        JOIN fitness_test_formats ft ON ftr.format_id = ft.id
+        JOIN students s ON ftr.student_id = s.id
+        JOIN schools sch ON s.school_id = sch.id
+        WHERE ftr.id = ?
+    `, [resultId]);
+
+  console.log(`[PDF] Result fetched for ID: ${resultId}, Found: ${!!result}`);
+  if (!result) throw new Error(`Result ${resultId} not found`);
+
+  // ── 2. Multi-term detection ──
+  // If SelectedTerm override is provided, use it. Otherwise, autodetect.
+  let isMultiTerm = false;
+  if (selectedTerm === 'both') {
+    isMultiTerm = true;
+  } else if (selectedTerm === 'term1' || selectedTerm === 'term2') {
+    isMultiTerm = false;
+  } else {
+    // Autodetect from DB
+    const [termRows] = await db.query(
+      `SELECT DISTINCT term FROM fitness_test_results
+           WHERE student_id = ? AND format_id = ? AND term IS NOT NULL AND term != ''
+           ORDER BY term`,
+      [result.student_id, result.format_id]
+    );
+    isMultiTerm = termRows.length > 1;
+  }
+
+
+  // ── 3. Fetch parameters ──
+  const [params] = await db.query(`
+        SELECT pi.id, pi.title, pi.parameter, pi.ctype, pi.test_display, pi.description,
+               ftrv.parameter_value, fp.parameter_order
+        FROM fitness_test_format_parameters fp
+        JOIN parameter_info pi ON fp.parameter_id = pi.id
+        LEFT JOIN fitness_test_result_values ftrv ON pi.id = ftrv.parameter_id AND ftrv.result_id = ?
+        WHERE fp.format_id = ?
+        ORDER BY fp.parameter_order
+    `, [resultId, result.format_id]);
+
+  // ── 4. Grading ranges ──
+  const stdNorm = normalizeStd(result.std);
+  const [ranges] = await db.query(`SELECT * FROM parameter_grades WHERE std = ?`, [stdNorm]);
+  console.log(`[PDF] Grading ranges fetched: ${ranges.length}`);
+
+  // ── 5. Build PDF ──
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([595.28, 841.89]); // A4
+  const { width, height } = page.getSize();
+
+  const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const fontReg = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  console.log(`[PDF] Fonts embedded`);
+
+  // ── BACKGROUND IMAGE ──
+  try {
+    const bgPath = path.join(__dirname, '../src/assets/background_of_report_card.png');
+    if (fs.existsSync(bgPath)) {
+      const bgBytes = fs.readFileSync(bgPath);
+      const bgImg = await pdfDoc.embedPng(bgBytes);
+      if (bgImg) {
+        page.drawImage(bgImg, {
+          x: 0,
+          y: 0,
+          width: width,
+          height: height,
+          opacity: 1 // Background image should be fully opaque or as designed
+        });
+        console.log(`[PDF] Background image embedded: ${bgPath}`);
+      }
+    } else {
+      console.warn(`[PDF] Background image NOT found at: ${bgPath}`);
+    }
+  } catch (err) {
+    console.error(`[PDF] Error embedding background image:`, err);
+  }
+
+  // mm → points helpers (pdf-lib origin = bottom-left)
+  const MM = 2.835;
+  const px = mm => mm * MM;                          // x: left→right
+  const py = (mm, hMM = 0) => height - (mm + hMM) * MM; // y: top→bottom
+
+  // PHP-matching colors
+  const titleBg = rgb(0.655, 0.729, 0.882); // rgb(167, 186, 255)
+  const tableHeaderBg = rgb(0.553, 0.678, 0.859); // rgb(141, 173, 219)
+  const rowBg = rgb(0.922, 0.945, 0.976); // rgb(235, 241, 249)
+  const blueBorder = rgb(0.204, 0.471, 0.757); // rgb(52, 120, 193)
+  const black = rgb(0, 0, 0);
+  const white = rgb(1, 1, 1);
+  const textDark = rgb(0.129, 0.129, 0.129); // rgb(33,33,33)
+  const textMed = rgb(0.173, 0.243, 0.314); // rgb(44,62,80)
+  const gray = rgb(0.42, 0.42, 0.42);
+
+  // ── MARCOS QUAY LOGO (Default positions, no sliders) ──
+  try {
+    const mqLogoPath = path.join(__dirname, '../src/assets/new_logo.png');
+    if (fs.existsSync(mqLogoPath)) {
+      const mqBytes = fs.readFileSync(mqLogoPath);
+      const mqEmb = await pdfDoc.embedPng(mqBytes);
+      if (mqEmb) {
+        const mqDims = mqEmb.scaleToFit(px(40), px(20));
+        page.drawImage(mqEmb, {
+          x: px(15), y: py(10) - mqDims.height,
+          width: mqDims.width, height: mqDims.height,
+        });
+      }
+    }
+  } catch (err) { }
+
+  // ── SCHOOL LOGO ──
+  if (result.school_logo) {
+    try {
+      const logoPath = path.join(__dirname, 'uploads', result.school_logo);
+      if (fs.existsSync(logoPath)) {
+        const logoBytes = fs.readFileSync(logoPath);
+        let embeddedLogo;
+        if (logoPath.toLowerCase().endsWith('.png')) embeddedLogo = await pdfDoc.embedPng(logoBytes);
+        else if (logoPath.toLowerCase().match(/\.(jpg|jpeg)$/)) embeddedLogo = await pdfDoc.embedJpg(logoBytes);
+
+        if (embeddedLogo) {
+          const dims = embeddedLogo.scaleToFit(px(20), px(20));
+          page.drawImage(embeddedLogo, {
+            x: px(175), y: py(10) - dims.height,
+            width: dims.width, height: dims.height,
+          });
+        }
+      }
+    } catch (err) { }
+  }
+
+  // ── TITLE BAR (Y=35mm, H=14mm) ──
+  const ay = result.academic_year || '';
+  let ayShort = '';
+  if (ay.includes('-')) {
+    const [sy, ey] = ay.split('-');
+    ayShort = ` - ${sy} - ${ey.slice(-2)}`;
+  }
+  const titleText = ((result.test_name || 'FITNESS TEST REPORT') + ayShort).toUpperCase();
+
+  page.drawRectangle({
+    x: px(15), y: py(35, 14),
+    width: px(180), height: px(14),
+    color: titleBg
+  });
+  const titleSize = 14;
+  const titleW = fontBold.widthOfTextAtSize(titleText, titleSize);
+  const titleX = px(15) + (px(180) - titleW) / 2;
+  page.drawText(titleText, {
+    x: titleX, y: py(35, 14) + px(14) / 2 - titleSize * 0.35,
+    size: titleSize, font: fontBold, color: black
+  });
+
+  // ── STUDENT INFO (Y=60mm, Y=70mm) ──
+  // Row 1: Student Name | Class
+  const r1y = py(60) - 6;
+  page.drawText('Student Name:', { x: px(15), y: r1y, size: 10, font: fontBold, color: black });
+  page.drawText(result.student_name || '', { x: px(45), y: r1y, size: 10, font: fontReg, color: textDark });
+
+  // Display std conversion
+  let displayStd = result.std;
+  if (result.std == '-3') displayStd = 'Nursery';
+  else if (result.std == '-2') displayStd = 'Jr. KG';
+  else if (result.std == '-1') displayStd = 'Sr. KG';
+
+  const classText = `${displayStd} ${result.division}`;
+  const classW = fontReg.widthOfTextAtSize(classText, 10);
+  const classLabelW = fontBold.widthOfTextAtSize('Class: ', 10);
+
+  page.drawText('Class:', { x: px(195) - classW - classLabelW - px(2), y: r1y, size: 10, font: fontBold, color: black });
+  page.drawText(classText, { x: px(195) - classW, y: r1y, size: 10, font: fontReg, color: textDark });
+
+  // Row 2: Assessment (Y=70mm)
+  const r2y = py(70) - 6;
+  let termDisplay = 'Term 1 & Term 2';
+  if (!isMultiTerm) {
+    if (result.term === 'term1') termDisplay = 'Term 1';
+    else if (result.term === 'term2') termDisplay = 'Term 2';
+  }
+  page.drawText('Assessment :', { x: px(15), y: r2y, size: 10, font: fontBold, color: black });
+  page.drawText(termDisplay, { x: px(45), y: r2y, size: 10, font: fontReg, color: textDark });
+
+  // ── TABLE (Dynamic Y based on Scanner) ──
+  const tableY = showScanner ? 85 : 95;
+  const headerH = showScanner ? 9 : 12;
+  const paramW = 60;
+  const rowH = showScanner ? 8 : 11;
+  let testW, gradeW, term2W;
+  let headers;
+  if (isMultiTerm) {
+    testW = 75; gradeW = 22; term2W = 22;
+    headers = ['Parameters', 'Tests', 'Term 1', 'Term 2'];
+  } else {
+    testW = 95; gradeW = 25; term2W = 0;
+    const showName = selectedTerm === 'term2' ? 'Term 2' : 'Term 1';
+    headers = ['Parameters', 'Tests', showName];
+  }
+  const totalW = paramW + testW + gradeW + term2W;
+
+  // Table header row
+  page.drawRectangle({
+    x: px(15), y: py(tableY, headerH),
+    width: px(totalW), height: px(headerH),
+    color: tableHeaderBg
+  });
+  // Header outer borders
+  page.drawLine({ start: { x: px(15), y: py(tableY, headerH) }, end: { x: px(15 + totalW), y: py(tableY, headerH) }, color: blueBorder, thickness: 1.5 }); // Top
+  page.drawLine({ start: { x: px(15), y: py(tableY, headerH) }, end: { x: px(15), y: py(tableY) }, color: blueBorder, thickness: 1.5 }); // Left
+  page.drawLine({ start: { x: px(15 + totalW), y: py(tableY, headerH) }, end: { x: px(15 + totalW), y: py(tableY) }, color: blueBorder, thickness: 1.5 }); // Right
+  page.drawLine({ start: { x: px(15), y: py(tableY) }, end: { x: px(15 + totalW), y: py(tableY) }, color: blueBorder, thickness: 1.5 }); // Bottom
+
+  // Inner Column lines for header
+  page.drawLine({ start: { x: px(15 + paramW), y: py(tableY, headerH) }, end: { x: px(15 + paramW), y: py(tableY) }, color: blueBorder, thickness: 1.5 });
+  page.drawLine({ start: { x: px(15 + paramW + testW), y: py(tableY, headerH) }, end: { x: px(15 + paramW + testW), y: py(tableY) }, color: blueBorder, thickness: 1.5 });
+  if (isMultiTerm) {
+    page.drawLine({ start: { x: px(15 + paramW + testW + gradeW), y: py(tableY, headerH) }, end: { x: px(15 + paramW + testW + gradeW), y: py(tableY) }, color: blueBorder, thickness: 1.5 });
+  }
+
+  // Header text (Centered)
+  const hdrY = py(tableY, headerH) + px(headerH) / 2 - 8 * 0.35;
+  page.drawText(headers[0], { x: px(15) + (px(paramW) - fontBold.widthOfTextAtSize(headers[0], 8)) / 2, y: hdrY, size: 8, font: fontBold, color: textDark });
+  page.drawText(headers[1], { x: px(15 + paramW) + (px(testW) - fontBold.widthOfTextAtSize(headers[1], 8)) / 2, y: hdrY, size: 8, font: fontBold, color: textDark });
+  page.drawText(headers[2], { x: px(15 + paramW + testW) + (px(gradeW) - fontBold.widthOfTextAtSize(headers[2], 8)) / 2, y: hdrY, size: 8, font: fontBold, color: textDark });
+  if (isMultiTerm) {
+    page.drawText(headers[3], { x: px(15 + paramW + testW + gradeW) + (px(term2W) - fontBold.widthOfTextAtSize(headers[3], 8)) / 2, y: hdrY, size: 8, font: fontBold, color: textDark });
+  }
+
+  // ── TABLE ROWS (starting after header) ──
+  let yMM = tableY + headerH;
+
+  // For multi-term, fetch term1 and term2 values per parameter
+  // Build lookup: paramId → { term1: value, term2: value }
+  let termValMap = {};
+  if (isMultiTerm) {
+    const [t1rows] = await db.query(`
+            SELECT ftrv.parameter_id, ftrv.parameter_value
+            FROM fitness_test_results ftr
+            JOIN fitness_test_result_values ftrv ON ftr.id = ftrv.result_id
+            WHERE ftr.student_id = ? AND ftr.format_id = ? AND ftr.term = 'term1'
+        `, [result.student_id, result.format_id]);
+
+    const [t2rows] = await db.query(`
+            SELECT ftrv.parameter_id, ftrv.parameter_value
+            FROM fitness_test_results ftr
+            JOIN fitness_test_result_values ftrv ON ftr.id = ftrv.result_id
+            WHERE ftr.student_id = ? AND ftr.format_id = ? AND ftr.term = 'term2'
+        `, [result.student_id, result.format_id]);
+
+    t1rows.forEach(r => { termValMap[r.parameter_id] = termValMap[r.parameter_id] || {}; termValMap[r.parameter_id].term1 = r.parameter_value; });
+    t2rows.forEach(r => { termValMap[r.parameter_id] = termValMap[r.parameter_id] || {}; termValMap[r.parameter_id].term2 = r.parameter_value; });
+  }
+
+  // Draw rows
+  for (let idx = 0; idx < params.length; idx++) {
+    const param = params[idx];
+
+    // For single term, skip params with no value
+    const singleVal = param.parameter_value;
+    if (!isMultiTerm && (singleVal === null || singleVal === '')) continue;
+
+    // Row background (alternating)
+    const bg = idx % 2 === 0 ? rowBg : white;
+    page.drawRectangle({
+      x: px(15), y: py(yMM, rowH),
+      width: px(totalW), height: px(rowH),
+      color: bg
+    });
+
+    // Left and Right outer borders for row
+    page.drawLine({ start: { x: px(15), y: py(yMM, rowH) }, end: { x: px(15), y: py(yMM) }, color: blueBorder, thickness: 1.5 });
+    page.drawLine({ start: { x: px(15 + totalW), y: py(yMM, rowH) }, end: { x: px(15 + totalW), y: py(yMM) }, color: blueBorder, thickness: 1.5 });
+
+    // Inner Column borders
+    page.drawLine({ start: { x: px(15 + paramW), y: py(yMM, rowH) }, end: { x: px(15 + paramW), y: py(yMM) }, color: blueBorder, thickness: 1.5 });
+    page.drawLine({ start: { x: px(15 + paramW + testW), y: py(yMM, rowH) }, end: { x: px(15 + paramW + testW), y: py(yMM) }, color: blueBorder, thickness: 1.5 });
+    if (isMultiTerm) {
+      page.drawLine({ start: { x: px(15 + paramW + testW + gradeW), y: py(yMM, rowH) }, end: { x: px(15 + paramW + testW + gradeW), y: py(yMM) }, color: blueBorder, thickness: 1.5 });
+    }
+    // Row bottom border
+    page.drawLine({ start: { x: px(15), y: py(yMM) }, end: { x: px(15 + totalW), y: py(yMM) }, color: blueBorder, thickness: 1.5 });
+
+    const rowTextY = py(yMM, rowH) + px(rowH) / 2 - 7 * 0.35;
+
+    // Parameter title (bold, left-aligned)
+    const titleStr = (param.title || '').slice(0, 26);
+    page.drawText(titleStr, { x: px(15) + 3, y: rowTextY, size: 7.5, font: fontBold, color: textDark });
+
+    // Test description (center, truncated to fit)
+    const testText = (param.test_display || param.description || '').slice(0, 42);
+    page.drawText(testText, { x: px(15 + paramW) + 3, y: rowTextY, size: 7, font: fontReg, color: textDark });
+
+    // Grade column(s)
+    const paramRanges = ranges.filter(r => r.parameter === param.parameter);
+
+    if (!isMultiTerm) {
+      // Single: show grade centered in grade column
+      const grade = calculateGrade(singleVal, paramRanges);
+      const gradeColor = gradeToColor(grade);
+      const gw = fontBold.widthOfTextAtSize(grade, 9);
+      const gx = px(15 + paramW + testW) + (px(gradeW) - gw) / 2;
+      page.drawText(grade, { x: gx, y: rowTextY, size: 9, font: fontBold, color: gradeColor });
+    } else {
+      // Multi: Term 1 grade
+      const tv1 = (termValMap[param.id] || {}).term1;
+      const grade1 = calculateGrade(tv1, paramRanges);
+      const color1 = gradeToColor(grade1);
+      const gw1 = fontBold.widthOfTextAtSize(grade1, 9);
+      page.drawText(grade1, { x: px(15 + paramW + testW) + (px(gradeW) - gw1) / 2, y: rowTextY, size: 9, font: fontBold, color: color1 });
+
+      // Multi: Term 2 grade
+      const tv2 = (termValMap[param.id] || {}).term2;
+      const grade2 = calculateGrade(tv2, paramRanges);
+      const color2 = gradeToColor(grade2);
+      const gw2 = fontBold.widthOfTextAtSize(grade2, 9);
+      page.drawText(grade2, { x: px(15 + paramW + testW + gradeW) + (px(term2W) - gw2) / 2, y: rowTextY, size: 9, font: fontBold, color: color2 });
+    }
+
+    yMM += rowH;
+  }
+
+  // Draw final closing bottom border for the table
+  page.drawLine({
+    start: { x: px(15), y: py(yMM) },
+    end: { x: px(15 + totalW), y: py(yMM) },
+    color: blueBorder,
+    thickness: 1.5
+  });
+
+  if (params.length === 0) {
+    page.drawText('No test parameters found', { x: px(15) + 6, y: py(yMM, rowH) + 3, size: 8, font: fontReg, color: gray });
+    yMM += rowH;
+  }
+  const legendText = 'A+ - Excellent  /  A - Good  /  B+ - Developing  /  B - Needs Improvement';
+  const legendSize = 8;
+  const legendW = fontBold.widthOfTextAtSize(legendText, legendSize);
+  const legendX = px(15) + (px(180) - legendW) / 2;
+  const legendYmm = yMM + 10;
+  page.drawText(legendText, {
+    x: legendX, y: py(legendYmm) - 8,
+    size: legendSize, font: fontBold, color: textMed
+  });
+
+  // ── FOOTER AREA ──
+  let footerY = legendYmm + 10;
+
+  // 1. QR Scanner (If enabled)
+  if (showScanner) {
+    console.log(`[PDF] Adding QR Code at Y: ${footerY}`);
+    await addQRCodeSection(pdfDoc, page, resultId, footerY, {
+      px, py, fontBold, fontReg, black, white, gray, width, height
+    });
+    footerY += 58; // move down after QR box (50mm height + 8mm gap)
+  }
+
+  // 2. Signatures (Left & Right) — Forced to bottom if room permits
+  const sigLineW = 60; // signature line width in mm
+  footerY = Math.max(footerY, 255); // Ensures signatures are at bottom (A4 is 297mm)
+
+  const showHeadCoach = result.show_head_coach_signature !== 0;
+  const showPrincipal = result.show_principal_signature !== 0;
+
+  if (showHeadCoach) {
+    const startX = 15; // left padding
+    const centerX = startX + sigLineW / 2;
+
+    // Image (Top)
+    if (result.head_coach_signature_image) {
+      try {
+        const hcSigPath = path.join(__dirname, 'uploads', result.head_coach_signature_image);
+        if (fs.existsSync(hcSigPath)) {
+          const hcSigBytes = fs.readFileSync(hcSigPath);
+          let hcSigImg;
+          if (hcSigPath.toLowerCase().endsWith('.png')) hcSigImg = await pdfDoc.embedPng(hcSigBytes);
+          else if (hcSigPath.toLowerCase().match(/\.(jpg|jpeg)$/)) hcSigImg = await pdfDoc.embedJpg(hcSigBytes);
+          if (hcSigImg) {
+            const dims = hcSigImg.scaleToFit(px(45), px(18));
+            page.drawImage(hcSigImg, {
+              x: px(centerX) - dims.width / 2,
+              y: py(footerY, 18) + (px(18) - dims.height) / 2,
+              width: dims.width, height: dims.height
+            });
+          }
+        }
+      } catch (e) { }
+    }
+
+    // 2. Name (Middle) - WRAPPED
+    const hcName = result.head_coach_name || "Head Coach";
+    const hcNameLines = wrapText(hcName, px(60), fontReg, 9);
+    let hcTextY = footerY + 25;
+    for (const line of hcNameLines) {
+      const lineW = fontReg.widthOfTextAtSize(line, 9);
+      page.drawText(line, { x: px(centerX) - lineW / 2, y: py(hcTextY), size: 9, font: fontReg, color: textMed });
+      hcTextY += 4; // 4mm between lines
+    }
+
+    // 3. Designation (Bottom, Bold) - WRAPPED
+    const hcDesig = result.head_coach_designation || 'Head Coach';
+    const hcDesigLines = wrapText(hcDesig, px(60), fontBold, 10);
+    for (const line of hcDesigLines) {
+      const lineW = fontBold.widthOfTextAtSize(line, 10);
+      page.drawText(line, { x: px(centerX) - lineW / 2, y: py(hcTextY + 1), size: 10, font: fontBold, color: black });
+      hcTextY += 5;
+    }
+  }
+
+  if (showPrincipal) {
+    const startX = 195 - sigLineW; // 15mm padding from right (210 - 15 - 60)
+    const centerX = startX + sigLineW / 2;
+
+    // Image (Top)
+    if (result.principal_signature_image) {
+      try {
+        const pSigPath = path.join(__dirname, 'uploads', result.principal_signature_image);
+        if (fs.existsSync(pSigPath)) {
+          const pSigBytes = fs.readFileSync(pSigPath);
+          let pSigImg;
+          if (pSigPath.toLowerCase().endsWith('.png')) pSigImg = await pdfDoc.embedPng(pSigBytes);
+          else if (pSigPath.toLowerCase().match(/\.(jpg|jpeg)$/)) pSigImg = await pdfDoc.embedJpg(pSigBytes);
+          if (pSigImg) {
+            const dims = pSigImg.scaleToFit(px(50), px(18));
+            page.drawImage(pSigImg, {
+              x: px(centerX) - dims.width / 2,
+              y: py(footerY, 18) + (px(18) - dims.height) / 2,
+              width: dims.width, height: dims.height
+            });
+          }
+        }
+      } catch (e) { }
+    }
+
+    // 2. Name (Middle) - WRAPPED
+    const pName = result.principal_name || "Principal";
+    const pNameLines = wrapText(pName, px(60), fontReg, 9);
+    let pTextY = footerY + 25;
+    for (const line of pNameLines) {
+      const lineW = fontReg.widthOfTextAtSize(line, 9);
+      page.drawText(line, { x: px(centerX) - lineW / 2, y: py(pTextY), size: 9, font: fontReg, color: textMed });
+      pTextY += 4;
+    }
+
+    // 3. Designation (Bottom, Bold) - WRAPPED
+    const pDesig = result.principal_designation || 'Principal';
+    const pDesigLines = wrapText(pDesig, px(60), fontBold, 10);
+    for (const line of pDesigLines) {
+      const lineW = fontBold.widthOfTextAtSize(line, 10);
+      page.drawText(line, { x: px(centerX) - lineW / 2, y: py(pTextY + 1), size: 10, font: fontBold, color: black });
+      pTextY += 5;
+    }
+  }
+
+
+  // ── FOOTER (Removed as requested) ──
+
+  const pdfBytes = await pdfDoc.save();
+  return pdfBytes;
+}
+
+// 📄 POST /api/reports/generate-pdf  →  generate & cache PDF for one result_id
+app.post('/api/reports/generate-pdf', async (req, res) => {
+  const { result_id, options } = req.body;
+  if (!result_id) return res.status(400).json({ success: false, message: 'result_id required' });
+
+  try {
+    const pdfBytes = await buildReportPDF(result_id, options);
+    const filePath = path.join(PDF_TEMP_DIR, `report_${result_id}.pdf`);
+    fs.writeFileSync(filePath, pdfBytes);
+
+    // ── Update PDF status in database (Legacy Parity) ──
+    try {
+      const [[student]] = await db.query(`
+        SELECT s.name, s.std, s.division FROM fitness_test_results ftr 
+        JOIN students s ON ftr.student_id = s.id WHERE ftr.id = ?
+      `, [result_id]);
+      const safeName = student ? student.name.replace(/[^a-z0-9]/gi, '_') : 'Result';
+      const filename = `Fitness_Test_${safeName}_${result_id}.pdf`;
+      await db.query("UPDATE fitness_test_results SET pdf_status = 1, pdf_file_name = ? WHERE id = ?", [filename, result_id]);
+    } catch (dbErr) {
+      console.warn('[PDF] Failed to update DB status:', dbErr.message);
+    }
+
+    res.json({ success: true, filename: `report_${result_id}.pdf` });
+  } catch (err) {
+    console.error('PDF GEN ERROR:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 📥 GET /api/reports/download-zip?ids=1,2,3  →  stream ZIP of generated PDFs
+app.get('/api/reports/download-zip', (req, res) => {
+  const { ids } = req.query;
+  if (!ids) return res.status(400).json({ success: false, message: 'ids required' });
+
+  const idList = String(ids).split(',').map(id => id.trim()).filter(Boolean);
+  const zipName = `MQ_ReportCards_${Date.now()}.zip`;
+
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
+
+  const archive = archiver('zip', { zlib: { level: 6 } });
+  archive.on('error', err => { console.error('ZIP ERROR:', err); res.status(500).end(); });
+  archive.pipe(res);
+
+  let found = 0;
+  idList.forEach(id => {
+    const filePath = path.join(PDF_TEMP_DIR, `report_${id}.pdf`);
+    if (fs.existsSync(filePath)) {
+      archive.file(filePath, { name: `report_${id}.pdf` });
+      found++;
+    }
+  });
+
+  if (found === 0) {
+    archive.abort();
+    return res.status(404).json({ success: false, message: 'No PDFs found. Generate them first.' });
+  }
+
+  archive.finalize();
+});
+
+// 📥 GET /api/reports/download-single/:result_id  →  download one PDF with potential overrides
+app.get('/api/reports/download-single/:result_id', async (req, res) => {
+  const { result_id } = req.params;
+  const options = req.query.overrides ? JSON.parse(req.query.overrides) : {};
+
+  try {
+    console.log(`[PDF] Starting single download for ID: ${result_id}`, options);
+    const pdfBytes = await buildReportPDF(result_id, options);
+    console.log(`[PDF] Success generating for ID: ${result_id}, size: ${pdfBytes.length}`);
+
+    // ── Update PDF status in database (Legacy Parity) ──
+    let filename = `report_${result_id}.pdf`;
+    try {
+      const [[student]] = await db.query(`
+        SELECT s.name, s.std, s.division FROM fitness_test_results ftr 
+        JOIN students s ON ftr.student_id = s.id WHERE ftr.id = ?
+      `, [result_id]);
+      if (student) {
+        const safeName = student.name.replace(/[^a-z0-9]/gi, '_');
+        filename = `Fitness_Test_${safeName}_Std${student.std}_${student.division}.pdf`;
+      }
+      await db.query("UPDATE fitness_test_results SET pdf_status = 1, pdf_file_name = ? WHERE id = ?", [filename, result_id]);
+    } catch (dbErr) {
+      console.warn('[PDF] Failed to update DB status:', dbErr.message);
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    res.send(Buffer.from(pdfBytes));
+  } catch (err) {
+    console.error('Single Download Error:', err);
+    // Send 500 but as text so the user can see the error message in the browser if it fails
+    res.status(500).send(`Error generating PDF: ${err.message}\n\nStack: ${err.stack}`);
+  }
+});
+
+// 🎓 HELPERS for ID Generation
+function incrementStringId(id) {
+  if (!id) return '';
+  const match = id.match(/^(.*?)(\d+)$/);
+  if (!match) return id + '1';
+  const prefix = match[1];
+  const number = parseInt(match[2]);
+  return prefix + (number + 1);
+}
+
+// 🎓 GET NEXT STUDENT IDs (FOR AUTO-FILL)
+app.get('/api/students/next-ids', async (req, res) => {
+  try {
+    const [[lastStudent]] = await db.query('SELECT mq_id, roll_number FROM students ORDER BY id DESC LIMIT 1');
+    
+    let nextMqId = 'MQ-101';
+    let nextRollNumber = '1';
+
+    if (lastStudent) {
+      if (lastStudent.mq_id) nextMqId = incrementStringId(lastStudent.mq_id);
+      if (lastStudent.roll_number) {
+          const rollMatch = lastStudent.roll_number.match(/\d+/);
+          if (rollMatch) {
+              nextRollNumber = (parseInt(rollMatch[0]) + 1).toString();
+          } else {
+              nextRollNumber = lastStudent.roll_number + '1';
+          }
+      }
+    }
+
+    res.json({ success: true, nextMqId, nextRollNumber });
+  } catch (err) {
+    console.error('GET NEXT IDs ERROR:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 🎓 BULK STUDENT UPLOAD (Auto-ID Enabled)
+app.post('/api/students/bulk', async (req, res) => {
+  const { students } = req.body;
+  if (!students || !Array.isArray(students)) {
+    return res.status(400).json({ success: false, message: 'Invalid student data' });
+  }
+
+  try {
+    const results = { imported: 0, failed: 0, errors: [] };
+
+    // 1. Fetch the latest state once to start incrementing
+    const [[lastInfo]] = await db.query('SELECT mq_id, roll_number FROM students ORDER BY id DESC LIMIT 1');
+    let trackerMqId = lastInfo?.mq_id || 'MQ-100';
+    let trackerRoll = parseInt(lastInfo?.roll_number?.match(/\d+/)?.[0] || '0');
+
+    for (const student of students) {
+      try {
+        let { name, gender, school_id, std, division, roll_number, mq_id } = student;
+        
+        // Basic validation
+        if (!name || !school_id || !std || !division) {
+          results.failed++;
+          results.errors.push(`Missing data for: ${name || 'Unknown'}`);
+          continue;
+        }
+
+        // 2. Auto-generate MQ ID if missing
+        if (!mq_id || mq_id === '') {
+          trackerMqId = incrementStringId(trackerMqId);
+          mq_id = trackerMqId;
+        }
+
+        // 3. Auto-generate Roll Number if missing
+        if (!roll_number || roll_number === '') {
+          trackerRoll++;
+          roll_number = trackerRoll.toString();
+        }
+
+        const [existing] = await db.query('SELECT id FROM students WHERE mq_id = ? AND mq_id IS NOT NULL', [mq_id]);
+        if (existing.length > 0) {
+            results.failed++;
+            results.errors.push(`Student with MQ ID ${mq_id} already exists`);
+            continue;
+        }
+
+        await db.query(`
+          INSERT INTO students (name, gender, school_id, std, division, roll_number, mq_id, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+        `, [name, gender || 'Male', school_id, std, division, roll_number, mq_id]);
+        
+        results.imported++;
+      } catch (err) {
+        results.failed++;
+        results.errors.push(err.message);
+      }
+    }
+
+    res.json({ success: true, results });
+} catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// ============================================================
+// 📦 STOCK & EQUIPMENT ORDER APIS
+// ============================================================
+
+// 📦 GET EQUIPMENT ORDERS
+app.get('/api/equipment-orders', async (req, res) => {
+  const user_id = req.query.user_id || null;
+  const role_id = parseInt(req.query.role_id) || 0;
+  try {
+    let query = `
+      SELECT eo.*, s.name as school_name, u.name as user_name
+      FROM equipment_order eo
+      LEFT JOIN schools s ON s.id = eo.school_id
+      LEFT JOIN users u ON eo.user_id = u.id
+    `;
+    let params = [];
+
+    if (role_id === 1 || role_id === 7) {
+      // Admin sees only SSGM-approved orders
+      query += ' WHERE eo.approve_ssgm = 1';
+    } else if (role_id === 3) {
+      // SSGM sees all orders
+      query += ' WHERE 1=1';
+    } else {
+      // Regular users see only their own requests
+      query += ' WHERE eo.user_id = ?';
+      params.push(user_id);
+    }
+
+    query += ' ORDER BY eo.created_at DESC';
+    const [rows] = await db.query(query, params);
+
+    const processedOrders = rows.map(row => {
+      let status = 'Pending Approval';
+      if (row.approve_ssgm === 1) {
+        status = 'SSGM Verified';
+        if (row.approve_admin === 1) {
+          status = 'Admin Approved';
+          if (row.status_delivery === 'Processing') status = 'Processing';
+          else if (row.status_delivery === 'Delivered') status = 'Delivered';
+        } else if (row.approve_admin === 0) {
+          status = 'Rejected';
+        }
+      } else if (row.approve_ssgm === 0) {
+        status = 'Rejected';
+      }
+      return { ...row, status };
+    });
+
+    res.json({ success: true, data: processedOrders });
+  } catch (err) {
+    console.error('GET EQUIPMENT ORDERS ERROR:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 📦 CREATE EQUIPMENT ORDER (with optional image upload)
+app.post('/api/equipment-orders', upload.single('image'), async (req, res) => {
+  const { school_id, items, user_id } = req.body;
+  const image_path = req.file ? `uploads/${req.file.filename}` : null;
+
+  try {
+    if (!school_id) {
+      return res.status(400).json({ success: false, message: 'School is required.' });
+    }
+
+    const parsedItems = typeof items === 'string' ? JSON.parse(items) : (items || []);
+    let successCount = 0;
+
+    for (const item of parsedItems) {
+      if (item.sku_name && item.sku_name.trim() !== '') {
+        await db.query(
+          'INSERT INTO equipment_order (sku_name, qty, school_id, size, user_id, image_path) VALUES (?, ?, ?, ?, ?, ?)',
+          [item.sku_name, item.qty || 0, school_id, item.size || '', user_id, image_path]
+        );
+        successCount++;
+      }
+    }
+
+    // If no valid items but an image was uploaded, insert a placeholder row
+    if (successCount === 0 && image_path) {
+      await db.query(
+        'INSERT INTO equipment_order (sku_name, qty, school_id, size, user_id, image_path) VALUES (?, ?, ?, ?, ?, ?)',
+        ['Check Image', 0, school_id, '', user_id, image_path]
+      );
+    } else if (successCount === 0) {
+      return res.status(400).json({ success: false, message: 'Provide at least one equipment item or an image.' });
+    }
+
+    res.json({ success: true, message: 'Equipment order placed successfully!' });
+  } catch (err) {
+    console.error('CREATE EQUIPMENT ORDER ERROR:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 📦 UPDATE EQUIPMENT ORDER STATUS (Approve / Reject)
+app.put('/api/equipment-orders/:id/status', async (req, res) => {
+  const { id } = req.params;
+  const { status, role_id } = req.body;
+
+  try {
+    let updateField = '';
+    let value = 0;
+
+    const s = (status || '').toLowerCase();
+    if (s === 'approved') value = 1;
+    else if (s === 'rejected') value = 0;
+    else return res.status(400).json({ success: false, message: 'Invalid status. Use "approved" or "rejected".' });
+
+    if (role_id === 3) {
+      updateField = 'approve_ssgm';
+    } else if (role_id === 1 || role_id === 7) {
+      updateField = 'approve_admin';
+    } else {
+      return res.status(403).json({ success: false, message: 'Unauthorized to update order status.' });
+    }
+
+    await db.query(`UPDATE equipment_order SET ${updateField} = ? WHERE id = ?`, [value, id]);
+    res.json({ success: true, message: 'Order status updated successfully.' });
+  } catch (err) {
+    console.error('UPDATE ORDER STATUS ERROR:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ============================================================
+// 📄 STOCK REPORT APIS
+// ============================================================
+
+// 📄 GET STOCK REPORTS (with optional month/date filter)
+app.get('/api/stock-reports', async (req, res) => {
+  const { month, date } = req.query;
+
+  try {
+    let query = `
+      SELECT sr.*, s.name as school_name
+      FROM stock_reports sr
+      LEFT JOIN schools s ON s.id = sr.school_id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (month) {
+      query += ' AND MONTH(sr.report_date) = ?';
+      params.push(month);
+    }
+    if (date) {
+      query += ' AND DATE(sr.report_date) = ?';
+      params.push(date);
+    }
+
+    query += ' ORDER BY sr.report_date DESC';
+    const [rows] = await db.query(query, params);
+    res.json(rows);
+  } catch (err) {
+    console.error('GET STOCK REPORTS ERROR:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 📄 ADD STOCK REPORT (with file upload)
+app.post('/api/stock-reports', upload.single('file_main'), async (req, res) => {
+  const { school_id, report_date, role_id } = req.body;
+  const file_path = req.file ? `uploads/${req.file.filename}` : null;
+
+  try {
+    if (!school_id || !file_path) {
+      return res.status(400).json({ success: false, message: 'School and file are required.' });
+    }
+
+    await db.query(
+      'INSERT INTO stock_reports (school_id, report_date, file_path, excel_path, role_id) VALUES (?, ?, ?, ?, ?)',
+      [school_id, report_date || new Date().toISOString().split('T')[0], file_path, '', role_id || 0]
+    );
+
+    res.json({ success: true, message: 'Stock report added successfully!' });
+  } catch (err) {
+    console.error('ADD STOCK REPORT ERROR:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

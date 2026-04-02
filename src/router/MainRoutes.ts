@@ -48,7 +48,6 @@ const MainRoutes = {
       component: () => import('@/views/StarterPage.vue')
     },
     */
-    /*
     {
       name: 'Stock',
       path: '/stock',
@@ -56,10 +55,9 @@ const MainRoutes = {
     },
     {
       name: 'ApproveStock',
-      path: '/approve-stock',
-      component: () => import('@/views/stock/ApproveStockPage.vue')
+      path: '/stock/approve',
+      component: () => import('@/views/stock/ApproveStockDetail.vue')
     },
-    */
     {
       name: 'StudentsList',
       path: '/student',
@@ -159,6 +157,11 @@ const MainRoutes = {
       name: 'FillMarks',
       path: '/exams/fill-marks',
       component: () => import('@/views/exams/FillMarksPage.vue')
+    },
+    {
+      name: 'ReportCard',
+      path: '/reports/report-card',
+      component: () => import('@/views/reports/ReportCardPage.vue')
     }
   ]
 };

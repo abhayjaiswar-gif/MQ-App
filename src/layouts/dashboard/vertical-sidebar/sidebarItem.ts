@@ -119,6 +119,10 @@ const sidebarItem: menu[] = [
       {
         title: 'Parents Report Card',
         to: '/reports/parents'
+      },
+      {
+        title: 'Report Card Generation',
+        to: '/reports/report-card'
       }
     ]
   }
