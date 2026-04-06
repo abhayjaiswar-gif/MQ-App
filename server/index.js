@@ -2815,18 +2815,35 @@ app.post('/api/curriculum/assign', async (req, res) => {
 app.get('/api/curriculum/my-assignments/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const [rows] = await db.query(`
+    
+    let [rows] = await db.query(`
       SELECT 
         sla.id, 
         sla.sport, 
         sla.id_indicate_curriculum,
         (SELECT COUNT(*) FROM year_lp_master ylm WHERE ylm.id_indicate_curriculum = sla.id_indicate_curriculum) as module_count,
-        MAX(sla.assigned_date) as assigned_date
+        MAX(sla.created_at) as created_at
       FROM sport_lp_assign sla
       WHERE sla.user_id = ?
       GROUP BY sla.id, sla.sport, sla.id_indicate_curriculum
-      ORDER BY assigned_date DESC
+      ORDER BY created_at DESC
     `, [userId]);
+
+    // 🚀 SUPER ADMIN BYPASS: If Admin (1) has no assignments, show all unique curriculums
+    if (rows.length === 0 && userId == '1') {
+      console.log('[DEBUG] Admin bypass triggered for Summary');
+      [rows] = await db.query(`
+        SELECT 
+          MIN(id) as id, 
+          sport, 
+          id_indicate_curriculum, 
+          COUNT(*) as module_count, 
+          MAX(created_at) as created_at 
+        FROM year_lp_master 
+        GROUP BY id_indicate_curriculum, sport
+      `);
+    }
+
     res.json({ success: true, assignments: rows });
   } catch (err) {
     console.error('FETCH MY ASSIGNMENTS ERROR:', err);
@@ -2860,15 +2877,15 @@ app.get('/api/curriculum/modules/:id', async (req, res) => {
 app.get('/api/curriculum/my-modules/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    // Base on PHP logic: $check_id = implode(',', $lp_data_ids_check); 
-    // SELECT * FROM year_lp_master WHERE id_indicate_curriculum IN ($check_id)
-    const [rows] = await db.query(`
+    
+    let [rows] = await db.query(`
       SELECT 
         ylm.id as module_id, 
         ylm.sport, 
         ylm.grade, 
-        ylm.module_name, 
-        ylm.lesson_details,
+        ylm.skill,
+        ylm.sub_skill,
+        ylm.objective,
         ylm.lp_no,
         ylm.created_at as module_date
       FROM year_lp_master ylm
@@ -2877,6 +2894,19 @@ app.get('/api/curriculum/my-modules/:userId', async (req, res) => {
       )
       ORDER BY ylm.sport, ylm.grade, ylm.lp_no, ylm.id
     `, [userId]);
+
+    // 🚀 SUPER ADMIN BYPASS: If Admin (1) has no assignments, show all modules
+    if (rows.length === 0 && userId == '1') {
+      console.log('[DEBUG] Admin bypass triggered for Modules');
+      [rows] = await db.query(`
+        SELECT 
+          id as module_id, sport, grade, skill, sub_skill, objective, lp_no, created_at as module_date 
+        FROM year_lp_master 
+        ORDER BY sport, grade, lp_no
+        LIMIT 500
+      `);
+    }
+
     res.json({ success: true, modules: rows });
   } catch (err) {
     console.error('FETCH MY MODULES ERROR:', err);
@@ -2903,6 +2933,84 @@ app.get('/api/curriculum/assignments', async (req, res) => {
   } catch (err) {
     console.error('FETCH ASSIGNMENTS ERROR:', err);
     res.status(500).json({ success: false, message: 'Error fetching assignments' });
+  }
+});
+
+// 🎯 GET ALL AVAILABLE COACHES (ROLE_ID = 4)
+app.get('/api/curriculum/coaches', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id, name FROM users WHERE role_id = 4 ORDER BY name ASC');
+    res.json({ success: true, coaches: rows });
+  } catch (err) {
+    console.error('FETCH COACHES ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching coaches' });
+  }
+});
+
+// 🎯 BATCH ASSIGN LESSON PLANS TO A COACH (PHP REFERENCE LOGIC)
+app.post('/api/curriculum/assign-batch', async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    const { teacher_id, week, month_year, assignments, assigned_by } = req.body;
+
+    if (!teacher_id || !week || !month_year || !assignments || !assignments.length) {
+      return res.status(400).json({ success: false, message: 'Invalid assignment data' });
+    }
+
+    await connection.beginTransaction();
+    let assignedCount = 0;
+    let duplicateCount = 0;
+
+    for (const assign of assignments) {
+      const curriculumId = assign.curriculum_id;
+
+      // 1. Check for duplicates (PHP logic)
+      const [existing] = await connection.query(`
+        SELECT id FROM assigned_lesson_plans 
+        WHERE curriculum_id = ? AND assigned_to = ? AND week = ? AND month_year = ?
+      `, [curriculumId, teacher_id, week, month_year]);
+
+      if (existing.length > 0) {
+        duplicateCount++;
+        continue;
+      }
+
+      // 2. Fetch full details from master (PHP logic)
+      const [lpData] = await connection.query('SELECT * FROM year_lp_master WHERE id = ?', [curriculumId]);
+      
+      if (lpData.length === 0) continue;
+      const lp = lpData[0];
+
+      // 3. Insert into assignments table
+      await connection.query(`
+        INSERT INTO assigned_lesson_plans (
+          lp_no, sport, skill, sub_skill, objective, teaching_aids, warm_up, 
+          skill_implementation, picture, cool_down, summarization, life_skill, 
+          grade, lp_unique_id, curriculum_id, week, month_year, 
+          assigned_to, assigned_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        lp.lp_no, lp.sport, lp.skill, lp.sub_skill, lp.objective, lp.teaching_aids, lp.warm_up,
+        lp.skill_implementation, lp.picture, lp.cool_down, lp.summarization, lp.life_skill,
+        lp.grade, lp.lp_unique_id, curriculumId, week, month_year, 
+        teacher_id, assigned_by
+      ]);
+
+      assignedCount++;
+    }
+
+    await connection.commit();
+    res.json({ 
+      success: true, 
+      message: `Assigned ${assignedCount} plans successfully. ${duplicateCount > 0 ? `(${duplicateCount} were already assigned)` : ''}` 
+    });
+
+  } catch (err) {
+    await connection.rollback();
+    console.error('BATCH ASSIGN ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error during batch assignment' });
+  } finally {
+    connection.release();
   }
 });
 
