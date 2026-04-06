@@ -29,7 +29,7 @@ const perPage = 10;
 const fetchReports = async () => {
   loading.value = true;
   try {
-    const response = await fetch('http://localhost:3000/api/parents-reports');
+    const response = await fetch('/api/parents-reports');
     const data = await response.json();
     if (data.success) reports.value = data.reports;
   } catch (error) {

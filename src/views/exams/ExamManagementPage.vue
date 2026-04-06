@@ -13,7 +13,7 @@ const fetchExams = async () => {
     loading.value = true;
     error.value = null;
     try {
-        const res = await fetch('http://localhost:3000/api/exam-formats');
+        const res = await fetch('/api/exam-formats');
         const data = await res.json();
         if (data.success) {
             exams.value = data.formats;
@@ -32,7 +32,7 @@ const deleteExam = async (id) => {
     if (!confirm("Are you sure you want to delete this exam format?")) return;
 
     try {
-        const res = await fetch(`http://localhost:3000/api/exam-formats/${id}`, {
+        const res = await fetch(`/api/exam-formats/${id}`, {
             method: 'DELETE'
         });
         const data = await res.json();

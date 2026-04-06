@@ -67,7 +67,7 @@ const saveSchool = async () => {
     if (files.value.principal_sig) formData.append('principal_signature_image', files.value.principal_sig);
     if (files.value.head_coach_sig) formData.append('head_coach_signature_image', files.value.head_coach_sig);
 
-    const response = await fetch('http://localhost:3000/api/schools', {
+    const response = await fetch('/api/schools', {
       method: 'POST',
       body: formData
     });

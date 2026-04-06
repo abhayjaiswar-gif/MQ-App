@@ -16,7 +16,7 @@ const nextRollNumber = ref('');
 
 const fetchNextIds = async () => {
     try {
-        const res = await fetch('http://localhost:3000/api/students/next-ids');
+        const res = await fetch('/api/students/next-ids');
         const data = await res.json();
         if (data.success) {
             nextMqId.value = data.nextMqId;
@@ -29,7 +29,7 @@ const fetchNextIds = async () => {
 
 const fetchSchools = async () => {
     try {
-        const res = await fetch('http://localhost:3000/api/schools');
+        const res = await fetch('/api/schools');
         const data = await res.json();
         if (data.success) {
             schools.value = data.schools;
@@ -134,7 +134,7 @@ const handleFileSelect = async (event) => {
                 return;
             }
 
-            const response = await fetch('http://localhost:3000/api/students/bulk', {
+            const response = await fetch('/api/students/bulk', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ students: studentPayload })
@@ -166,7 +166,7 @@ const handleSingleRegister = async () => {
 
     isRegisteringSingle.value = true;
     try {
-        const response = await fetch('http://localhost:3000/api/students', {
+        const response = await fetch('/api/students', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

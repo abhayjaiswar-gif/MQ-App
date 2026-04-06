@@ -61,7 +61,7 @@ const getInitials = (name: string) => {
 
 const fetchReports = async () => {
   try {
-    const response = await fetch('http://localhost:3000/api/match-reports');
+    const response = await fetch('/api/match-reports');
     const data = await response.json();
     if (data.success) {
       reports.value = data.reports;
@@ -75,7 +75,7 @@ const fetchReports = async () => {
 
 const fetchSchools = async () => {
   try {
-    const response = await fetch('http://localhost:3000/api/schools');
+    const response = await fetch('/api/schools');
     const data = await response.json();
     if (data.success) {
       schools.value = data.schools;
@@ -110,7 +110,7 @@ const submitReport = async () => {
   formData.append('report', selectedFile.value);
 
   try {
-    const response = await fetch('http://localhost:3000/api/match-reports', {
+    const response = await fetch('/api/match-reports', {
       method: 'POST',
       body: formData
     });
@@ -306,7 +306,7 @@ onMounted(() => {
                     </div>
                   </td>
                   <td class="px-8 py-6 text-right">
-                    <a :href="`http://localhost:3000/uploads/${report.file_path}`" target="_blank"
+                    <a :href="`/uploads/${report.file_path}`" target="_blank"
                       class="inline-flex items-center gap-2 bg-[#f8fafc] text-primary hover:bg-primary hover:text-white px-5 py-2.5 rounded-xl font-bold text-[11px] uppercase tracking-widest transition-all shadow-sm border border-slate-100 font-manrope">
                       <span class="material-symbols-outlined text-[18px]">visibility</span>
                       View

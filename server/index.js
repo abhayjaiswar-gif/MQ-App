@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const morgan = require('morgan');
 const multer = require('multer');
+const xlsx = require('xlsx');
 const path = require('path');
 const fs = require('fs');
 const QRCode = require('qrcode');
@@ -757,6 +758,16 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
+app.get('/api/users/coaches', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id, name FROM users WHERE role_id IN (4, 5) AND is_active = 1 ORDER BY name ASC');
+    res.json({ success: true, coaches: rows });
+  } catch (err) {
+    console.error('FETCH COACHES ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching coaches' });
+  }
+});
+
 // 🔍 GET SINGLE USER
 app.get('/api/users/:id', async (req, res) => {
   const { id } = req.params;
@@ -837,10 +848,10 @@ app.post('/api/students', async (req, res) => {
 
     // 3. Duplicate check for MQ ID (if provided)
     if (mq_id) {
-        const [existing] = await db.query('SELECT id FROM students WHERE mq_id = ? AND mq_id IS NOT NULL', [mq_id]);
-        if (existing.length > 0) {
-            return res.status(400).json({ success: false, message: `Student with MQ ID ${mq_id} already exists` });
-        }
+      const [existing] = await db.query('SELECT id FROM students WHERE mq_id = ? AND mq_id IS NOT NULL', [mq_id]);
+      if (existing.length > 0) {
+        return res.status(400).json({ success: false, message: `Student with MQ ID ${mq_id} already exists` });
+      }
     }
 
     // 4. Insert Student
@@ -848,7 +859,7 @@ app.post('/api/students', async (req, res) => {
       'INSERT INTO students (mq_id, name, school_id, std, division, roll_number, status) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [mq_id || null, resolvedName, resolvedSchoolId, resolvedStd, division || '', roll_number || '', status || '1']
     );
-    
+
     res.json({ success: true, message: 'Student created successfully', studentId: result.insertId });
   } catch (err) {
     console.error('CREATE STUDENT ERROR:', err);
@@ -2461,19 +2472,19 @@ function incrementStringId(id) {
 app.get('/api/students/next-ids', async (req, res) => {
   try {
     const [[lastStudent]] = await db.query('SELECT mq_id, roll_number FROM students ORDER BY id DESC LIMIT 1');
-    
+
     let nextMqId = 'MQ-101';
     let nextRollNumber = '1';
 
     if (lastStudent) {
       if (lastStudent.mq_id) nextMqId = incrementStringId(lastStudent.mq_id);
       if (lastStudent.roll_number) {
-          const rollMatch = lastStudent.roll_number.match(/\d+/);
-          if (rollMatch) {
-              nextRollNumber = (parseInt(rollMatch[0]) + 1).toString();
-          } else {
-              nextRollNumber = lastStudent.roll_number + '1';
-          }
+        const rollMatch = lastStudent.roll_number.match(/\d+/);
+        if (rollMatch) {
+          nextRollNumber = (parseInt(rollMatch[0]) + 1).toString();
+        } else {
+          nextRollNumber = lastStudent.roll_number + '1';
+        }
       }
     }
 
@@ -2502,7 +2513,7 @@ app.post('/api/students/bulk', async (req, res) => {
     for (const student of students) {
       try {
         let { name, gender, school_id, std, division, roll_number, mq_id } = student;
-        
+
         // Basic validation
         if (!name || !school_id || !std || !division) {
           results.failed++;
@@ -2524,16 +2535,16 @@ app.post('/api/students/bulk', async (req, res) => {
 
         const [existing] = await db.query('SELECT id FROM students WHERE mq_id = ? AND mq_id IS NOT NULL', [mq_id]);
         if (existing.length > 0) {
-            results.failed++;
-            results.errors.push(`Student with MQ ID ${mq_id} already exists`);
-            continue;
+          results.failed++;
+          results.errors.push(`Student with MQ ID ${mq_id} already exists`);
+          continue;
         }
 
         await db.query(`
           INSERT INTO students (name, gender, school_id, std, division, roll_number, mq_id, status)
           VALUES (?, ?, ?, ?, ?, ?, ?, 1)
         `, [name, gender || 'Male', school_id, std, division, roll_number, mq_id]);
-        
+
         results.imported++;
       } catch (err) {
         results.failed++;
@@ -2542,7 +2553,7 @@ app.post('/api/students/bulk', async (req, res) => {
     }
 
     res.json({ success: true, results });
-} catch (err) {
+  } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -2727,6 +2738,261 @@ app.post('/api/stock-reports', upload.single('file_main'), async (req, res) => {
   } catch (err) {
     console.error('ADD STOCK REPORT ERROR:', err);
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+
+app.get('/api/curriculums', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        id_indicate_curriculum, 
+        sport, 
+        COUNT(*) as module_count, 
+        MAX(created_at) as created_at 
+      FROM year_lp_master 
+      GROUP BY id_indicate_curriculum, sport 
+      ORDER BY created_at DESC
+    `);
+    res.json({ success: true, curriculums: rows });
+  } catch (err) {
+    console.error('FETCH CURRICULUMS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching curriculums' });
+  }
+});
+
+// 🗑️ DELETE CURRICULUM MASTER
+app.delete('/api/curriculums/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    // First remove assignments linked to this curriculum
+    await db.query('DELETE FROM sport_lp_assign WHERE id_indicate_curriculum = ?', [id]);
+    // Then remove the curriculum itself
+    await db.query('DELETE FROM year_lp_master WHERE id_indicate_curriculum = ?', [id]);
+    
+    res.json({ success: true, message: 'Curriculum and its assignments removed successfully!' });
+  } catch (err) {
+    console.error('DELETE CURRICULUM ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error removing curriculum' });
+  }
+});
+
+// 🎯 ASSIGN CURRICULUM
+app.post('/api/curriculum/assign', async (req, res) => {
+  try {
+    const teacher_id = parseInt(req.body.teacher_id, 10);
+    const assignments_json = req.body.assignments || '[]';
+    const assignments = JSON.parse(assignments_json);
+
+    if (teacher_id && assignments.length > 0) {
+      for (const assignment of assignments) {
+        const sport = assignment.sport;
+        const curriculum_id = parseInt(assignment.curriculum_id, 10);
+
+        const [check] = await db.query(
+          'SELECT id FROM sport_lp_assign WHERE user_id = ? AND sport = ?',
+          [teacher_id, sport]
+        );
+
+        if (check.length === 0) {
+          await db.query(
+            'INSERT INTO sport_lp_assign (user_id, sport, id_indicate_curriculum) VALUES (?, ?, ?)',
+            [teacher_id, sport, curriculum_id]
+          );
+        }
+      }
+      res.json({ success: true, message: 'Assignment successful!' });
+    } else {
+      res.status(400).json({ success: false, message: 'Invalid data.' });
+    }
+  } catch (err) {
+    console.error('API Error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 🎯 GET ALL ASSIGNMENTS FOR A SPECIFIC COACH (SUMMARY)
+app.get('/api/curriculum/my-assignments/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const [rows] = await db.query(`
+      SELECT 
+        sla.id, 
+        sla.sport, 
+        sla.id_indicate_curriculum,
+        (SELECT COUNT(*) FROM year_lp_master ylm WHERE ylm.id_indicate_curriculum = sla.id_indicate_curriculum) as module_count,
+        MAX(sla.assigned_date) as assigned_date
+      FROM sport_lp_assign sla
+      WHERE sla.user_id = ?
+      GROUP BY sla.id, sla.sport, sla.id_indicate_curriculum
+      ORDER BY assigned_date DESC
+    `, [userId]);
+    res.json({ success: true, assignments: rows });
+  } catch (err) {
+    console.error('FETCH MY ASSIGNMENTS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching assignments' });
+  }
+});
+
+// 🎯 GET ALL MODULES FOR A SPECIFIC CURRICULUM
+app.get('/api/curriculum/modules/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [rows] = await db.query(`
+      SELECT 
+        id, 
+        grade, 
+        module_name, 
+        lesson_details, 
+        created_at 
+      FROM year_lp_master 
+      WHERE id_indicate_curriculum = ?
+      ORDER BY id ASC
+    `, [id]);
+    res.json({ success: true, modules: rows });
+  } catch (err) {
+    console.error('FETCH MODULES ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching module details' });
+  }
+});
+
+// 🎯 GET ALL LESSON MODULES FOR A SPECIFIC COACH (FULL LIST - PHP REFERENCE LOGIC)
+app.get('/api/curriculum/my-modules/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    // Base on PHP logic: $check_id = implode(',', $lp_data_ids_check); 
+    // SELECT * FROM year_lp_master WHERE id_indicate_curriculum IN ($check_id)
+    const [rows] = await db.query(`
+      SELECT 
+        ylm.id as module_id, 
+        ylm.sport, 
+        ylm.grade, 
+        ylm.module_name, 
+        ylm.lesson_details,
+        ylm.lp_no,
+        ylm.created_at as module_date
+      FROM year_lp_master ylm
+      WHERE ylm.id_indicate_curriculum IN (
+        SELECT id_indicate_curriculum FROM sport_lp_assign WHERE user_id = ?
+      )
+      ORDER BY ylm.sport, ylm.grade, ylm.lp_no, ylm.id
+    `, [userId]);
+    res.json({ success: true, modules: rows });
+  } catch (err) {
+    console.error('FETCH MY MODULES ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching lesson modules' });
+  }
+});
+
+// 📋 GET ALL ASSIGNMENTS
+app.get('/api/curriculum/assignments', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        sla.id, 
+        sla.sport, 
+        sla.user_id, 
+        sla.id_indicate_curriculum,
+        u.name as coach_name,
+        (SELECT COUNT(*) FROM year_lp_master ylm WHERE ylm.id_indicate_curriculum = sla.id_indicate_curriculum) as module_count
+      FROM sport_lp_assign sla
+      JOIN users u ON sla.user_id = u.id
+      ORDER BY sla.id DESC
+    `);
+    res.json({ success: true, assignments: rows });
+  } catch (err) {
+    console.error('FETCH ASSIGNMENTS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching assignments' });
+  }
+});
+
+// 🗑️ DELETE ASSIGNMENT
+app.delete('/api/curriculum/assignments/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query('DELETE FROM sport_lp_assign WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Assignment removed successfully!' });
+  } catch (err) {
+    console.error('DELETE ASSIGNMENT ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error removing assignment' });
+  }
+});
+
+// 🏆 IMPORT EXCEL CURRICULUM
+app.post('/api/curriculum/import', upload.single('file_name'), async (req, res) => {
+  const { sport_name } = req.body;
+  const file = req.file;
+
+  if (!file) {
+    return res.status(400).json({ success: false, message: 'Please upload an Excel file.' });
+  }
+
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (!['.xlsx', '.xls'].includes(ext)) {
+    // Clean up uploaded file
+    fs.unlinkSync(file.path);
+    return res.status(400).json({ success: false, message: 'Only Excel files allowed!' });
+  }
+
+  try {
+    const [[lastRow]] = await db.query('SELECT MAX(id_indicate_curriculum) as last_id FROM year_lp_master');
+    const id_indicate_curriculum = (lastRow && lastRow.last_id ? lastRow.last_id : 0) + 1;
+
+    const workbook = xlsx.readFile(file.path);
+    let inserted = 0;
+
+    for (const sheetName of workbook.SheetNames) {
+      const gradeMatch = sheetName.match(/\d+/);
+      if (!gradeMatch) continue;
+      const grade = parseInt(gradeMatch[0], 10);
+      if (grade <= 0) continue;
+
+      const sheet = workbook.Sheets[sheetName];
+      const rows = xlsx.utils.sheet_to_json(sheet, { header: 1 });
+
+      if (rows.length <= 1) continue;
+      rows.shift(); // remove header
+
+      for (const r of rows) {
+        const lp_no = String(r[0] || '').trim();
+        if (!lp_no) continue;
+
+        const skill = String(r[1] || '').trim();
+        const sub_skill = String(r[2] || '').trim();
+        const objective = String(r[3] || '').trim();
+        const teaching_aids = String(r[4] || '').trim();
+        const warm_up = String(r[5] || '').trim();
+        const skill_implementation = String(r[6] || '').trim();
+        const picture = String(r[7] || '').trim();
+        const cool_down = String(r[8] || '').trim();
+        const summarization = String(r[9] || '').trim();
+        const life_skill = String(r[10] || '').trim();
+
+        const uniqueParams = crypto.randomBytes(8).toString('hex');
+
+        await db.query(`
+          INSERT INTO year_lp_master 
+          (grade, sport, lp_no, skill, sub_skill, objective, teaching_aids, warm_up, 
+           skill_implementation, picture, cool_down, summarization, life_skill, created_at, 
+           lp_unique_id, id_indicate_curriculum) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?)
+        `, [
+          grade, sport_name || '', lp_no, skill, sub_skill, objective, teaching_aids,
+          warm_up, skill_implementation, picture, cool_down, summarization, life_skill,
+          uniqueParams, id_indicate_curriculum
+        ]);
+
+        inserted++;
+      }
+    }
+
+    res.json({ success: true, message: `Excel Imported Successfully! Curriculum ID: ${id_indicate_curriculum} | Total Rows Inserted: ${inserted}` });
+
+  } catch (err) {
+    console.error('IMPORT CURRICULUM ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error: ' + err.message });
+  } finally {
+    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
   }
 });
 

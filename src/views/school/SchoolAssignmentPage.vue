@@ -44,10 +44,10 @@ const fetchInitialData = async () => {
   loading.value = true;
   try {
     const [asgnRes, usersRes, schoolsRes] = await Promise.all([
-      fetch('http://localhost:3000/api/school-assignments').then(r => r.json()),
-      fetch('http://localhost:3000/api/schools').then(r => r.json()), // Assuming this exists or using existing school list
+      fetch('/api/school-assignments').then(r => r.json()),
+      fetch('/api/schools').then(r => r.json()), // Assuming this exists or using existing school list
       // In a real app we might have a specific users endpoint, but let's assume we can fetch them
-      fetch('http://localhost:3000/api/schools').then(r => r.json()) // Mocking user fetch with school list if no user api
+      fetch('/api/schools').then(r => r.json()) // Mocking user fetch with school list if no user api
     ]);
 
     if (asgnRes.success) {
@@ -59,7 +59,7 @@ const fetchInitialData = async () => {
     }
     // For users, let's fetch from basic login or assume we need a user endpoint
     // MOCK: Let's just use the assignments users for now or fetch from a known endpoint
-    const userRes = await fetch('http://localhost:3000/api/school-assignments').then(r => r.json());
+    const userRes = await fetch('/api/school-assignments').then(r => r.json());
     if (userRes.success) {
       // Extract unique users
       const seen = new Set();
@@ -75,7 +75,7 @@ const fetchInitialData = async () => {
 
 const fetchAssignments = async () => {
   try {
-    const response = await fetch('http://localhost:3000/api/school-assignments');
+    const response = await fetch('/api/school-assignments');
     const data = await response.json();
     if (data.success) {
       assignments.value = data.assignments;
@@ -118,7 +118,7 @@ const submitAssignment = async () => {
   }
 
   try {
-    const response = await fetch('http://localhost:3000/api/school-assignments', {
+    const response = await fetch('/api/school-assignments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -172,7 +172,7 @@ const deleteAssignment = async (userId: number) => {
   if (!confirm('Are you sure you want to remove all school assignments for this user?')) return;
 
   try {
-    const response = await fetch('http://localhost:3000/api/school-assignments', {
+    const response = await fetch('/api/school-assignments', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

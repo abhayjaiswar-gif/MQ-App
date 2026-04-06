@@ -26,7 +26,7 @@ const uploading = ref(false);
 
 const fetchSchoolDetails = async () => {
   try {
-    const response = await fetch(`http://localhost:3000/api/schools/${schoolId}`);
+    const response = await fetch(`/api/schools/${schoolId}`);
     const data = await response.json();
     if (data.success) {
       school.value = data.school;
@@ -38,7 +38,7 @@ const fetchSchoolDetails = async () => {
 
 const fetchGallery = async () => {
   try {
-    const response = await fetch(`http://localhost:3000/api/school-gallery/${schoolId}`);
+    const response = await fetch(`/api/school-gallery/${schoolId}`);
     const data = await response.json();
     if (data.success) {
       galleryItems.value = data.gallery;
@@ -104,7 +104,7 @@ const uploadPhotos = async () => {
   formData.append('description', uploadDescription.value);
 
   try {
-    const response = await fetch(`http://localhost:3000/api/school-gallery/${schoolId}`, {
+    const response = await fetch(`/api/school-gallery/${schoolId}`, {
       method: 'POST',
       body: formData
     });
@@ -263,7 +263,7 @@ const downloadMedia = async (url: string, filename: string) => {
             <!-- Background Banner Image -->
             <img 
               v-if="school.school_image" 
-              :src="`http://localhost:3000/uploads/${school.school_image}`" 
+              :src="`/uploads/${school.school_image}`" 
               class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
               @error="handleImageError"
             />
@@ -279,7 +279,7 @@ const downloadMedia = async (url: string, filename: string) => {
               <div class="flex items-end gap-6">
                 <!-- Logo / Initial Avatar -->
                 <div class="hidden md:flex w-32 h-32 rounded-3xl bg-white shadow-2xl p-2 items-center justify-center border border-slate-50 relative -mb-6 z-10">
-                  <img v-if="school.school_logo" :src="`http://localhost:3000/uploads/${school.school_logo}`" class="w-full h-full object-contain" @error="handleImageError" />
+                  <img v-if="school.school_logo" :src="`/uploads/${school.school_logo}`" class="w-full h-full object-contain" @error="handleImageError" />
                   <span v-else class="text-4xl font-black text-primary">{{ school.name?.charAt(0) }}</span>
                 </div>
 
@@ -330,7 +330,7 @@ const downloadMedia = async (url: string, filename: string) => {
             <div v-if="galleryItems.length > 0" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
               <div v-for="item in galleryItems" :key="item.id" class="group relative aspect-square bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 p-0.5">
                 <div class="w-full h-full rounded-[10px] overflow-hidden">
-                  <img class="w-full h-full object-cover" :src="`http://localhost:3000/uploads/${item.file_path}`" :alt="item.caption" @error="handleImageError" />
+                  <img class="w-full h-full object-cover" :src="`/uploads/${item.file_path}`" :alt="item.caption" @error="handleImageError" />
                 </div>
                 <div class="absolute inset-0 bg-white/90 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4 m-0.5 rounded-[10px]">
                   <p class="text-slate-900 text-xs font-bold">{{ item.caption || 'Untitled' }}</p>
@@ -338,7 +338,7 @@ const downloadMedia = async (url: string, filename: string) => {
                 </div>
                 <div class="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2">
                   <button 
-                    @click="downloadMedia(`http://localhost:3000/uploads/${item.file_path}`, item.file_path)"
+                    @click="downloadMedia(`/uploads/${item.file_path}`, item.file_path)"
                     class="bg-white/90 backdrop-blur p-1.5 rounded-lg text-slate-700 hover:text-primary transition-colors shadow-sm"
                     title="Download Media"
                   >

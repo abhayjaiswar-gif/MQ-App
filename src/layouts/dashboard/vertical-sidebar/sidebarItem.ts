@@ -8,7 +8,8 @@ import {
   UserOutlined,
   IdcardOutlined,
   ShopOutlined,
-  CheckCircleOutlined
+  CheckCircleOutlined,
+  BookOutlined
 } from '@ant-design/icons-vue';
 
 export interface menu {
@@ -79,7 +80,7 @@ const sidebarItem: menu[] = [
   
   { header: 'Academics' },
   {
-    title: 'Exams & Curricula',
+    title: 'Exams',
     icon: FilePdfOutlined,
     children: [
       {
@@ -89,6 +90,24 @@ const sidebarItem: menu[] = [
       {
         title: 'Fill Marks',
         to: '/exams/fill-marks'
+      }
+    ]
+  },
+  {
+    title: 'Curricula',
+    icon: BookOutlined,
+    children: [
+      {
+        title: 'Assign Curriculum',
+        to: '/curriculum/assign'
+      },
+      {
+        title: 'Add Curriculum',
+        to: '/curriculum/add'
+      },
+      {
+        title: 'My Curriculums',
+        to: '/curriculum/my'
       }
     ]
   },

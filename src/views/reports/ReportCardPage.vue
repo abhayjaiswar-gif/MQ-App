@@ -1,9 +1,5 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
-
-// ─────────────────────────────
-// TYPES
-// ─────────────────────────────
 interface Student {
   id: string;
   mq_id?: string;
@@ -60,8 +56,8 @@ const selectedTerm = ref('both');
 const fetchFilters = async (schoolId: number | null = null) => {
   try {
     const url = schoolId
-      ? `http://localhost:3000/api/fill-marks/filters?school_id=${schoolId}`
-      : 'http://localhost:3000/api/fill-marks/filters';
+      ? `/api/fill-marks/filters?school_id=${schoolId}`
+      : '/api/fill-marks/filters';
 
     const res = await fetch(url);
     const data = await res.json();
@@ -107,7 +103,7 @@ const fetchStudents = async (isInitial = true) => {
     }
     if (selectedDivision.value) params.append('division', selectedDivision.value);
 
-    const res = await fetch(`http://localhost:3000/api/reports/students?${params.toString()}`);
+    const res = await fetch(`/api/reports/students?${params.toString()}`);
     const data = await res.json();
 
     if (data.success) {
@@ -169,7 +165,7 @@ const startBulkGeneration = async () => {
     }
     if (selectedDivision.value) params.append('division', selectedDivision.value);
 
-    const listRes = await fetch(`http://localhost:3000/api/reports/students?${params.toString()}`);
+    const listRes = await fetch(`/api/reports/students?${params.toString()}`);
     const listData = await listRes.json();
 
     if (!listData.success || !listData.students.length) {
@@ -188,7 +184,7 @@ const startBulkGeneration = async () => {
       const localStudent = students.value.find(s => s.id === currentId);
       if (localStudent) localStudent.status = 'Processing';
 
-      const genRes = await fetch('http://localhost:3000/api/reports/generate-pdf', {
+      const genRes = await fetch('/api/reports/generate-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -223,7 +219,7 @@ const startBulkGeneration = async () => {
 const downloadZip = () => {
   if (generatedIds.value.length === 0) return;
   const ids = generatedIds.value.join(',');
-  window.open(`http://localhost:3000/api/reports/download-zip?ids=${encodeURIComponent(ids)}`, '_blank');
+  window.open(`/api/reports/download-zip?ids=${encodeURIComponent(ids)}`, '_blank');
 };
 
 const downloadSinglePdf = (resultId: string | number) => {
@@ -231,14 +227,14 @@ const downloadSinglePdf = (resultId: string | number) => {
     selectedTerm: selectedTerm.value,
     showScanner: includeScanner.value
   });
-  window.open(`http://localhost:3000/api/reports/download-single/${resultId}?overrides=${encodeURIComponent(options)}`, '_blank');
+  window.open(`/api/reports/download-single/${resultId}?overrides=${encodeURIComponent(options)}`, '_blank');
 };
 
 const openPreview = async (resultId: string | number) => {
   previewLoading.value = true;
   showPreview.value = true;
   try {
-    const res = await fetch(`http://localhost:3000/api/reports/data/${resultId}`);
+    const res = await fetch(`/api/reports/data/${resultId}`);
     const data = await res.json();
     if (data.success) selectedReportData.value = data;
   } catch (e) {
@@ -617,8 +613,6 @@ onMounted(fetchFilters);
         </div>
         <div class="p-8 space-y-8">
           <div class="space-y-4">
-            <label class="text-[10px] font-bold text-on-surface-variant uppercase tracking-widest px-1">Assessment
-              Period</label>
             <div class="grid grid-cols-3 gap-3">
               <button
                 v-for="t in [{ id: 'term1', l: 'Term 1' }, { id: 'term2', l: 'Term 2' }, { id: 'both', l: 'Both' }]"

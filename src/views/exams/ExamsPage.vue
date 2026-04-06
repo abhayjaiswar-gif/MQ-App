@@ -68,8 +68,8 @@ const saveChanges = async () => {
     isSaving.value = true;
     try {
         const url = editingParam.value.id
-            ? `http://localhost:3000/api/parameters/${editingParam.value.id}`
-            : `http://localhost:3000/api/parameters`;
+            ? `/api/parameters/${editingParam.value.id}`
+            : `/api/parameters`;
         const method = editingParam.value.id ? 'PUT' : 'POST';
 
         const res = await fetch(url, {
@@ -98,7 +98,7 @@ const deleteParameter = async (id) => {
     if (!confirm("Are you sure you want to delete this parameter? This action cannot be undone.")) return;
 
     try {
-        const res = await fetch(`http://localhost:3000/api/parameters/${id}`, {
+        const res = await fetch(`/api/parameters/${id}`, {
             method: 'DELETE'
         });
         const data = await res.json();
@@ -115,7 +115,7 @@ const deleteParameter = async (id) => {
 
 const fetchGradingConfig = async () => {
     try {
-        const res = await fetch('http://localhost:3000/api/grading-config');
+        const res = await fetch('/api/grading-config');
         const data = await res.json();
         if (data.success) {
             gradingTiers.value = data.tiers;
@@ -128,7 +128,7 @@ const fetchGradingConfig = async () => {
 const saveGradingConfig = async () => {
     isSavingGrading.value = true;
     try {
-        const res = await fetch('http://localhost:3000/api/grading-config', {
+        const res = await fetch('/api/grading-config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tiers: gradingTiers.value })
@@ -150,7 +150,7 @@ const saveGradingConfig = async () => {
 
 const fetchStandards = async () => {
     try {
-        const res = await fetch('http://localhost:3000/api/standards');
+        const res = await fetch('/api/standards');
         const data = await res.json();
         if (data.success) {
             standards.value = data.standards;
@@ -190,7 +190,7 @@ const loadParameterGrades = async () => {
     if (!selectedParamForGrades.value) return;
     isLoadingParameterGrades.value = true;
     try {
-        const res = await fetch(`http://localhost:3000/api/parameter-grades?parameter=${selectedParamForGrades.value.parameter}&std=${selectedSourceStd.value}`);
+        const res = await fetch(`/api/parameter-grades?parameter=${selectedParamForGrades.value.parameter}&std=${selectedSourceStd.value}`);
         const data = await res.json();
         if (data.success && data.grades && data.grades.length > 0) {
             parameterGrades.value = data.grades;
@@ -216,7 +216,7 @@ const saveParameterGrades = async () => {
             grades: parameterGrades.value
         };
 
-        const res = await fetch('http://localhost:3000/api/parameter-grades/save', {
+        const res = await fetch('/api/parameter-grades/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -241,7 +241,7 @@ const fetchParameters = async () => {
     loading.value = true;
     error.value = null;
     try {
-        const res = await fetch('http://localhost:3000/api/parameters');
+        const res = await fetch('/api/parameters');
         const data = await res.json();
         if (data.success) {
             parameters.value = data.parameters;

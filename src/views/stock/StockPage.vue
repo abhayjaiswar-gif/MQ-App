@@ -101,7 +101,7 @@ const reportError = ref('');
 const equipmentImageInput = ref<HTMLInputElement | null>(null);
 
 const authStore = useAuthStore();
-const BASE_URL = 'http://localhost:3000'; // Base URL for static assets (uploads)
+const BASE_URL = ''; // Base URL for static assets (uploads)
 
 // ─── Tracker Steps ────────────────────────────────────────────────────────────
 const trackerSteps = ['Requested', 'SSGM Verified', 'Admin Approved', 'Processing', 'Delivered'];

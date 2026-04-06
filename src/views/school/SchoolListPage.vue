@@ -16,7 +16,7 @@ const selectedCity = ref('All Cities');
 
 const fetchSchools = async () => {
   try {
-    const response = await fetch('http://localhost:3000/api/schools');
+    const response = await fetch('/api/schools');
     const data = await response.json();
     if (data.success) {
       schools.value = data.schools;
@@ -253,7 +253,7 @@ const goToEditSchool = (id: number) => {
                   <div class="flex items-center gap-3">
                     <div
                       class="w-10 h-10 rounded-xl bg-primary/5 flex items-center justify-center border border-primary/10 overflow-hidden shrink-0 shadow-sm">
-                      <img v-if="school.school_logo" :src="`http://localhost:3000/uploads/${school.school_logo}`"
+                      <img v-if="school.school_logo" :src="`/uploads/${school.school_logo}`"
                         alt="Logo" class="w-full h-full object-contain" @error="handleImageError" />
                       <span v-else class="text-primary font-bold text-lg">{{ school.name?.charAt(0) }}</span>
                     </div>

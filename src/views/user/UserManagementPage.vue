@@ -41,7 +41,7 @@ const itemsPerPage = 10;
 const fetchUsers = async () => {
   loading.value = true;
   try {
-    const response = await fetch('http://localhost:3000/api/users-list');
+    const response = await fetch('/api/users-list');
     const data = await response.json();
     if (data.success) {
       users.value = data.users;

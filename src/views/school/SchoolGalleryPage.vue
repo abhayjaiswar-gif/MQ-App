@@ -17,7 +17,7 @@ const selectedSchoolId = ref<number | null>(null);
 
 const fetchSchools = async () => {
   try {
-    const response = await fetch('http://localhost:3000/api/schools?hasGallery=true');
+    const response = await fetch('/api/schools?hasGallery=true');
     const data = await response.json();
     if (data.success) {
       schools.value = data.schools.map((school: any) => ({
@@ -26,8 +26,8 @@ const fetchSchools = async () => {
         isPremium: Math.random() > 0.8, // Mocked for design
         needsReshoot: Math.random() > 0.9, // Mocked for design
         thumbnail: school.school_image
-          ? `http://localhost:3000/uploads/${school.school_image}`
-          : (school.logo_image ? `http://localhost:3000/uploads/${school.logo_image}` : getRandomPlaceholder(school.id))
+          ? `/uploads/${school.school_image}`
+          : (school.logo_image ? `/uploads/${school.logo_image}` : getRandomPlaceholder(school.id))
       }));
     }
   } catch (error) {
@@ -39,7 +39,7 @@ const fetchSchools = async () => {
 
 const fetchAvailableSchools = async () => {
   try {
-    const response = await fetch('http://localhost:3000/api/schools?hasGallery=false');
+    const response = await fetch('/api/schools?hasGallery=false');
     const data = await response.json();
     if (data.success) {
       availableSchools.value = data.schools;

@@ -18,7 +18,7 @@ const form = ref({
 
 const fetchSchools = async () => {
   try {
-    const res = await fetch('http://localhost:3000/api/schools');
+    const res = await fetch('/api/schools');
     const data = await res.json();
     if (data.success) schools.value = data.schools;
   } catch (e) {
@@ -31,7 +31,7 @@ onMounted(fetchSchools);
 const submitForm = async () => {
   loading.value = true;
   try {
-    const res = await fetch('http://localhost:3000/api/students', {
+    const res = await fetch('/api/students', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

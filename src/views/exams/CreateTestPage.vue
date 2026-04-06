@@ -19,7 +19,7 @@ const isSaving = ref(false);
 
 const fetchAllParameters = async () => {
     try {
-        const res = await fetch('http://localhost:3000/api/parameters');
+        const res = await fetch('/api/parameters');
         const data = await res.json();
         if (data.success) {
             allParameters.value = data.parameters.map(p => ({
@@ -36,7 +36,7 @@ const fetchAllParameters = async () => {
 
 const fetchFormatDetails = async (id) => {
     try {
-        const res = await fetch(`http://localhost:3000/api/exam-formats/${id}`);
+        const res = await fetch(`/api/exam-formats/${id}`);
         const data = await res.json();
         if (data.success) {
             form.test_name = data.format.test_name;
@@ -96,8 +96,8 @@ const handleSubmit = async () => {
 
     try {
         const url = editId.value 
-            ? `http://localhost:3000/api/exam-formats/${editId.value}`
-            : 'http://localhost:3000/api/exam-formats';
+            ? `/api/exam-formats/${editId.value}`
+            : '/api/exam-formats';
         const method = editId.value ? 'PUT' : 'POST';
 
         const res = await fetch(url, {

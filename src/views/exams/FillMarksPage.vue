@@ -39,13 +39,13 @@ const bulkUploadInput = ref(null);
 // ─────────────────────────────
 const fetchFilters = async (schoolId = null) => {
     try {
-        const formatRes = await fetch('http://localhost:3000/api/exam-formats');
+        const formatRes = await fetch('/api/exam-formats');
         const formatData = await formatRes.json();
         if (formatData.success) examFormats.value = formatData.formats;
 
         const url = schoolId
-            ? `http://localhost:3000/api/fill-marks/filters?school_id=${schoolId}`
-            : 'http://localhost:3000/api/fill-marks/filters';
+            ? `/api/fill-marks/filters?school_id=${schoolId}`
+            : '/api/fill-marks/filters';
 
         const res = await fetch(url);
         const data = await res.json();
@@ -68,7 +68,7 @@ const fetchParameters = async () => {
     if (!selectedFormatId.value) return;
 
     try {
-        const res = await fetch(`http://localhost:3000/api/fill-marks/format/${selectedFormatId.value}`);
+        const res = await fetch(`/api/fill-marks/format/${selectedFormatId.value}`);
         const data = await res.json();
 
         if (data.success) parameters.value = data.parameters;
@@ -87,7 +87,7 @@ const fetchStudentsWithMarks = async () => {
 
     try {
         const res = await fetch(
-            `http://localhost:3000/api/fill-marks/students?school_id=${selectedSchoolId.value}&std=${selectedStandard.value}&division=${selectedDivision.value}&format_id=${selectedFormatId.value}&term=${selectedTerm.value}`
+            `/api/fill-marks/students?school_id=${selectedSchoolId.value}&std=${selectedStandard.value}&division=${selectedDivision.value}&format_id=${selectedFormatId.value}&term=${selectedTerm.value}`
         );
 
         const data = await res.json();
@@ -198,7 +198,7 @@ const submitAll = async () => {
             return;
         }
 
-        const res = await fetch('http://localhost:3000/api/fill-marks/save', {
+        const res = await fetch('/api/fill-marks/save', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

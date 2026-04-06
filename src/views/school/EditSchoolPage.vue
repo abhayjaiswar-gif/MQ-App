@@ -43,7 +43,7 @@ const saving = ref(false);
 
 const fetchSchoolData = async () => {
   try {
-    const response = await fetch(`http://localhost:3000/api/schools/${schoolId}`);
+    const response = await fetch(`/api/schools/${schoolId}`);
     const data = await response.json();
     if (data.success) {
       const s = data.school;
@@ -64,10 +64,10 @@ const fetchSchoolData = async () => {
       };
 
       // Set initial previews if images exist
-      if (s.school_logo) previews.value.logo = `http://localhost:3000/uploads/${s.school_logo}`;
-      if (s.school_image) previews.value.building = `http://localhost:3000/uploads/${s.school_image}`;
-      if (s.principal_signature_image) previews.value.principal_sig = `http://localhost:3000/uploads/${s.principal_signature_image}`;
-      if (s.head_coach_signature_image) previews.value.head_coach_sig = `http://localhost:3000/uploads/${s.head_coach_signature_image}`;
+      if (s.school_logo) previews.value.logo = `/uploads/${s.school_logo}`;
+      if (s.school_image) previews.value.building = `/uploads/${s.school_image}`;
+      if (s.principal_signature_image) previews.value.principal_sig = `/uploads/${s.principal_signature_image}`;
+      if (s.head_coach_signature_image) previews.value.head_coach_sig = `/uploads/${s.head_coach_signature_image}`;
     }
   } catch (error) {
     console.error('Error fetching school data:', error);
@@ -103,7 +103,7 @@ const updateSchool = async () => {
     if (files.value.principal_sig) formData.append('principal_signature_image', files.value.principal_sig);
     if (files.value.head_coach_sig) formData.append('head_coach_signature_image', files.value.head_coach_sig);
 
-    const response = await fetch(`http://localhost:3000/api/schools/${schoolId}`, {
+    const response = await fetch(`/api/schools/${schoolId}`, {
       method: 'PUT',
       body: formData
     });

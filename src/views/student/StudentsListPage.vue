@@ -33,7 +33,7 @@ const addForm = ref({
 
 const fetchSchoolsForModal = async () => {
   try {
-    const res = await fetch('http://localhost:3000/api/schools');
+    const res = await fetch('/api/schools');
     const data = await res.json();
     if (data.success) schoolsForModal.value = data.schools;
   } catch (e) { console.error('Error loading schools:', e); }
@@ -47,7 +47,7 @@ const openAddModal = () => {
 const submitAddStudent = async () => {
   addLoading.value = true;
   try {
-    const res = await fetch('http://localhost:3000/api/students', {
+    const res = await fetch('/api/students', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...addForm.value, status: 'Active' })
@@ -98,7 +98,7 @@ const openEditModal = (student) => {
 const submitEditStudent = async () => {
   editLoading.value = true;
   try {
-    const res = await fetch(`http://localhost:3000/api/students/${editForm.value.id}`, {
+    const res = await fetch(`/api/students/${editForm.value.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -130,7 +130,7 @@ const submitEditStudent = async () => {
 const fetchStudents = async () => {
   loading.value = true;
   try {
-    const res = await fetch('http://localhost:3000/api/students');
+    const res = await fetch('/api/students');
     const data = await res.json();
 
     if (data.success) {

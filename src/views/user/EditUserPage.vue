@@ -26,7 +26,7 @@ const form = ref({
 
 const fetchUserData = async () => {
   try {
-    const response = await fetch(`http://localhost:3000/api/users/${userId}`);
+    const response = await fetch(`/api/users/${userId}`);
     const data = await response.json();
     if (data.success) {
       const u = data.user;
@@ -67,7 +67,7 @@ const handleSubmit = async () => {
 
   loading.value = true;
   try {
-    const response = await fetch(`http://localhost:3000/api/users/${userId}`, {
+    const response = await fetch(`/api/users/${userId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form.value)

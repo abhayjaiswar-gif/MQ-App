@@ -162,6 +162,21 @@ const MainRoutes = {
       name: 'ReportCard',
       path: '/reports/report-card',
       component: () => import('@/views/reports/ReportCardPage.vue')
+    },
+    {
+      name: 'AssignCurriculum',
+      path: '/curriculum/assign',
+      component: () => import('@/views/curriculum/AssignCurriculumPage.vue')
+    },
+    {
+      name: 'AddCurriculum',
+      path: '/curriculum/add',
+      component: () => import('@/views/curriculum/AddCurriculumPage.vue')
+    },
+    {
+      name: 'MyCurriculum',
+      path: '/curriculum/my',
+      component: () => import('@/views/curriculum/MyCurriculumPage.vue')
     }
   ]
 };
