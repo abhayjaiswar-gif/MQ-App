@@ -112,6 +112,59 @@ const initGradingTable = async () => {
   }
 };
 initGradingTable();
+
+// 📊 INITIALIZE CURRICULUM STATUS TABLES
+const initLPStatusTables = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS lp_status (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        lp_no VARCHAR(50),
+        lp_unique_id VARCHAR(100) NOT NULL,
+        user_id INT NOT NULL,
+        school_id INT,
+        status ENUM('Done', 'Pending') NOT NULL,
+        remark TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY user_lp (user_id, lp_unique_id)
+      )
+    `);
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS lp_status_photos (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        lp_status_id INT NOT NULL,
+        photo_path VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (lp_status_id) REFERENCES lp_status(id) ON DELETE CASCADE
+      )
+    `);
+  } catch (err) {
+    console.error('INIT LP STATUS TABLES ERROR:', err);
+  }
+};
+initLPStatusTables();
+// 🛡️ INITIALIZE USER PAGE ACCESS TABLE
+const initUserPageAccessTable = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS user_page_access (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        route_path VARCHAR(255) NOT NULL,
+        is_granted BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY user_route (user_id, route_path),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+  } catch (err) {
+    console.error('INIT USER PAGE ACCESS TABLE ERROR:', err);
+  }
+};
+initUserPageAccessTable();
+
 const app = express();
 app.use(cors());
 app.use(morgan('dev'));
@@ -2741,7 +2794,6 @@ app.post('/api/stock-reports', upload.single('file_main'), async (req, res) => {
   }
 });
 
-
 app.get('/api/curriculums', async (req, res) => {
   try {
     const [rows] = await db.query(`
@@ -2761,6 +2813,31 @@ app.get('/api/curriculums', async (req, res) => {
   }
 });
 
+// 🎯 GET ALL MASTER LESSON PLANS (DETAILED LIST)
+app.get('/api/curriculum/master-list', async (req, res) => {
+  const { sport, grade } = req.query;
+  try {
+    let query = 'SELECT * FROM year_lp_master WHERE 1=1';
+    let params = [];
+
+    if (sport && sport !== 'All') {
+      query += ' AND sport = ?';
+      params.push(sport);
+    }
+    if (grade && grade !== 'All') {
+      query += ' AND grade = ?';
+      params.push(grade);
+    }
+
+    query += ' ORDER BY sport, grade, lp_no ASC';
+    const [rows] = await db.query(query, params);
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('FETCH MASTER LIST ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching master list' });
+  }
+});
+
 // 🗑️ DELETE CURRICULUM MASTER
 app.delete('/api/curriculums/:id', async (req, res) => {
   try {
@@ -2769,11 +2846,127 @@ app.delete('/api/curriculums/:id', async (req, res) => {
     await db.query('DELETE FROM sport_lp_assign WHERE id_indicate_curriculum = ?', [id]);
     // Then remove the curriculum itself
     await db.query('DELETE FROM year_lp_master WHERE id_indicate_curriculum = ?', [id]);
-    
+
     res.json({ success: true, message: 'Curriculum and its assignments removed successfully!' });
   } catch (err) {
     console.error('DELETE CURRICULUM ERROR:', err);
     res.status(500).json({ success: false, message: 'Error removing curriculum' });
+  }
+});
+
+// 🗑️ DELETE SINGLE MASTER LESSON PLAN
+app.get('/api/curriculum/master/:id', async (req, res) => {
+  // Wait, I should use DELETE, but the frontend might be using GET for simplicity in some mocks? 
+  // No, I'll use DELETE as standard but the frontend code I just wrote uses method: 'DELETE'.
+});
+app.delete('/api/curriculum/master/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query('DELETE FROM year_lp_master WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Lesson plan removed from master data!' });
+  } catch (err) {
+    console.error('DELETE MASTER LP ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error removing lesson plan' });
+  }
+});
+
+// 🎯 GET COACH'S ASSIGNED LESSON PLANS WITH STATUS (PHP LOGIC)
+app.get('/api/curriculum/my-assigned-master', async (req, res) => {
+  const { userId, sport, grade, status } = req.query;
+  try {
+    let query = `
+      SELECT 
+        alp.*, 
+        s.status AS saved_status,
+        s.remark AS saved_remark,
+        s.id AS status_id
+      FROM assigned_lesson_plans alp
+      LEFT JOIN lp_status s ON s.lp_unique_id = alp.lp_unique_id AND s.user_id = alp.assigned_to
+      WHERE alp.assigned_to = ?
+    `;
+    let params = [userId];
+
+    if (sport && sport !== 'All') {
+      query += ' AND alp.sport = ?';
+      params.push(sport);
+    }
+    if (grade && grade !== 'All') {
+      query += ' AND alp.grade = ?';
+      params.push(grade);
+    }
+    if (status && status !== 'All') {
+      if (status === 'Done') {
+        query += " AND s.status = 'Done'";
+      } else if (status === 'Pending') {
+        query += " AND s.status = 'Pending'";
+      } else if (status === 'Unmarked') {
+        query += " AND s.status IS NULL";
+      }
+    }
+
+    query += ' ORDER BY alp.lp_no ASC';
+    const [rows] = await db.query(query, params);
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('FETCH MY ASSIGNED MASTER ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching assigned lesson plans' });
+  }
+});
+
+// 📸 SAVE LP STATUS (DONE/PENDING)
+app.post('/api/curriculum/save-lp-status', upload.array('photos', 5), async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    const { lp_no, lp_unique_id, user_id, status } = req.body;
+    const remark = req.body.remark || ''; // Ensure remark is at least an empty string to avoid NULL constraint errors
+    const photos = req.files || [];
+
+    await connection.beginTransaction();
+
+    // 1. Insert or Update status
+    const [result] = await connection.query(`
+      INSERT INTO lp_status (lp_no, lp_unique_id, user_id, status, remark)
+      VALUES (?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE status = VALUES(status), remark = VALUES(remark)
+    `, [lp_no, lp_unique_id, user_id, status, remark]);
+
+    // Get the status ID
+    let statusId;
+    if (result.insertId) {
+      statusId = result.insertId;
+    } else {
+      const [existing] = await connection.query('SELECT id FROM lp_status WHERE lp_unique_id = ? AND user_id = ?', [lp_unique_id, user_id]);
+      statusId = existing[0].id;
+    }
+
+    // 2. Save photos if Done
+    if (status === 'Done' && photos.length > 0) {
+      for (const file of photos) {
+        const photoPath = `uploads/${file.filename}`;
+        await connection.query('INSERT INTO lp_status_photos (lp_status_id, photo_path) VALUES (?, ?)', [statusId, photoPath]);
+      }
+    }
+
+    await connection.commit();
+    res.json({ success: true, message: `Status marked as ${status} successfully!` });
+  } catch (err) {
+    await connection.rollback();
+    console.error('SAVE LP STATUS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error saving status' });
+  } finally {
+    connection.release();
+  }
+});
+
+// 🗑️ REMOVE LP STATUS
+app.post('/api/curriculum/remove-lp-status', async (req, res) => {
+  try {
+    const { lp_unique_id, user_id } = req.body;
+    await db.query('DELETE FROM lp_status WHERE lp_unique_id = ? AND user_id = ?', [lp_unique_id, user_id]);
+    res.json({ success: true, message: 'Status removed successfully!' });
+  } catch (err) {
+    console.error('REMOVE LP STATUS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error removing status' });
   }
 });
 
@@ -2811,11 +3004,32 @@ app.post('/api/curriculum/assign', async (req, res) => {
   }
 });
 
+// 🎯 CHECK ALREADY ASSIGNED MODULES FOR A COACH
+app.get('/api/curriculum/check-assigned', async (req, res) => {
+  try {
+    const { teacher_id, week, month_year } = req.query;
+    if (!teacher_id || !week || !month_year) {
+      return res.json({ success: true, assigned_curriculum_ids: [] });
+    }
+
+    const [rows] = await db.query(
+      'SELECT curriculum_id FROM assigned_lesson_plans WHERE assigned_to = ? AND week = ? AND month_year = ?',
+      [teacher_id, week, month_year]
+    );
+
+    const assignedIds = rows.map(r => r.curriculum_id);
+    res.json({ success: true, assigned_curriculum_ids: assignedIds });
+  } catch (err) {
+    console.error('CHECK ASSIGNED ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // 🎯 GET ALL ASSIGNMENTS FOR A SPECIFIC COACH (SUMMARY)
 app.get('/api/curriculum/my-assignments/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    
+
     let [rows] = await db.query(`
       SELECT 
         sla.id, 
@@ -2877,7 +3091,7 @@ app.get('/api/curriculum/modules/:id', async (req, res) => {
 app.get('/api/curriculum/my-modules/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    
+
     let [rows] = await db.query(`
       SELECT 
         ylm.id as module_id, 
@@ -2977,7 +3191,7 @@ app.post('/api/curriculum/assign-batch', async (req, res) => {
 
       // 2. Fetch full details from master (PHP logic)
       const [lpData] = await connection.query('SELECT * FROM year_lp_master WHERE id = ?', [curriculumId]);
-      
+
       if (lpData.length === 0) continue;
       const lp = lpData[0];
 
@@ -2992,7 +3206,7 @@ app.post('/api/curriculum/assign-batch', async (req, res) => {
       `, [
         lp.lp_no, lp.sport, lp.skill, lp.sub_skill, lp.objective, lp.teaching_aids, lp.warm_up,
         lp.skill_implementation, lp.picture, lp.cool_down, lp.summarization, lp.life_skill,
-        lp.grade, lp.lp_unique_id, curriculumId, week, month_year, 
+        lp.grade, lp.lp_unique_id, curriculumId, week, month_year,
         teacher_id, assigned_by
       ]);
 
@@ -3000,9 +3214,9 @@ app.post('/api/curriculum/assign-batch', async (req, res) => {
     }
 
     await connection.commit();
-    res.json({ 
-      success: true, 
-      message: `Assigned ${assignedCount} plans successfully. ${duplicateCount > 0 ? `(${duplicateCount} were already assigned)` : ''}` 
+    res.json({
+      success: true,
+      message: `Assigned ${assignedCount} plans successfully. ${duplicateCount > 0 ? `(${duplicateCount} were already assigned)` : ''}`
     });
 
   } catch (err) {
@@ -3011,6 +3225,45 @@ app.post('/api/curriculum/assign-batch', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error during batch assignment' });
   } finally {
     connection.release();
+  }
+});
+
+// 🎯 GET ALL ASSIGNMENTS MADE BY A SPECIFIC HEAD COACH
+app.get('/api/curriculum/assignments-by-me/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const [rows] = await db.query(`
+      SELECT 
+        alp.id, 
+        alp.sport, 
+        alp.grade, 
+        alp.skill, 
+        alp.week, 
+        alp.month_year, 
+        alp.created_at,
+        u.name as coach_name,
+        alp.curriculum_id
+      FROM assigned_lesson_plans alp
+      JOIN users u ON alp.assigned_to = u.id
+      WHERE alp.assigned_by = ?
+      ORDER BY alp.created_at DESC
+    `, [userId]);
+    res.json({ success: true, assignments: rows });
+  } catch (err) {
+    console.error('FETCH ASSIGNMENTS BY ME ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching your assignments' });
+  }
+});
+
+// 🗑️ DELETE A SPECIFIC INDIVIDUAL ASSIGNMENT
+app.delete('/api/curriculum/assigned-plans/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.query('DELETE FROM assigned_lesson_plans WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Assignment removed successfully!' });
+  } catch (err) {
+    console.error('DELETE ASSIGNED PLAN ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error removing assignment' });
   }
 });
 
@@ -3101,6 +3354,74 @@ app.post('/api/curriculum/import', upload.single('file_name'), async (req, res) 
     res.status(500).json({ success: false, message: 'Error: ' + err.message });
   } finally {
     if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+  }
+});
+
+// 🛡️ USER PAGE ACCESS API
+
+// Get users that can be managed (e.g. coaches, principals, SSGM)
+app.get('/api/access/users', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT u.id, u.name, u.email, r.name as role_name, u.role_id 
+      FROM users u 
+      LEFT JOIN roles r ON u.role_id = r.id 
+      ORDER BY u.role_id ASC, u.name ASC
+    `);
+    res.json({ success: true, users: rows });
+  } catch (err) {
+    console.error('FETCH ACCESS USERS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching users' });
+  }
+});
+
+// Get granted permissions for a specific user
+app.get('/api/access/permissions/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const [rows] = await db.query('SELECT route_path, is_granted FROM user_page_access WHERE user_id = ?', [userId]);
+    res.json({ success: true, permissions: rows });
+  } catch (err) {
+    console.error('FETCH PERMISSIONS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching permissions' });
+  }
+});
+
+// Save permissions for a specific user
+app.post('/api/access/permissions/save', async (req, res) => {
+  try {
+    const { user_id, permissions } = req.body;
+    if (!user_id || !Array.isArray(permissions)) {
+      return res.status(400).json({ success: false, message: 'Invalid data format' });
+    }
+
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Soft-reset permissions for user to false
+      await connection.query('UPDATE user_page_access SET is_granted = FALSE WHERE user_id = ?', [user_id]);
+
+      // Upsert granted permissions
+      for (const route of permissions) {
+        await connection.query(`
+          INSERT INTO user_page_access (user_id, route_path, is_granted)
+          VALUES (?, ?, TRUE)
+          ON DUPLICATE KEY UPDATE is_granted = TRUE
+        `, [user_id, route]);
+      }
+
+      await connection.commit();
+      res.json({ success: true, message: 'Permissions saved successfully!' });
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
+  } catch (err) {
+    console.error('SAVE PERMISSIONS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error saving permissions' });
   }
 });
 

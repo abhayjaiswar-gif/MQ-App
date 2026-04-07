@@ -62,6 +62,10 @@ const sidebarItem: menu[] = [
       {
         title: 'User Directory',
         to: '/management/users'
+      },
+      {
+        title: 'User Permissions',
+        to: '/management/access'
       }
     ]
   },
@@ -108,6 +112,10 @@ const sidebarItem: menu[] = [
       {
         title: 'My Curriculums',
         to: '/curriculum/my'
+      },
+      {
+        title: 'LP Master Data',
+        to: '/curriculum/master'
       }
     ]
   },

@@ -177,6 +177,16 @@ const MainRoutes = {
       name: 'MyCurriculum',
       path: '/curriculum/my',
       component: () => import('@/views/curriculum/MyCurriculumPage.vue')
+    },
+    {
+      name: 'LPMasterData',
+      path: '/curriculum/master',
+      component: () => import('@/views/curriculum/LPMasterDataPage.vue')
+    },
+    {
+      name: 'AccessManagement',
+      path: '/management/access',
+      component: () => import('@/views/management/AccessManagementPage.vue')
     }
   ]
 };

@@ -26,7 +26,22 @@
           </button>
         </div>
       </div>
-      <div v-if="assignments.length > 0" class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+      <div v-if="assignments.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 mb-10">
+        <!-- New Total Managed Card -->
+        <div @click="showManageModal = true"
+          class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-[#005daa] relative overflow-hidden group transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer">
+          <p class="text-[10px] uppercase font-bold text-[#707785] tracking-widest mb-3 relative z-10">Total Managed</p>
+          <div class="flex items-end justify-between relative z-10">
+            <h3 class="text-3xl font-extrabold text-[#1a1c1c]">{{ assignmentsByMe.length }} <span
+                class="text-xs font-medium text-slate-400">Assigned</span></h3>
+            <span class="bg-[#005daa]/10 text-[#005daa] text-[10px] font-black flex items-center px-2 py-1 rounded-lg">
+               Manage
+            </span>
+          </div>
+          <!-- Decorative Background Icon -->
+          <span class="material-symbols-outlined absolute -right-4 -bottom-4 text-8xl text-[#005daa]/5 rotate-12 group-hover:scale-110 transition-transform">manage_accounts</span>
+        </div>
+
         <div @click="selectedSport = 'All'" :class="['bg-white p-6 rounded-2xl shadow-sm border-b-4 relative overflow-hidden group transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer',
           selectedSport === 'All' ? 'border-[#005daa]' : 'border-slate-100']">
           <p class="text-[10px] uppercase font-bold text-[#707785] tracking-widest mb-3 relative z-10">Total Training
@@ -69,7 +84,8 @@
                 <option value="All">All Grades</option>
                 <option v-for="g in availableGrades" :key="g" :value="g">Grade {{ g }}</option>
               </select>
-              <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#707785] pointer-events-none">expand_more</span>
+              <span
+                class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-[#707785] pointer-events-none">expand_more</span>
             </div>
           </div>
           <div class="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 scrollbar-hide px-2">
@@ -96,20 +112,22 @@
           <table v-else class="w-full text-left border-collapse">
             <thead>
               <tr class="bg-[#f3f3f3]/30">
-                <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-[#404753] text-center w-20">No.</th>
+                <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-[#404753] text-center w-20">
+                  No.</th>
                 <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-[#404753] w-32">Sport</th>
                 <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-[#404753] w-40">Skill</th>
                 <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-[#404753] w-48">Sub-Skill</th>
                 <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-[#404753]">Objective</th>
-                <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-[#404753] text-center w-20">Grade</th>
+                <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-[#404753] text-center w-20">
+                  Grade</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-50">
-              <tr v-for="module in filteredModules" :key="module.module_id"
-                @click="selectedModule = module"
+              <tr v-for="module in filteredModules" :key="module.module_id" @click="selectedModule = module"
                 class="hover:bg-slate-50/80 transition-all group cursor-pointer">
                 <td class="px-6 py-5 text-center">
-                  <span class="font-mono text-[10px] font-black bg-slate-100 px-2 py-1 rounded text-slate-500 border border-slate-200">
+                  <span
+                    class="font-mono text-[10px] font-black bg-slate-100 px-2 py-1 rounded text-slate-500 border border-slate-200">
                     {{ module.lp_no || module.module_id }}
                   </span>
                 </td>
@@ -126,13 +144,15 @@
                   <p class="text-[11px] text-[#404753] font-medium leading-relaxed">{{ module.sub_skill || '-' }}</p>
                 </td>
                 <td class="px-6 py-5">
-                  <p class="text-[11px] text-[#404753] font-medium leading-relaxed line-clamp-2 italic" :title="module.objective">
+                  <p class="text-[11px] text-[#404753] font-medium leading-relaxed line-clamp-2 italic"
+                    :title="module.objective">
                     {{ module.objective }}
                   </p>
                 </td>
                 <td class="px-6 py-5 text-center">
-                  <div class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-600 mx-auto border border-slate-200 shadow-sm">
-                    {{ module.grade || '-' }}
+                  <div
+                    class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-[9px] font-black text-slate-600 mx-auto border border-slate-200 shadow-sm uppercase">
+                    {{ formatGrade(module.grade) }}
                   </div>
                 </td>
               </tr>
@@ -171,15 +191,18 @@
     </div>
 
     <!-- Detail Modal -->
-    <div v-if="selectedModule" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div v-if="selectedModule" class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-[#001c3a]/60 backdrop-blur-sm" @click="selectedModule = null"></div>
-      <div class="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div
+        class="relative bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
         <div class="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
-            <p class="text-[10px] font-black uppercase text-[#005daa] tracking-widest mb-1">Plan Module #{{ selectedModule.lp_no || selectedModule.module_id }}</p>
+            <p class="text-[10px] font-black uppercase text-[#005daa] tracking-widest mb-1">Plan Module #{{
+              selectedModule.lp_no || selectedModule.module_id }}</p>
             <h3 class="text-xl font-extrabold text-[#1a1c1c]">{{ selectedModule.sport }} Training</h3>
           </div>
-          <button @click="selectedModule = null" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-200 transition-all text-slate-500">
+          <button @click="selectedModule = null"
+            class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-200 transition-all text-slate-500">
             <span class="material-symbols-outlined">close</span>
           </button>
         </div>
@@ -196,13 +219,15 @@
           </div>
           <div>
             <p class="text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1 tracking-widest">Sub-Skill Detail</p>
-            <div class="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm italic text-sm text-[#404753] leading-relaxed">
+            <div
+              class="p-5 bg-white border border-slate-100 rounded-2xl shadow-sm italic text-sm text-[#404753] leading-relaxed">
               {{ selectedModule.sub_skill || 'No specific sub-skill defined for this plan.' }}
             </div>
           </div>
           <div>
             <p class="text-[10px] font-bold text-slate-400 uppercase mb-2 ml-1 tracking-widest">Training Objective</p>
-            <div class="p-6 bg-[#005daa]/5 border border-[#005daa]/10 rounded-2xl text-sm text-[#1a1c1c] leading-loose font-medium">
+            <div
+              class="p-6 bg-[#005daa]/5 border border-[#005daa]/10 rounded-2xl text-sm text-[#1a1c1c] leading-loose font-medium">
               {{ selectedModule.objective }}
             </div>
           </div>
@@ -210,144 +235,209 @@
         <div class="p-6 bg-slate-50 flex items-center justify-between border-t border-slate-100">
           <p class="text-[10px] font-bold text-slate-400 uppercase">Interactive Path Learning System</p>
           <div class="flex gap-3">
-            <button @click="selectedModule = null" class="px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-white/50 transition-all">Close Details</button>
-            <button class="px-6 py-2.5 bg-[#005daa] text-white rounded-xl text-xs font-bold shadow-lg shadow-[#005daa]/20 hover:bg-[#0075d5] transition-all">Download PDF</button>
+            <button @click="selectedModule = null"
+              class="px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-white/50 transition-all">Close
+              Details</button>
+            <button
+              class="px-6 py-2.5 bg-[#005daa] text-white rounded-xl text-xs font-bold shadow-lg shadow-[#005daa]/20 hover:bg-[#0075d5] transition-all">Download
+              PDF</button>
           </div>
         </div>
       </div>
     </div>
 
     <!-- Assign CRM Modal -->
-    <div v-if="showAssignModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div v-if="showAssignModal" class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       <div class="absolute inset-0 bg-[#001c3a]/60 backdrop-blur-md" @click="showAssignModal = false"></div>
-      <div class="relative bg-white w-full max-w-4xl rounded-[32px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
-        
-        <!-- Modal Header -->
-        <div class="p-8 border-b border-slate-100 bg-[#f9fafb]">
-          <div class="flex items-center justify-between mb-8">
-            <div>
-              <h3 class="text-2xl font-extrabold text-[#1a1c1c] flex items-center gap-3">
-                <span class="material-symbols-outlined text-[#005daa] text-3xl">assignment_add</span>
-                Assign Learning Plan
-              </h3>
-              <p class="text-xs text-[#404753] font-medium mt-1">Distribute curriculum modules to your specialized coaches.</p>
-            </div>
-            <button @click="showAssignModal = false" class="w-12 h-12 flex items-center justify-center rounded-2xl hover:bg-slate-200 transition-all text-slate-400 hover:text-slate-600">
-              <span class="material-symbols-outlined text-2xl">close</span>
-            </button>
-          </div>
+      <div
+        class="relative bg-white w-full max-w-4xl rounded-[32px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
 
-          <!-- Assignment Controls -->
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div class="space-y-2">
-              <label class="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Select Coach</label>
-              <div class="relative group">
-                <select v-model="assignForm.teacher_id" 
-                  class="w-full bg-white border border-slate-200 rounded-2xl py-3.5 px-4 text-sm font-bold text-[#1a1c1c] appearance-none outline-none focus:ring-4 focus:ring-[#005daa]/5 focus:border-[#005daa]/40 transition-all">
-                  <option value="">Choose a Coach</option>
-                  <option v-for="c in coaches" :key="c.id" :value="c.id">{{ c.name }}</option>
-                </select>
-                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:rotate-180 transition-transform">expand_more</span>
-              </div>
-            </div>
-            <div class="space-y-2">
-              <label class="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Select Week</label>
-              <div class="relative group">
-                <select v-model="assignForm.week"
-                  class="w-full bg-white border border-slate-200 rounded-2xl py-3.5 px-4 text-sm font-bold text-[#1a1c1c] appearance-none outline-none focus:ring-4 focus:ring-[#005daa]/5 focus:border-[#005daa]/40 transition-all">
-                  <option value="">Select Week</option>
-                  <option value="Week1">Week 1</option>
-                  <option value="Week2">Week 2</option>
-                  <option value="Week3">Week 3</option>
-                  <option value="Week4">Week 4</option>
-                </select>
-                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:rotate-180 transition-transform">calendar_view_week</span>
-              </div>
-            </div>
-            <div class="space-y-2">
-              <label class="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Month & Year</label>
-              <div class="relative group">
-                <select v-model="assignForm.month_year"
-                  class="w-full bg-white border border-slate-200 rounded-2xl py-3.5 px-4 text-sm font-bold text-[#1a1c1c] appearance-none outline-none focus:ring-4 focus:ring-[#005daa]/5 focus:border-[#005daa]/40 transition-all">
-                  <option value="">Select Month</option>
-                  <option v-for="m in next24Months" :key="m" :value="m">{{ m }}</option>
-                </select>
-                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:rotate-180 transition-transform">event</span>
-              </div>
-            </div>
+        <!-- Simplified Modal Header -->
+        <div
+          class="px-8 py-6 border-b border-slate-100 bg-white sticky top-0 z-[100] flex items-center justify-between">
+          <div>
+            <h3 class="text-xl font-extrabold text-[#1a1c1c] flex items-center gap-3">
+              <span class="material-symbols-outlined text-[#005daa] text-2xl">assignment_add</span>
+              Assign Learning Plan
+            </h3>
+            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Step-by-step curriculum
+              distribution</p>
           </div>
-
-          <!-- Selection Filters (Sport/Grade) -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
-            <div class="space-y-2">
-              <label class="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Filter Sport</label>
-              <div class="relative group">
-                <select v-model="modalFilters.sport"
-                  class="w-full bg-slate-50 border-none rounded-2xl py-3.5 px-4 text-sm font-bold text-[#1a1c1c] appearance-none outline-none focus:ring-4 focus:ring-[#005daa]/5 transition-all">
-                  <option value="All">All Sports</option>
-                  <option v-for="s in sports" :key="s" :value="s">{{ s }}</option>
-                </select>
-                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">sports_soccer</span>
-              </div>
-            </div>
-            <div class="space-y-2">
-              <label class="text-[10px] font-black uppercase text-slate-400 tracking-widest ml-1">Filter Grade</label>
-              <div class="relative group">
-                <select v-model="modalFilters.grade"
-                  class="w-full bg-slate-50 border-none rounded-2xl py-3.5 px-4 text-sm font-bold text-[#1a1c1c] appearance-none outline-none focus:ring-4 focus:ring-[#005daa]/5 transition-all">
-                  <option value="All">All Grades</option>
-                  <option v-for="g in availableGrades" :key="g" :value="g">Grade {{ g }}</option>
-                </select>
-                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">school</span>
-              </div>
-            </div>
-          </div>
+          <button @click="showAssignModal = false"
+            class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 transition-all text-slate-400 hover:text-slate-600">
+            <span class="material-symbols-outlined text-2xl">close</span>
+          </button>
         </div>
 
-        <!-- Selection Area -->
-        <div class="flex-1 overflow-y-auto p-8 pt-4">
-          <div class="flex items-center justify-between mb-4 px-2">
-            <h4 class="text-[10px] font-black uppercase text-slate-400 tracking-tighter">Available Modules ({{ modalFilteredModules.length }})</h4>
-            <div class="flex items-center gap-4">
-              <span class="text-[10px] font-bold text-[#005daa] bg-[#005daa]/10 px-3 py-1 rounded-full uppercase">{{ selectedAssignments.length }} Selected</span>
-              <button @click="toggleSelectAllModal" class="text-[10px] font-bold text-slate-500 hover:text-[#005daa] transition-colors uppercase">
-                {{ selectedAssignments.length > 0 && selectedAssignments.length === modalFilteredModules.length ? 'Deselect All' : 'Select All Filtered' }}
-              </button>
+        <!-- Unified Scroll Body -->
+        <div class="flex-1 overflow-y-auto relative scroll-smooth">
+
+          <!-- Step 1: Assign Details (Now Scrollable) -->
+          <div class="px-8 py-8 bg-[#f9fafb]/50 border-b border-slate-50">
+            <div class="flex items-center gap-2 mb-6">
+              <span
+                class="w-6 h-6 rounded-full bg-[#005daa] text-white text-[10px] font-black flex items-center justify-center">1</span>
+              <h4 class="text-xs font-black uppercase text-[#1a1c1c] tracking-widest">Assign Details</h4>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="space-y-2">
+                <label class="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">Select Coach</label>
+                <div class="relative group">
+                  <select v-model="assignForm.teacher_id"
+                    class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-[#1a1c1c] focus:border-[#005daa]/30 focus:ring-4 focus:ring-[#005daa]/5 outline-none transition-all appearance-none">
+                    <option value="">Choose a Coach</option>
+                    <option v-for="c in coaches" :key="c.id" :value="c.id">{{ c.name }}</option>
+                  </select>
+                  <span
+                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">person_search</span>
+                </div>
+              </div>
+              <div class="space-y-2">
+                <label class="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">Select Week</label>
+                <div class="relative group">
+                  <select v-model="assignForm.week"
+                    class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-[#1a1c1c] focus:border-[#005daa]/30 focus:ring-4 focus:ring-[#005daa]/5 outline-none transition-all appearance-none">
+                    <option value="">Select Week</option>
+                    <option value="Week1">Week 1</option>
+                    <option value="Week2">Week 2</option>
+                    <option value="Week3">Week 3</option>
+                    <option value="Week4">Week 4</option>
+                  </select>
+                  <span
+                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">calendar_month</span>
+                </div>
+              </div>
+              <div class="space-y-2">
+                <label class="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">Month & Year</label>
+                <div class="relative group">
+                  <select v-model="assignForm.month_year"
+                    class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-[#1a1c1c] focus:border-[#005daa]/30 focus:ring-4 focus:ring-[#005daa]/5 outline-none transition-all appearance-none">
+                    <option value="">Select Month</option>
+                    <option v-for="m in next24Months" :key="m" :value="m">{{ m }}</option>
+                  </select>
+                  <span
+                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">schedule</span>
+                </div>
+              </div>
             </div>
           </div>
-          <div class="border border-slate-100 rounded-2xl overflow-hidden">
-            <table class="w-full text-left">
-              <thead class="bg-[#f9fafb] border-b border-slate-100">
-                <tr>
-                  <th class="px-6 py-4 w-12 text-center">
-                    <input type="checkbox" @change="toggleSelectAllModal" :checked="selectedAssignments.length > 0 && selectedAssignments.length === modalFilteredModules.length" class="rounded border-slate-300 text-[#005daa] focus:ring-[#005daa]">
-                  </th>
-                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 whitespace-nowrap">Sport & Plan</th>
-                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500">Skill / Objective</th>
-                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 text-center">Grade</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-50">
-                <tr v-for="m in modalFilteredModules" :key="m.module_id" 
-                  @click="toggleSelection(m.module_id)"
-                  :class="['hover:bg-slate-50 cursor-pointer transition-colors', selectedAssignments.includes(m.module_id) ? 'bg-[#005daa]/5' : '']">
-                  <td class="px-6 py-4 text-center">
-                    <input type="checkbox" :checked="selectedAssignments.includes(m.module_id)" @click.stop class="rounded border-slate-300 text-[#005daa] focus:ring-[#005daa]">
-                  </td>
-                  <td class="px-6 py-4">
-                    <p class="text-xs font-black text-[#005daa] mb-0.5">LP-{{ m.lp_no }}</p>
-                    <p class="text-[10px] uppercase font-bold text-[#1a1c1c] tracking-tighter">{{ m.sport }}</p>
-                  </td>
-                  <td class="px-6 py-4">
-                    <p class="text-xs font-bold text-[#1a1c1c] line-clamp-1">{{ m.skill }}</p>
-                    <p class="text-[10px] text-[#404753] line-clamp-1 italic">{{ m.objective }}</p>
-                  </td>
-                  <td class="px-6 py-4 text-center">
-                    <span class="text-[10px] font-black bg-slate-100 text-slate-600 px-2 py-1 rounded border border-slate-200">G {{ m.grade }}</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+
+          <!-- Step 2: Content Filters (Sticky Header) -->
+          <div
+            class="sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-slate-100 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] px-8 py-6">
+            <div class="flex items-center gap-2 mb-4">
+              <span
+                class="w-6 h-6 rounded-full bg-[#005daa] text-white text-[10px] font-black flex items-center justify-center">2</span>
+              <h4 class="text-xs font-black uppercase text-[#1a1c1c] tracking-widest">Filter Content</h4>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+              <div class="space-y-1.5">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Sport
+                  Category</label>
+                <div class="relative group">
+                  <select v-model="modalFilters.sport"
+                    class="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 px-4 text-sm font-bold text-[#1a1c1c] appearance-none outline-none focus:ring-4 focus:ring-[#005daa]/5 transition-all">
+                    <option value="All">All Path</option>
+                    <option v-for="s in sports" :key="s" :value="s">{{ s }}</option>
+                  </select>
+                  <span
+                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xl">stat_0</span>
+                </div>
+              </div>
+
+              <div class="md:col-span-2 space-y-1.5">
+                <div class="flex items-center justify-between px-1">
+                  <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Standard / Grade</label>
+                  <button v-if="modalFilters.grades.length > 0" @click="modalFilters.grades = []"
+                    class="text-[10px] font-black text-[#005daa] hover:underline uppercase tracking-tighter">Clear</button>
+                </div>
+
+                <div class="grade-swiper-container">
+                  <swiper :slides-per-view="'auto'" :space-between="8" :free-mode="true"
+                    :mousewheel="{ forceToAxis: true }" :modules="[Navigation, Pagination, FreeMode, Mousewheel]"
+                    class="grade-swiper !py-2 !px-1">
+                    <swiper-slide v-for="g in availableGrades" :key="g" class="!w-auto">
+                      <button @click="toggleGradeSelection(Number(g))" :class="[
+                        'px-4 py-2 rounded-lg border-2 transition-all flex items-center gap-2 min-w-[80px]',
+                        modalFilters.grades.includes(Number(g))
+                          ? 'bg-[#005daa] border-[#005daa] text-white shadow-sm'
+                          : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
+                      ]">
+                        <span class="text-[10px] font-black whitespace-nowrap uppercase">{{ formatGrade(g) }}</span>
+                      </button>
+                    </swiper-slide>
+                  </swiper>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3: Module Selection -->
+          <div class="px-8 py-8">
+            <div class="flex items-center justify-between mb-6 px-1">
+              <div class="flex items-center gap-2">
+                <span
+                  class="w-6 h-6 rounded-full bg-[#005daa] text-white text-[10px] font-black flex items-center justify-center">3</span>
+                <h4 class="text-xs font-black uppercase text-[#1a1c1c] tracking-widest">Choose Modules</h4>
+              </div>
+              <div class="flex items-center gap-4">
+                <span class="text-[10px] font-bold text-[#005daa] bg-[#005daa]/10 px-3 py-1 rounded-full uppercase">{{
+                  selectedAssignments.length }} Selected</span>
+                <button @click="toggleSelectAllModal"
+                  class="text-[10px] font-bold text-slate-400 hover:text-[#005daa] transition-colors uppercase underline decoration-dotted">
+                  {{ selectedAssignments.length > 0 && selectedAssignments.length === modalFilteredModules.length ?
+                    'Deselect All' : 'Select All' }}
+                </button>
+              </div>
+            </div>
+            <div class="border border-slate-100 rounded-2xl overflow-hidden">
+              <table class="w-full text-left">
+                <thead class="bg-[#f9fafb] border-b border-slate-100">
+                  <tr>
+                    <th class="px-6 py-4 w-14 text-center">
+                      <input type="checkbox" @change="toggleSelectAllModal"
+                        :checked="selectedAssignments.length > 0 && selectedAssignments.length === modalFilteredModules.length"
+                        class="w-6 h-6 rounded-lg border-2 border-slate-900 bg-slate-200 text-[#005daa] focus:ring-[#005daa] cursor-pointer transition-all active:scale-95 shadow-md">
+                    </th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 whitespace-nowrap">Sport & Plan
+                    </th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500">Skill / Objective</th>
+                    <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 text-center">Grade</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-50">
+                  <tr v-for="m in modalFilteredModules" :key="m.module_id" @click="toggleSelection(m.module_id)"
+                    :class="[
+                      'transition-colors',
+                      alreadyAssignedModules.includes(m.module_id) ? 'bg-[#005daa]/10 cursor-not-allowed opacity-80' : 'hover:bg-slate-50 cursor-pointer',
+                      selectedAssignments.includes(m.module_id) && !alreadyAssignedModules.includes(m.module_id) ? 'bg-[#005daa]/5' : ''
+                    ]">
+                    <td class="px-6 py-4 text-center relative">
+                      <input type="checkbox" :checked="selectedAssignments.includes(m.module_id) || alreadyAssignedModules.includes(m.module_id)" 
+                        :disabled="alreadyAssignedModules.includes(m.module_id)" @click.stop="toggleSelection(m.module_id)"
+                        :class="[
+                          'w-6 h-6 rounded-lg border-2 border-slate-900 transition-all active:scale-95 shadow-md',
+                          alreadyAssignedModules.includes(m.module_id) ? 'bg-[#005daa] cursor-not-allowed opacity-50' : 'bg-slate-200 text-[#005daa] focus:ring-[#005daa] cursor-pointer'
+                        ]">
+                        <span v-if="alreadyAssignedModules.includes(m.module_id)" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-[10px] font-bold pointer-events-none material-symbols-outlined shrink-0" style="font-size:16px;">lock</span>
+                    </td>
+                    <td class="px-6 py-4">
+                      <p :class="['text-xs font-black mb-0.5', alreadyAssignedModules.includes(m.module_id) ? 'text-[#005daa]' : 'text-[#005daa]']">LP-{{ m.lp_no }}</p>
+                      <p :class="['text-[10px] uppercase font-bold tracking-tighter', alreadyAssignedModules.includes(m.module_id) ? 'text-[#005daa]/80' : 'text-[#1a1c1c]']">{{ m.sport }}</p>
+                    </td>
+                    <td class="px-6 py-4">
+                      <p :class="['text-xs font-bold line-clamp-1', alreadyAssignedModules.includes(m.module_id) ? 'text-[#005daa]' : 'text-[#1a1c1c]']">{{ m.skill }}</p>
+                      <p :class="['text-[10px] line-clamp-1 italic', alreadyAssignedModules.includes(m.module_id) ? 'text-[#005daa]/60' : 'text-[#404753]']">{{ m.objective }}</p>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                      <span
+                        :class="['text-[9px] font-black px-2.5 py-1 rounded-lg border uppercase whitespace-nowrap', alreadyAssignedModules.includes(m.module_id) ? 'bg-[#005daa]/20 text-[#005daa] border-[#005daa]/30' : 'bg-slate-100 text-slate-600 border-slate-200']">
+                        {{ formatGrade(m.grade) }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -355,8 +445,9 @@
         <div class="p-8 border-t border-slate-100 bg-white flex items-center justify-between">
           <p class="text-[10px] font-bold text-slate-400 max-w-[200px]">Ensure details are correct before assigning.</p>
           <div class="flex gap-4">
-            <button @click="showAssignModal = false" class="px-8 py-3.5 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all border border-slate-100">Cancel</button>
-            <button @click="assignCRM" 
+            <button @click="showAssignModal = false"
+              class="px-8 py-3.5 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all border border-slate-100">Cancel</button>
+            <button @click="assignCRM"
               :disabled="assigning || !assignForm.teacher_id || !assignForm.week || !assignForm.month_year || selectedAssignments.length === 0"
               class="bg-[#005daa] disabled:bg-slate-300 hover:bg-[#0075d5] text-white px-10 py-3.5 rounded-2xl font-black text-sm flex items-center gap-3 transition-all shadow-xl shadow-[#005daa]/20 active:scale-95 group">
               <span v-if="assigning" class="material-symbols-outlined animate-spin">sync</span>
@@ -364,15 +455,100 @@
               <span>Assign Now</span>
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+    <!-- Manage Assignments Modal -->
+    <div v-if="showManageModal" class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-[#001c3a]/60 backdrop-blur-md" @click="showManageModal = false"></div>
+      <div
+        class="relative bg-white w-full max-w-5xl rounded-[32px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
+        <div class="px-8 py-6 border-b border-slate-100 bg-white sticky top-0 z-[100] flex items-center justify-between">
+          <div>
+            <h3 class="text-xl font-extrabold text-[#1a1c1c] flex items-center gap-3">
+              <span class="material-symbols-outlined text-[#005daa] text-2xl">manage_history</span>
+              Manage Assignments
+            </h3>
+            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Review and manage curriculum distribution</p>
+          </div>
+          <button @click="showManageModal = false"
+            class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 transition-all text-slate-400 hover:text-slate-600">
+            <span class="material-symbols-outlined text-2xl">close</span>
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-8">
+          <div v-if="assignmentsByMe.length === 0" class="py-20 text-center">
+            <span class="material-symbols-outlined text-6xl text-slate-200 mb-4">assignment_late</span>
+            <h4 class="text-lg font-bold text-slate-400">No assignments found</h4>
+            <p class="text-sm text-slate-400">You haven't assigned any training plans yet.</p>
+          </div>
+          <div v-else class="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+            <table class="w-full text-left border-collapse">
+              <thead class="bg-slate-50 border-b border-slate-100">
+                <tr>
+                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Coach</th>
+                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest text-center">Grade</th>
+                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Sport</th>
+                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Week/Month</th>
+                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Assigned On</th>
+                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-50">
+                <tr v-for="asgn in assignmentsByMe" :key="asgn.id" class="hover:bg-slate-50/50 transition-colors">
+                  <td class="px-6 py-5">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-full bg-[#005daa]/10 flex items-center justify-center text-[#005daa]">
+                        <span class="material-symbols-outlined text-sm">person</span>
+                      </div>
+                      <p class="text-sm font-bold text-[#1a1c1c]">{{ asgn.coach_name }}</p>
+                    </div>
+                  </td>
+                  <td class="px-6 py-5 text-center">
+                    <p class="text-sm font-extrabold text-[#005daa]">{{ formatGrade(asgn.grade) }}</p>
+                  </td>
+                  <td class="px-6 py-5">
+                    <span class="px-3 py-1 rounded-full bg-slate-100 text-[#1a1c1c] text-[10px] font-black uppercase tracking-tighter">{{ asgn.sport }}</span>
+                  </td>
+                  <td class="px-6 py-5">
+                    <p class="text-xs font-bold text-[#005daa]">{{ asgn.week }}</p>
+                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">{{ asgn.month_year }}</p>
+                  </td>
+                  <td class="px-6 py-5">
+                    <p class="text-[10px] font-medium text-slate-500">{{ new Date(asgn.created_at).toLocaleDateString() }}</p>
+                  </td>
+                  <td class="px-6 py-5 text-center">
+                    <button @click="deleteAssignedPlan(asgn.id)"
+                      class="w-9 h-9 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center group shadow-sm active:scale-90">
+                      <span class="material-symbols-outlined text-xl">delete</span>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="p-8 border-t border-slate-100 bg-white text-right">
+          <button @click="showManageModal = false"
+            class="px-8 py-3 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all border border-slate-100">Close Manager</button>
+        </div>
       </div>
     </div>
   </div>
-</div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useAuthStore } from '@/stores/auth';
+// Import Swiper components and styles
+import { Swiper, SwiperSlide } from 'swiper/vue';
+import { Navigation, Pagination, FreeMode, Mousewheel } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
+import 'swiper/css/free-mode';
 
 const authStore = useAuthStore();
 const curriculumModules = ref<any[]>([]);
@@ -383,9 +559,11 @@ const selectedSport = ref('All');
 const selectedGrade = ref('All');
 const selectedModule = ref<any>(null);
 const showAssignModal = ref(false);
+const showManageModal = ref(false);
 const assigning = ref(false);
 const coaches = ref<any[]>([]);
 const selectedAssignments = ref<number[]>([]);
+const assignmentsByMe = ref<any[]>([]);
 const assignForm = ref({
   teacher_id: '',
   week: '',
@@ -393,8 +571,32 @@ const assignForm = ref({
 });
 const modalFilters = ref({
   sport: 'All',
-  grade: 'All'
+  grades: [] as number[] // Changed from grade: 'All' to grades: [] for multiple selection
 });
+const alreadyAssignedModules = ref<number[]>([]);
+
+import { watch } from 'vue';
+
+watch(
+  [() => assignForm.value.teacher_id, () => assignForm.value.week, () => assignForm.value.month_year],
+  async ([teacher_id, week, month_year]) => {
+    if (teacher_id && week && month_year) {
+      try {
+        const res = await fetch(`/api/curriculum/check-assigned?teacher_id=${teacher_id}&week=${week}&month_year=${month_year}`);
+        const data = await res.json();
+        if (data.success) {
+          alreadyAssignedModules.value = data.assigned_curriculum_ids.map(Number);
+          // Also remove any selections that were just marked as already assigned
+          selectedAssignments.value = selectedAssignments.value.filter(id => !alreadyAssignedModules.value.includes(id));
+        }
+      } catch (err) {
+        console.error('Check assigned error:', err);
+      }
+    } else {
+      alreadyAssignedModules.value = [];
+    }
+  }
+);
 
 const getBorderColor = (index: number) => {
   const colors = ['border-[#005daa]', 'border-[#10b981]', 'border-[#fbbf24]', 'border-[#40608b]'];
@@ -413,7 +615,7 @@ const getBadgeColor = (index: number) => {
 
 const fetchData = async () => {
   const userId = authStore.user?.id || sessionStorage.getItem('id');
-  
+
   if (!userId) {
     loading.value = false;
     return;
@@ -421,20 +623,20 @@ const fetchData = async () => {
 
   loading.value = true;
   try {
-    const [assignRes, modulesRes, coachesRes] = await Promise.all([
+    const [assignRes, modulesRes, coachesRes, byMeRes] = await Promise.all([
       fetch(`/api/curriculum/my-assignments/${userId}`),
       fetch(`/api/curriculum/my-modules/${userId}`),
-      fetch('/api/curriculum/coaches')
+      fetch('/api/curriculum/coaches'),
+      fetch(`/api/curriculum/assignments-by-me/${userId}`)
     ]);
-
     const assignData = await assignRes.json();
     const modulesData = await modulesRes.json();
     const coachesData = await coachesRes.json();
-
+    const byMeData = await byMeRes.json();
     if (assignData.success) assignments.value = assignData.assignments;
     if (modulesData.success) curriculumModules.value = modulesData.modules;
     if (coachesData.success) coaches.value = coachesData.coaches;
-
+    if (byMeData.success) assignmentsByMe.value = byMeData.assignments;
   } catch (err) {
     console.error('Fetch data error:', err);
   } finally {
@@ -445,6 +647,7 @@ const fetchData = async () => {
 const openAssignModal = () => {
   showAssignModal.value = true;
   selectedAssignments.value = [];
+  alreadyAssignedModules.value = [];
   assignForm.value = {
     teacher_id: '',
     week: '',
@@ -452,11 +655,12 @@ const openAssignModal = () => {
   };
   modalFilters.value = {
     sport: 'All',
-    grade: 'All'
+    grades: [] // Initialize as empty array for mulitple selection
   };
 };
 
 const toggleSelection = (id: number) => {
+  if (alreadyAssignedModules.value.includes(id)) return;
   if (selectedAssignments.value.includes(id)) {
     selectedAssignments.value = selectedAssignments.value.filter(i => i !== id);
   } else {
@@ -465,10 +669,13 @@ const toggleSelection = (id: number) => {
 };
 
 const toggleSelectAllModal = () => {
-  if (selectedAssignments.value.length > 0 && selectedAssignments.value.length === modalFilteredModules.value.length) {
+  const availableModules = modalFilteredModules.value.filter(m => !alreadyAssignedModules.value.includes(m.module_id));
+  if (availableModules.length === 0) return;
+
+  if (selectedAssignments.value.length > 0 && selectedAssignments.value.length === availableModules.length) {
     selectedAssignments.value = [];
   } else {
-    selectedAssignments.value = modalFilteredModules.value.map(m => m.module_id);
+    selectedAssignments.value = availableModules.map(m => m.module_id);
   }
 };
 
@@ -484,7 +691,7 @@ const next24Months = computed(() => {
 
 const assignCRM = async () => {
   const currentUserId = authStore.user?.id || sessionStorage.getItem('id');
-  
+
   assigning.value = true;
   try {
     const payload = {
@@ -504,6 +711,7 @@ const assignCRM = async () => {
       alert(data.message);
       showAssignModal.value = false;
       selectedAssignments.value = [];
+      fetchData(); // Refresh to update "Total Managed" count
     } else {
       alert(data.message || 'Assignment failed');
     }
@@ -512,6 +720,22 @@ const assignCRM = async () => {
     alert('Server error while assigning');
   } finally {
     assigning.value = false;
+  }
+};
+
+const deleteAssignedPlan = async (id: number) => {
+  if (!confirm('Are you sure you want to remove this assignment?')) return;
+  try {
+    const res = await fetch(`/api/curriculum/assigned-plans/${id}`, { method: 'DELETE' });
+    const data = await res.json();
+    if (data.success) {
+      fetchData(); // Refresh counts and list
+    } else {
+      alert(data.message || 'Deletion failed');
+    }
+  } catch (err) {
+    console.error('Delete Assigned Plan Error:', err);
+    alert('Server error while deleting');
   }
 };
 
@@ -559,12 +783,49 @@ const modalFilteredModules = computed(() => {
     filtered = filtered.filter(m => m.sport === modalFilters.value.sport);
   }
 
-  if (modalFilters.value.grade !== 'All') {
-    filtered = filtered.filter(m => m.grade.toString() === modalFilters.value.grade.toString());
+  if (modalFilters.value.grades.length > 0) {
+    filtered = filtered.filter(m => modalFilters.value.grades.includes(Number(m.grade)));
   }
 
   return filtered;
 });
+
+const toggleGradeSelection = (grade: number) => {
+  const index = modalFilters.value.grades.indexOf(grade);
+  if (index === -1) {
+    modalFilters.value.grades.push(grade);
+  } else {
+    modalFilters.value.grades.splice(index, 1);
+  }
+};
+
+const formatGrade = (grade: any) => {
+  if (!grade) return '-';
+  const g = grade.toString().toLowerCase().trim();
+
+  const presets: Record<string, string> = {
+    'nursery': 'Nursery',
+    'jr.kg': 'Jr.Kg',
+    'jrkg': 'Jr.Kg',
+    'sr.kg': 'Sr.Kg',
+    'srkg': 'Sr.Kg',
+    'lkg': 'LKG',
+    'ukg': 'UKG'
+  };
+
+  if (presets[g]) return presets[g];
+
+  const num = parseInt(g);
+  if (isNaN(num)) return grade;
+
+  const lastDigit = num % 10;
+  const lastTwoDigits = num % 100;
+
+  if (lastDigit === 1 && lastTwoDigits !== 11) return num + 'st';
+  if (lastDigit === 2 && lastTwoDigits !== 12) return num + 'nd';
+  if (lastDigit === 3 && lastTwoDigits !== 13) return num + 'rd';
+  return num + 'th';
+};
 </script>
 
 <style scoped>
@@ -582,5 +843,22 @@ const modalFilteredModules = computed(() => {
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
   vertical-align: middle;
+}
+
+/* Grade Swiper Styles */
+.grade-swiper-container {
+  width: 100%;
+}
+
+.grade-swiper {
+  padding: 10px 4px 20px 4px !important;
+}
+
+.grade-swiper :deep(.swiper-wrapper) {
+  align-items: center;
+}
+
+.grade-swiper :deep(.swiper-slide) {
+  height: auto;
 }
 </style>

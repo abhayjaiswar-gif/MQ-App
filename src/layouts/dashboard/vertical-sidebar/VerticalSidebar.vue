@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { shallowRef } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useCustomizerStore } from '../../../stores/customizer';
 import sidebarItems from './sidebarItem';
+import { useAuthStore } from '@/stores/auth'; // assuming auth store exists, or we use sessionStorage
 
 import NavGroup from './NavGroup/NavGroup.vue';
 import NavItem from './NavItem/NavItem.vue';
@@ -9,7 +10,62 @@ import NavCollapse from './NavCollapse/NavCollapse.vue';
 import Logo from '../logo/LogoDark.vue';
 
 const customizer = useCustomizerStore();
-const sidebarMenu = shallowRef(sidebarItems);
+const sidebarMenu = ref(sidebarItems);
+
+onMounted(async () => {
+  const userId = sessionStorage.getItem('id');
+  const roleId = sessionStorage.getItem('role_id');
+  
+  if (!userId) return;
+  if (roleId === '1') return; // Admin bypass
+
+  try {
+    const res = await fetch(`/api/access/permissions/${userId}`);
+    const data = await res.json();
+    if (data.success && data.permissions.length > 0) {
+      const allowedPaths = data.permissions.filter((p: any) => p.is_granted).map((p: any) => p.route_path);
+      
+      // Filter sidebar
+      const filtered = sidebarItems.map(item => {
+        if (item.children) {
+          const filteredChildren = item.children.filter(child => allowedPaths.includes(child.to));
+          if (filteredChildren.length > 0) {
+            return { ...item, children: filteredChildren };
+          }
+          return null; // Entire category hidden if no children allowed
+        }
+        
+        if (item.to && !allowedPaths.includes(item.to)) {
+           return null;
+        }
+        
+        return item;
+      }).filter(Boolean); // Remove nulls
+      
+      // Double check to remove blank headers
+      const finalFilter = [];
+      for (let i = 0; i < filtered.length; i++) {
+        const current = filtered[i];
+        if (current?.header) {
+           // If the next item is also a header, or we are at the end, this header is empty
+           const next = filtered[i+1];
+           if (!next || next.header) {
+             continue; // Skip this barren header
+           }
+        }
+        finalFilter.push(current);
+      }
+      
+      sidebarMenu.value = finalFilter as any;
+    } else {
+      // If not admin, and they have NO permissions returned from DB, you can either hide everything or leave full access.
+      // Based on prompt "so they only able to see that page only", we will hide everything except Dashboard.
+      sidebarMenu.value = sidebarItems.filter(item => item.to === '/dashboard' || item.header === 'Overview');
+    }
+  } catch (err) {
+    console.error('Failed to load permissions', err);
+  }
+});
 </script>
 
 <template>
