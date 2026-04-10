@@ -1,14 +1,12 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-
 const router = useRouter();
 const exams = ref([]);
 const loading = ref(true);
 const error = ref(null);
 const currentPage = ref(1);
 const perPage = 10;
-
 const fetchExams = async () => {
     loading.value = true;
     error.value = null;
@@ -27,10 +25,9 @@ const fetchExams = async () => {
         loading.value = false;
     }
 };
-
 const deleteExam = async (id) => {
-    if (!confirm("Are you sure you want to delete this exam format?")) return;
-
+    if (!confirm("Are you sure you want to delete this exam format?"))
+        return;
     try {
         const res = await fetch(`/api/exam-formats/${id}`, {
             method: 'DELETE'
@@ -196,19 +193,24 @@ const activeExams = computed(() => exams.value.filter(e => e.is_active === 1).le
                             </thead>
                             <tbody class="divide-y divide-slate-100">
                                 <tr v-if="loading">
-                                    <td colspan="5" class="px-8 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">
+                                    <td colspan="5"
+                                        class="px-8 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">
                                         Loading exam formats...
                                     </td>
                                 </tr>
                                 <tr v-else-if="exams.length === 0">
-                                    <td colspan="5" class="px-8 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">
+                                    <td colspan="5"
+                                        class="px-8 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">
                                         No exam formats found in database
                                     </td>
                                 </tr>
-                                <tr v-for="exam in paginatedExams" :key="exam.id" class="hover:bg-slate-50/50 transition-colors group">
+                                <tr v-for="exam in paginatedExams" :key="exam.id"
+                                    class="hover:bg-slate-50/50 transition-colors group">
                                     <td class="px-8 py-5">
-                                        <p class="font-bold text-primary text-sm font-manrope tracking-tight">{{ exam.test_title }}</p>
-                                        <p class="text-xs text-slate-500 max-w-xs truncate font-medium mt-0.5">ID: {{ exam.id }} • {{ exam.academic_year }}</p>
+                                        <p class="font-bold text-primary text-sm font-manrope tracking-tight">{{
+                                            exam.test_title }}</p>
+                                        <p class="text-xs text-slate-500 max-w-xs truncate font-medium mt-0.5">ID: {{
+                                            exam.id }} • {{ exam.academic_year }}</p>
                                     </td>
                                     <td class="px-8 py-5">
                                         <span class="text-sm font-bold text-slate-700">{{ exam.test_name }}</span>
@@ -222,8 +224,10 @@ const activeExams = computed(() => exams.value.filter(e => e.is_active === 1).le
                                         </div>
                                     </td>
                                     <td class="px-8 py-5">
-                                        <span :class="['inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider font-manrope', exam.is_active === 1 ? 'bg-primary-100 text-primary-800 border-primary-200' : 'bg-slate-100 text-slate-500 border-slate-200']">
-                                            <span :class="['w-1.5 h-1.5 rounded-full', exam.is_active === 1 ? 'bg-primary animate-pulse' : 'bg-slate-400']"></span>
+                                        <span
+                                            :class="['inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider font-manrope', exam.is_active === 1 ? 'bg-primary-100 text-primary-800 border-primary-200' : 'bg-slate-100 text-slate-500 border-slate-200']">
+                                            <span
+                                                :class="['w-1.5 h-1.5 rounded-full', exam.is_active === 1 ? 'bg-primary animate-pulse' : 'bg-slate-400']"></span>
                                             {{ exam.is_active === 1 ? 'Active' : 'Inactive' }}
                                         </span>
                                     </td>

@@ -1,0 +1,37 @@
+[
+  {
+    "id": 1,
+    "name": "Administrator",
+    "status": 1
+  },
+  {
+    "id": 2,
+    "name": "Operations Head",
+    "status": 1
+  },
+  {
+    "id": 3,
+    "name": "SSGM",
+    "status": 1
+  },
+  {
+    "id": 4,
+    "name": "Head Coach",
+    "status": 1
+  },
+  {
+    "id": 5,
+    "name": "Coach",
+    "status": 1
+  },
+  {
+    "id": 6,
+    "name": "HR",
+    "status": 1
+  },
+  {
+    "id": 7,
+    "name": "Admin",
+    "status": 1
+  }
+]

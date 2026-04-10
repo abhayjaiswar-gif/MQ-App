@@ -184,9 +184,54 @@ const MainRoutes = {
       component: () => import('@/views/curriculum/LPMasterDataPage.vue')
     },
     {
+      name: 'AssignedLP',
+      path: '/curriculum/assigned',
+      component: () => import('@/views/curriculum/AssignedLPPage.vue')
+    },
+    {
+      name: 'SocialMediaManager',
+      path: '/dashboard/manage-social',
+      component: () => import('@/views/dashboard/SocialMediaManager.vue')
+    },
+    {
+      name: 'WeeklyTracker',
+      path: '/curriculum/tracker',
+      component: () => import('../views/curriculum/WeeklyTrackerPage.vue')
+    },
+    {
+      name: 'CurriculumBuilder',
+      path: '/curriculum/builder',
+      component: () => import('@/views/curriculum/SelectCurriculumPage.vue')
+    },
+    {
+      name: 'ScheduleLesson',
+      path: '/curriculum/schedule',
+      component: () => import('@/views/curriculum/ScheduleLessonPage.vue')
+    },
+    {
+      name: 'WeeklyReport',
+      path: '/curriculum/weekly-report',
+      component: () => import('../views/curriculum/WeeklyReportPage.vue')
+    },
+    {
       name: 'AccessManagement',
       path: '/management/access',
       component: () => import('@/views/management/AccessManagementPage.vue')
+    },
+    {
+      name: 'ManageHighlights',
+      path: '/manage-highlights',
+      component: () => import('@/views/dashboard/ManageHighlightsPage.vue')
+    },
+    {
+      name: 'HelpdeskDashboard',
+      path: '/helpdesk/tickets',
+      component: () => import('@/views/helpdesk/HelpdeskDashboard.vue')
+    },
+    {
+      name: 'EscalationRules',
+      path: '/helpdesk/rules',
+      component: () => import('@/views/helpdesk/EscalationRules.vue')
     }
   ]
 };

@@ -208,12 +208,36 @@ const handleSubmit = async () => {
                 >
                   <option disabled selected value="">Select assigned role</option>
                   <option value="1">Administrator</option>
-                  <option value="4">Operations Head</option>
+                  <option value="2">Operations Head</option>
                   <option value="3">SSGM</option>
-                  <option value="5">Head Coach</option>
-                  <option value="2">Coach</option>
+                  <option value="4">Head Coach</option>
+                  <option value="5">Coach</option>
                   <option value="6">HR Admin</option>
                 </select>
+                
+                <!-- Dynamic Permissions Preview -->
+                <div v-if="form.role_id" class="mt-3 p-3 bg-secondary-container/20 border border-secondary-container/40 rounded-lg animate-in fade-in slide-in-from-top-2">
+                  <div class="flex items-start gap-2">
+                    <span class="material-symbols-outlined text-primary text-sm mt-0.5">verified_user</span>
+                    <div>
+                      <p class="text-[10px] font-bold text-primary uppercase tracking-wider mb-1">Default Profile Provisioned</p>
+                      <p class="text-[11px] text-slate-600 font-medium">This user will automatically receive access to:</p>
+                      <ul class="flex flex-wrap gap-1.5 mt-2">
+                        <li v-if="form.role_id === '1'" class="bg-primary/10 text-primary px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border border-primary/20">Full System Access</li>
+                        <template v-else-if="['5','2','4'].includes(form.role_id)">
+                          <li class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border border-slate-200" v-for="mod in ['Dashboard', 'Assign Curriculum', 'My Curriculums', 'LP Master Data']" :key="mod">{{ mod }}</li>
+                        </template>
+                        <template v-else-if="form.role_id === '3'">
+                          <li class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border border-slate-200" v-for="mod in ['Dashboard', 'Student', 'Exams', 'Fill Marks', 'School Gallery', 'Reports']" :key="mod">{{ mod }}</li>
+                        </template>
+                        <template v-else>
+                          <li class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border border-slate-200">Dashboard Only</li>
+                        </template>
+                      </ul>
+                      <p class="text-[9px] text-slate-400 mt-2 italic">You can modify these per-user later in User Permissions.</p>
+                    </div>
+                  </div>
+                </div>
               </div>
               <div class="space-y-4">
                 <label class="text-xs font-bold text-on-surface-variant uppercase tracking-wide block mb-3 font-semibold">Portal Access Permissions</label>

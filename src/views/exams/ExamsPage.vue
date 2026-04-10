@@ -313,31 +313,6 @@ onMounted(() => {
 
                 <!-- Bento Grid of Parameters -->
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <!-- Academic Year Card -->
-                    <div
-                        class="bg-white p-6 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)] border-b-4 border-[#0075d5] group hover:shadow-md transition-shadow">
-                        <div class="flex items-start justify-between mb-4">
-                            <div
-                                class="w-10 h-10 flex items-center justify-center bg-[#d4e3ff] text-[#004785] rounded-xl">
-                                <span class="material-symbols-outlined text-[20px]">calendar_today</span>
-                            </div>
-                            <span
-                                class="text-[10px] font-bold uppercase tracking-widest text-[#005daa] px-2 py-1 bg-[#d4e3ff]/30 rounded font-manrope">Active</span>
-                        </div>
-                        <h3 class="font-manrope font-extrabold text-lg flex items-center text-slate-800 mb-1">Academic
-                            Year</h3>
-                        <p class="text-slate-500 text-xs mb-6 font-bold">Current: 2023-2024</p>
-                        <div class="flex items-center justify-between mt-auto pt-4 border-t border-slate-50">
-                            <span
-                                class="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-manrope">Global
-                                Scope</span>
-                            <button
-                                class="text-primary text-xs font-bold flex items-center gap-1 group-hover:gap-2 transition-all font-manrope">
-                                Configure <span class="material-symbols-outlined text-sm">chevron_right</span>
-                            </button>
-                        </div>
-                    </div>
-
                     <!-- Grading Scales Card -->
                     <div
                         class="bg-white p-6 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)] border-b-4 border-[#afceff] group hover:shadow-md transition-shadow">
@@ -356,46 +331,6 @@ onMounted(() => {
                             <button @click="showParameterListModal = true"
                                 class="text-[#274871] text-xs font-bold flex items-center gap-1 group-hover:gap-2 transition-all font-manrope">
                                 Manage <span class="material-symbols-outlined text-sm">chevron_right</span>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Enrollment Windows Card -->
-                    <div
-                        class="bg-white p-6 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)] border-b-4 border-[#b95a00] group hover:shadow-md transition-shadow">
-                        <div class="flex items-start justify-between mb-4">
-                            <div
-                                class="w-10 h-10 flex items-center justify-center bg-[#ffdbc7] text-[#733600] rounded-xl">
-                                <span class="material-symbols-outlined text-[20px]">how_to_reg</span>
-                            </div>
-                        </div>
-                        <h3 class="font-manrope font-extrabold text-lg text-slate-800 mb-1">Enrollment Rules</h3>
-                        <p class="text-slate-500 text-xs mb-6 font-bold">Next window starts in 14 days</p>
-                        <div class="flex items-center justify-between mt-auto pt-4 border-t border-slate-50">
-                            <span
-                                class="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-manrope">Operations</span>
-                            <button
-                                class="text-[#b95a00] text-xs font-bold flex items-center gap-1 group-hover:gap-2 transition-all font-manrope">
-                                Edit <span class="material-symbols-outlined text-sm">chevron_right</span>
-                            </button>
-                        </div>
-                    </div>
-                    <div
-                        class="bg-white p-6 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)] border-b-4 border-slate-300 group hover:shadow-md transition-shadow">
-                        <div class="flex items-start justify-between mb-4">
-                            <div
-                                class="w-10 h-10 flex items-center justify-center bg-slate-100 text-slate-600 rounded-xl">
-                                <span class="material-symbols-outlined text-[20px]">domain</span>
-                            </div>
-                        </div>
-                        <h3 class="font-manrope font-extrabold text-lg text-slate-800 mb-1">Institutional Profile</h3>
-                        <p class="text-slate-500 text-xs mb-6 font-bold">Logos, branding, and contact info</p>
-                        <div class="flex items-center justify-between mt-auto pt-4 border-t border-slate-50">
-                            <span
-                                class="text-[10px] font-bold text-slate-400 uppercase tracking-wider font-manrope">Identity</span>
-                            <button
-                                class="text-slate-600 text-xs font-bold flex items-center gap-1 group-hover:gap-2 transition-all font-manrope">
-                                Update <span class="material-symbols-outlined text-sm">chevron_right</span>
                             </button>
                         </div>
                     </div>

@@ -26,20 +26,21 @@
           </button>
         </div>
       </div>
-      <div v-if="assignments.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 mb-10">
-        <!-- New Total Managed Card -->
-        <div @click="showManageModal = true"
+      <div v-if="assignments.length > 0"
+        class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6 mb-10">
+        <!-- Consolidated Workload Card -->
+        <div @click="$router.push('/curriculum/assigned')"
           class="bg-white p-6 rounded-2xl shadow-sm border-b-4 border-[#005daa] relative overflow-hidden group transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer">
-          <p class="text-[10px] uppercase font-bold text-[#707785] tracking-widest mb-3 relative z-10">Total Managed</p>
+          <p class="text-[10px] uppercase font-bold text-[#707785] tracking-widest mb-3 relative z-10">Total Workload</p>
           <div class="flex items-end justify-between relative z-10">
-            <h3 class="text-3xl font-extrabold text-[#1a1c1c]">{{ assignmentsByMe.length }} <span
-                class="text-xs font-medium text-slate-400">Assigned</span></h3>
+            <h3 class="text-3xl font-extrabold text-[#1a1c1c]">{{ lpSummaryTotal }} <span
+                class="text-xs font-medium text-slate-400">Plans</span></h3>
             <span class="bg-[#005daa]/10 text-[#005daa] text-[10px] font-black flex items-center px-2 py-1 rounded-lg">
-               Manage
+              View All
             </span>
           </div>
-          <!-- Decorative Background Icon -->
-          <span class="material-symbols-outlined absolute -right-4 -bottom-4 text-8xl text-[#005daa]/5 rotate-12 group-hover:scale-110 transition-transform">manage_accounts</span>
+          <span
+            class="material-symbols-outlined absolute -right-4 -bottom-4 text-8xl text-[#005daa]/5 rotate-12 group-hover:scale-110 transition-transform">event_available</span>
         </div>
 
         <div @click="selectedSport = 'All'" :class="['bg-white p-6 rounded-2xl shadow-sm border-b-4 relative overflow-hidden group transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer',
@@ -246,294 +247,434 @@
       </div>
     </div>
 
-    <!-- Assign CRM Modal -->
-    <div v-if="showAssignModal" class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-[#001c3a]/60 backdrop-blur-md" @click="showAssignModal = false"></div>
-      <div
-        class="relative bg-white w-full max-w-4xl rounded-[32px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
 
-        <!-- Simplified Modal Header -->
-        <div
-          class="px-8 py-6 border-b border-slate-100 bg-white sticky top-0 z-[100] flex items-center justify-between">
-          <div>
-            <h3 class="text-xl font-extrabold text-[#1a1c1c] flex items-center gap-3">
-              <span class="material-symbols-outlined text-[#005daa] text-2xl">assignment_add</span>
-              Assign Learning Plan
-            </h3>
-            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Step-by-step curriculum
-              distribution</p>
-          </div>
-          <button @click="showAssignModal = false"
-            class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 transition-all text-slate-400 hover:text-slate-600">
-            <span class="material-symbols-outlined text-2xl">close</span>
-          </button>
+  </div>
+
+  <!-- Assign CRM Modal -->
+  <div v-if="showAssignModal" class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-[#001c3a]/60 backdrop-blur-md" @click="showAssignModal = false"></div>
+    <div
+      class="relative bg-white w-full max-w-4xl rounded-[32px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
+
+      <!-- Simplified Modal Header -->
+      <div class="px-8 py-6 border-b border-slate-100 bg-white sticky top-0 z-[100] flex items-center justify-between">
+        <div>
+          <h3 class="text-xl font-extrabold text-[#1a1c1c] flex items-center gap-3">
+            <span class="material-symbols-outlined text-[#005daa] text-2xl">assignment_add</span>
+            Assign Learning Plan
+          </h3>
+          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Step-by-step curriculum
+            distribution</p>
         </div>
-
-        <!-- Unified Scroll Body -->
-        <div class="flex-1 overflow-y-auto relative scroll-smooth">
-
-          <!-- Step 1: Assign Details (Now Scrollable) -->
-          <div class="px-8 py-8 bg-[#f9fafb]/50 border-b border-slate-50">
-            <div class="flex items-center gap-2 mb-6">
-              <span
-                class="w-6 h-6 rounded-full bg-[#005daa] text-white text-[10px] font-black flex items-center justify-center">1</span>
-              <h4 class="text-xs font-black uppercase text-[#1a1c1c] tracking-widest">Assign Details</h4>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div class="space-y-2">
-                <label class="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">Select Coach</label>
-                <div class="relative group">
-                  <select v-model="assignForm.teacher_id"
-                    class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-[#1a1c1c] focus:border-[#005daa]/30 focus:ring-4 focus:ring-[#005daa]/5 outline-none transition-all appearance-none">
-                    <option value="">Choose a Coach</option>
-                    <option v-for="c in coaches" :key="c.id" :value="c.id">{{ c.name }}</option>
-                  </select>
-                  <span
-                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">person_search</span>
-                </div>
-              </div>
-              <div class="space-y-2">
-                <label class="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">Select Week</label>
-                <div class="relative group">
-                  <select v-model="assignForm.week"
-                    class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-[#1a1c1c] focus:border-[#005daa]/30 focus:ring-4 focus:ring-[#005daa]/5 outline-none transition-all appearance-none">
-                    <option value="">Select Week</option>
-                    <option value="Week1">Week 1</option>
-                    <option value="Week2">Week 2</option>
-                    <option value="Week3">Week 3</option>
-                    <option value="Week4">Week 4</option>
-                  </select>
-                  <span
-                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">calendar_month</span>
-                </div>
-              </div>
-              <div class="space-y-2">
-                <label class="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">Month & Year</label>
-                <div class="relative group">
-                  <select v-model="assignForm.month_year"
-                    class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-[#1a1c1c] focus:border-[#005daa]/30 focus:ring-4 focus:ring-[#005daa]/5 outline-none transition-all appearance-none">
-                    <option value="">Select Month</option>
-                    <option v-for="m in next24Months" :key="m" :value="m">{{ m }}</option>
-                  </select>
-                  <span
-                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">schedule</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Step 2: Content Filters (Sticky Header) -->
-          <div
-            class="sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-slate-100 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] px-8 py-6">
-            <div class="flex items-center gap-2 mb-4">
-              <span
-                class="w-6 h-6 rounded-full bg-[#005daa] text-white text-[10px] font-black flex items-center justify-center">2</span>
-              <h4 class="text-xs font-black uppercase text-[#1a1c1c] tracking-widest">Filter Content</h4>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-              <div class="space-y-1.5">
-                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Sport
-                  Category</label>
-                <div class="relative group">
-                  <select v-model="modalFilters.sport"
-                    class="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 px-4 text-sm font-bold text-[#1a1c1c] appearance-none outline-none focus:ring-4 focus:ring-[#005daa]/5 transition-all">
-                    <option value="All">All Path</option>
-                    <option v-for="s in sports" :key="s" :value="s">{{ s }}</option>
-                  </select>
-                  <span
-                    class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xl">stat_0</span>
-                </div>
-              </div>
-
-              <div class="md:col-span-2 space-y-1.5">
-                <div class="flex items-center justify-between px-1">
-                  <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Standard / Grade</label>
-                  <button v-if="modalFilters.grades.length > 0" @click="modalFilters.grades = []"
-                    class="text-[10px] font-black text-[#005daa] hover:underline uppercase tracking-tighter">Clear</button>
-                </div>
-
-                <div class="grade-swiper-container">
-                  <swiper :slides-per-view="'auto'" :space-between="8" :free-mode="true"
-                    :mousewheel="{ forceToAxis: true }" :modules="[Navigation, Pagination, FreeMode, Mousewheel]"
-                    class="grade-swiper !py-2 !px-1">
-                    <swiper-slide v-for="g in availableGrades" :key="g" class="!w-auto">
-                      <button @click="toggleGradeSelection(Number(g))" :class="[
-                        'px-4 py-2 rounded-lg border-2 transition-all flex items-center gap-2 min-w-[80px]',
-                        modalFilters.grades.includes(Number(g))
-                          ? 'bg-[#005daa] border-[#005daa] text-white shadow-sm'
-                          : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
-                      ]">
-                        <span class="text-[10px] font-black whitespace-nowrap uppercase">{{ formatGrade(g) }}</span>
-                      </button>
-                    </swiper-slide>
-                  </swiper>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Step 3: Module Selection -->
-          <div class="px-8 py-8">
-            <div class="flex items-center justify-between mb-6 px-1">
-              <div class="flex items-center gap-2">
-                <span
-                  class="w-6 h-6 rounded-full bg-[#005daa] text-white text-[10px] font-black flex items-center justify-center">3</span>
-                <h4 class="text-xs font-black uppercase text-[#1a1c1c] tracking-widest">Choose Modules</h4>
-              </div>
-              <div class="flex items-center gap-4">
-                <span class="text-[10px] font-bold text-[#005daa] bg-[#005daa]/10 px-3 py-1 rounded-full uppercase">{{
-                  selectedAssignments.length }} Selected</span>
-                <button @click="toggleSelectAllModal"
-                  class="text-[10px] font-bold text-slate-400 hover:text-[#005daa] transition-colors uppercase underline decoration-dotted">
-                  {{ selectedAssignments.length > 0 && selectedAssignments.length === modalFilteredModules.length ?
-                    'Deselect All' : 'Select All' }}
-                </button>
-              </div>
-            </div>
-            <div class="border border-slate-100 rounded-2xl overflow-hidden">
-              <table class="w-full text-left">
-                <thead class="bg-[#f9fafb] border-b border-slate-100">
-                  <tr>
-                    <th class="px-6 py-4 w-14 text-center">
-                      <input type="checkbox" @change="toggleSelectAllModal"
-                        :checked="selectedAssignments.length > 0 && selectedAssignments.length === modalFilteredModules.length"
-                        class="w-6 h-6 rounded-lg border-2 border-slate-900 bg-slate-200 text-[#005daa] focus:ring-[#005daa] cursor-pointer transition-all active:scale-95 shadow-md">
-                    </th>
-                    <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 whitespace-nowrap">Sport & Plan
-                    </th>
-                    <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500">Skill / Objective</th>
-                    <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 text-center">Grade</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-50">
-                  <tr v-for="m in modalFilteredModules" :key="m.module_id" @click="toggleSelection(m.module_id)"
-                    :class="[
-                      'transition-colors',
-                      alreadyAssignedModules.includes(m.module_id) ? 'bg-[#005daa]/10 cursor-not-allowed opacity-80' : 'hover:bg-slate-50 cursor-pointer',
-                      selectedAssignments.includes(m.module_id) && !alreadyAssignedModules.includes(m.module_id) ? 'bg-[#005daa]/5' : ''
-                    ]">
-                    <td class="px-6 py-4 text-center relative">
-                      <input type="checkbox" :checked="selectedAssignments.includes(m.module_id) || alreadyAssignedModules.includes(m.module_id)" 
-                        :disabled="alreadyAssignedModules.includes(m.module_id)" @click.stop="toggleSelection(m.module_id)"
-                        :class="[
-                          'w-6 h-6 rounded-lg border-2 border-slate-900 transition-all active:scale-95 shadow-md',
-                          alreadyAssignedModules.includes(m.module_id) ? 'bg-[#005daa] cursor-not-allowed opacity-50' : 'bg-slate-200 text-[#005daa] focus:ring-[#005daa] cursor-pointer'
-                        ]">
-                        <span v-if="alreadyAssignedModules.includes(m.module_id)" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-[10px] font-bold pointer-events-none material-symbols-outlined shrink-0" style="font-size:16px;">lock</span>
-                    </td>
-                    <td class="px-6 py-4">
-                      <p :class="['text-xs font-black mb-0.5', alreadyAssignedModules.includes(m.module_id) ? 'text-[#005daa]' : 'text-[#005daa]']">LP-{{ m.lp_no }}</p>
-                      <p :class="['text-[10px] uppercase font-bold tracking-tighter', alreadyAssignedModules.includes(m.module_id) ? 'text-[#005daa]/80' : 'text-[#1a1c1c]']">{{ m.sport }}</p>
-                    </td>
-                    <td class="px-6 py-4">
-                      <p :class="['text-xs font-bold line-clamp-1', alreadyAssignedModules.includes(m.module_id) ? 'text-[#005daa]' : 'text-[#1a1c1c]']">{{ m.skill }}</p>
-                      <p :class="['text-[10px] line-clamp-1 italic', alreadyAssignedModules.includes(m.module_id) ? 'text-[#005daa]/60' : 'text-[#404753]']">{{ m.objective }}</p>
-                    </td>
-                    <td class="px-6 py-4 text-center">
-                      <span
-                        :class="['text-[9px] font-black px-2.5 py-1 rounded-lg border uppercase whitespace-nowrap', alreadyAssignedModules.includes(m.module_id) ? 'bg-[#005daa]/20 text-[#005daa] border-[#005daa]/30' : 'bg-slate-100 text-slate-600 border-slate-200']">
-                        {{ formatGrade(m.grade) }}</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-
-        <!-- Footer -->
-        <div class="p-8 border-t border-slate-100 bg-white flex items-center justify-between">
-          <p class="text-[10px] font-bold text-slate-400 max-w-[200px]">Ensure details are correct before assigning.</p>
-          <div class="flex gap-4">
-            <button @click="showAssignModal = false"
-              class="px-8 py-3.5 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all border border-slate-100">Cancel</button>
-            <button @click="assignCRM"
-              :disabled="assigning || !assignForm.teacher_id || !assignForm.week || !assignForm.month_year || selectedAssignments.length === 0"
-              class="bg-[#005daa] disabled:bg-slate-300 hover:bg-[#0075d5] text-white px-10 py-3.5 rounded-2xl font-black text-sm flex items-center gap-3 transition-all shadow-xl shadow-[#005daa]/20 active:scale-95 group">
-              <span v-if="assigning" class="material-symbols-outlined animate-spin">sync</span>
-              <span v-else class="material-symbols-outlined">send</span>
-              <span>Assign Now</span>
-            </button>
-          </div>
-        </div>
+        <button @click="showAssignModal = false"
+          class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 transition-all text-slate-400 hover:text-slate-600">
+          <span class="material-symbols-outlined text-2xl">close</span>
+        </button>
       </div>
-    </div>
-    <!-- Manage Assignments Modal -->
-    <div v-if="showManageModal" class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-      <div class="absolute inset-0 bg-[#001c3a]/60 backdrop-blur-md" @click="showManageModal = false"></div>
-      <div
-        class="relative bg-white w-full max-w-5xl rounded-[32px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
-        <div class="px-8 py-6 border-b border-slate-100 bg-white sticky top-0 z-[100] flex items-center justify-between">
-          <div>
-            <h3 class="text-xl font-extrabold text-[#1a1c1c] flex items-center gap-3">
-              <span class="material-symbols-outlined text-[#005daa] text-2xl">manage_history</span>
-              Manage Assignments
-            </h3>
-            <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Review and manage curriculum distribution</p>
+
+      <!-- Unified Scroll Body -->
+      <div class="flex-1 overflow-y-auto relative scroll-smooth">
+
+        <!-- Step 1: Assign Details (Now Scrollable) -->
+        <div class="px-8 py-8 bg-[#f9fafb]/50 border-b border-slate-50">
+          <div class="flex items-center gap-2 mb-6">
+            <span
+              class="w-6 h-6 rounded-full bg-[#005daa] text-white text-[10px] font-black flex items-center justify-center">1</span>
+            <h4 class="text-xs font-black uppercase text-[#1a1c1c] tracking-widest">Assign Details</h4>
           </div>
-          <button @click="showManageModal = false"
-            class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 transition-all text-slate-400 hover:text-slate-600">
-            <span class="material-symbols-outlined text-2xl">close</span>
-          </button>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">Select Coach</label>
+              <div class="relative group">
+                <select v-model="assignForm.teacher_id"
+                  class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-[#1a1c1c] focus:border-[#005daa]/30 focus:ring-4 focus:ring-[#005daa]/5 outline-none transition-all appearance-none">
+                  <option value="">Choose a Coach</option>
+                  <option v-for="c in coaches" :key="c.id" :value="c.id">{{ c.name }}</option>
+                </select>
+                <span
+                  class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">person_search</span>
+              </div>
+            </div>
+            <!-- School Dropdown (dynamic based on selected coach) -->
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">School <span
+                  v-if="loadingCoachSchools" class="text-[#005daa] animate-pulse">Loading...</span></label>
+              <div class="relative group">
+                <select v-model="assignForm.school_id" :disabled="!assignForm.teacher_id || coachSchools.length === 0"
+                  class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-[#1a1c1c] focus:border-[#005daa]/30 focus:ring-4 focus:ring-[#005daa]/5 outline-none transition-all appearance-none disabled:bg-slate-50 disabled:text-slate-400">
+                  <option value="">{{ !assignForm.teacher_id ? 'Select coach first' : coachSchools.length === 0 ? 'No schools found' : 'All Schools' }}</option>
+                  <option v-for="s in coachSchools" :key="s.school_id" :value="s.school_id">{{ s.school_name }}</option>
+                </select>
+                <span
+                  class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">school</span>
+              </div>
+            </div>
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">Select Week</label>
+              <div class="relative group">
+                <select v-model="assignForm.week"
+                  class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-[#1a1c1c] focus:border-[#005daa]/30 focus:ring-4 focus:ring-[#005daa]/5 outline-none transition-all appearance-none">
+                  <option value="">Select Week</option>
+                  <option value="Week1">Week 1</option>
+                  <option value="Week2">Week 2</option>
+                  <option value="Week3">Week 3</option>
+                  <option value="Week4">Week 4</option>
+                </select>
+                <span
+                  class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">calendar_month</span>
+              </div>
+            </div>
+            <div class="space-y-2">
+              <label class="text-[10px] font-bold uppercase text-slate-400 tracking-widest ml-1">Month & Year</label>
+              <div class="relative group">
+                <select v-model="assignForm.month_year"
+                  class="w-full bg-white border border-slate-200 rounded-xl py-3 px-4 text-sm font-bold text-[#1a1c1c] focus:border-[#005daa]/30 focus:ring-4 focus:ring-[#005daa]/5 outline-none transition-all appearance-none">
+                  <option value="">Select Month</option>
+                  <option v-for="m in next24Months" :key="m" :value="m">{{ m }}</option>
+                </select>
+                <span
+                  class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">schedule</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto p-8">
-          <div v-if="assignmentsByMe.length === 0" class="py-20 text-center">
-            <span class="material-symbols-outlined text-6xl text-slate-200 mb-4">assignment_late</span>
-            <h4 class="text-lg font-bold text-slate-400">No assignments found</h4>
-            <p class="text-sm text-slate-400">You haven't assigned any training plans yet.</p>
+        <!-- Step 2: Content Filters (Sticky Header) -->
+        <div
+          class="sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-slate-100 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] px-8 py-6">
+          <div class="flex items-center gap-2 mb-4">
+            <span
+              class="w-6 h-6 rounded-full bg-[#005daa] text-white text-[10px] font-black flex items-center justify-center">2</span>
+            <h4 class="text-xs font-black uppercase text-[#1a1c1c] tracking-widest">Filter Content</h4>
           </div>
-          <div v-else class="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
-            <table class="w-full text-left border-collapse">
-              <thead class="bg-slate-50 border-b border-slate-100">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+            <div class="space-y-1.5">
+              <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Sport
+                Category</label>
+              <div class="relative group">
+                <select v-model="modalFilters.sport"
+                  class="w-full bg-slate-50 border border-slate-100 rounded-xl py-2.5 px-4 text-sm font-bold text-[#1a1c1c] appearance-none outline-none focus:ring-4 focus:ring-[#005daa]/5 transition-all">
+                  <option value="All">All Path</option>
+                  <option v-for="s in sports" :key="s" :value="s">{{ s }}</option>
+                </select>
+                <span
+                  class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-xl">stat_0</span>
+              </div>
+            </div>
+
+            <div class="md:col-span-2 space-y-1.5">
+              <div class="flex items-center justify-between px-1">
+                <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Standard / Grade</label>
+                <button v-if="modalFilters.grades.length > 0" @click="modalFilters.grades = []"
+                  class="text-[10px] font-black text-[#005daa] hover:underline uppercase tracking-tighter">Clear</button>
+              </div>
+
+              <div class="grade-swiper-container">
+                <swiper :slides-per-view="'auto'" :space-between="8" :free-mode="true"
+                  :mousewheel="{ forceToAxis: true }" :modules="[Navigation, Pagination, FreeMode, Mousewheel]"
+                  class="grade-swiper !py-2 !px-1">
+                  <swiper-slide v-for="g in availableGrades" :key="g" class="!w-auto">
+                    <button @click="toggleGradeSelection(Number(g))" :class="[
+                      'px-4 py-2 rounded-lg border-2 transition-all flex items-center gap-2 min-w-[80px]',
+                      modalFilters.grades.includes(Number(g))
+                        ? 'bg-[#005daa] border-[#005daa] text-white shadow-sm'
+                        : 'bg-white border-slate-100 text-slate-600 hover:border-slate-200'
+                    ]">
+                      <span class="text-[10px] font-black whitespace-nowrap uppercase">{{ formatGrade(g) }}</span>
+                    </button>
+                  </swiper-slide>
+                </swiper>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Module Selection -->
+        <div class="px-8 py-8">
+          <div class="flex items-center justify-between mb-6 px-1">
+            <div class="flex items-center gap-2">
+              <span
+                class="w-6 h-6 rounded-full bg-[#005daa] text-white text-[10px] font-black flex items-center justify-center">3</span>
+              <h4 class="text-xs font-black uppercase text-[#1a1c1c] tracking-widest">Choose Modules</h4>
+            </div>
+            <div class="flex items-center gap-4">
+              <span class="text-[10px] font-bold text-[#005daa] bg-[#005daa]/10 px-3 py-1 rounded-full uppercase">{{
+                selectedAssignments.length }} Selected</span>
+              <button @click="toggleSelectAllModal"
+                class="text-[10px] font-bold text-slate-400 hover:text-[#005daa] transition-colors uppercase underline decoration-dotted">
+                {{ selectedAssignments.length > 0 && selectedAssignments.length === modalFilteredModules.length ?
+                  'Deselect All' : 'Select All' }}
+              </button>
+            </div>
+          </div>
+          <div class="border border-slate-100 rounded-2xl overflow-hidden">
+            <table class="w-full text-left">
+              <thead class="bg-[#f9fafb] border-b border-slate-100">
                 <tr>
-                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Coach</th>
-                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest text-center">Grade</th>
-                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Sport</th>
-                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Week/Month</th>
-                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Assigned On</th>
-                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest text-center">Action</th>
+                  <th class="px-6 py-4 w-14 text-center">
+                    <input type="checkbox" @change="toggleSelectAllModal"
+                      :checked="selectedAssignments.length > 0 && selectedAssignments.length === modalFilteredModules.length"
+                      class="w-6 h-6 rounded-lg border-2 border-slate-900 bg-slate-200 text-[#005daa] focus:ring-[#005daa] cursor-pointer transition-all active:scale-95 shadow-md">
+                  </th>
+                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 whitespace-nowrap">Sport & Plan
+                  </th>
+                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500">Skill / Objective</th>
+                  <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 text-center">Grade</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-50">
-                <tr v-for="asgn in assignmentsByMe" :key="asgn.id" class="hover:bg-slate-50/50 transition-colors">
-                  <td class="px-6 py-5">
-                    <div class="flex items-center gap-3">
-                      <div class="w-8 h-8 rounded-full bg-[#005daa]/10 flex items-center justify-center text-[#005daa]">
-                        <span class="material-symbols-outlined text-sm">person</span>
-                      </div>
-                      <p class="text-sm font-bold text-[#1a1c1c]">{{ asgn.coach_name }}</p>
-                    </div>
+                <tr v-for="m in modalFilteredModules" :key="m.module_id" @click="toggleSelection(m.module_id)" :class="[
+                  'transition-colors',
+                  alreadyAssignedModules.includes(m.module_id) ? 'bg-[#005daa]/10 cursor-not-allowed opacity-80' : 'hover:bg-slate-50 cursor-pointer',
+                  selectedAssignments.includes(m.module_id) && !alreadyAssignedModules.includes(m.module_id) ? 'bg-[#005daa]/5' : ''
+                ]">
+                  <td class="px-6 py-4 text-center relative">
+                    <input type="checkbox"
+                      :checked="selectedAssignments.includes(m.module_id) || alreadyAssignedModules.includes(m.module_id)"
+                      :disabled="alreadyAssignedModules.includes(m.module_id)"
+                      @click.stop="toggleSelection(m.module_id)" :class="[
+                        'w-6 h-6 rounded-lg border-2 border-slate-900 transition-all active:scale-95 shadow-md',
+                        alreadyAssignedModules.includes(m.module_id) ? 'bg-[#005daa] cursor-not-allowed opacity-50' : 'bg-slate-200 text-[#005daa] focus:ring-[#005daa] cursor-pointer'
+                      ]">
+                    <span v-if="alreadyAssignedModules.includes(m.module_id)"
+                      class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white text-[10px] font-bold pointer-events-none material-symbols-outlined shrink-0"
+                      style="font-size:16px;">lock</span>
                   </td>
-                  <td class="px-6 py-5 text-center">
-                    <p class="text-sm font-extrabold text-[#005daa]">{{ formatGrade(asgn.grade) }}</p>
+                  <td class="px-6 py-4">
+                    <p
+                      :class="['text-xs font-black mb-0.5', alreadyAssignedModules.includes(m.module_id) ? 'text-[#005daa]' : 'text-[#005daa]']">
+                      LP-{{ m.lp_no }}</p>
+                    <p
+                      :class="['text-[10px] uppercase font-bold tracking-tighter', alreadyAssignedModules.includes(m.module_id) ? 'text-[#005daa]/80' : 'text-[#1a1c1c]']">
+                      {{ m.sport }}</p>
                   </td>
-                  <td class="px-6 py-5">
-                    <span class="px-3 py-1 rounded-full bg-slate-100 text-[#1a1c1c] text-[10px] font-black uppercase tracking-tighter">{{ asgn.sport }}</span>
+                  <td class="px-6 py-4">
+                    <p
+                      :class="['text-xs font-bold line-clamp-1', alreadyAssignedModules.includes(m.module_id) ? 'text-[#005daa]' : 'text-[#1a1c1c]']">
+                      {{ m.skill }}</p>
+                    <p
+                      :class="['text-[10px] line-clamp-1 italic', alreadyAssignedModules.includes(m.module_id) ? 'text-[#005daa]/60' : 'text-[#404753]']">
+                      {{ m.objective }}</p>
                   </td>
-                  <td class="px-6 py-5">
-                    <p class="text-xs font-bold text-[#005daa]">{{ asgn.week }}</p>
-                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">{{ asgn.month_year }}</p>
-                  </td>
-                  <td class="px-6 py-5">
-                    <p class="text-[10px] font-medium text-slate-500">{{ new Date(asgn.created_at).toLocaleDateString() }}</p>
-                  </td>
-                  <td class="px-6 py-5 text-center">
-                    <button @click="deleteAssignedPlan(asgn.id)"
-                      class="w-9 h-9 rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center group shadow-sm active:scale-90">
-                      <span class="material-symbols-outlined text-xl">delete</span>
-                    </button>
+                  <td class="px-6 py-4 text-center">
+                    <span
+                      :class="['text-[9px] font-black px-2.5 py-1 rounded-lg border uppercase whitespace-nowrap', alreadyAssignedModules.includes(m.module_id) ? 'bg-[#005daa]/20 text-[#005daa] border-[#005daa]/30' : 'bg-slate-100 text-slate-600 border-slate-200']">
+                      {{ formatGrade(m.grade) }}</span>
                   </td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
+      </div>
 
-        <div class="p-8 border-t border-slate-100 bg-white text-right">
-          <button @click="showManageModal = false"
-            class="px-8 py-3 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all border border-slate-100">Close Manager</button>
+      <!-- Footer -->
+      <div class="p-8 border-t border-slate-100 bg-white flex items-center justify-between">
+        <p class="text-[10px] font-bold text-slate-400 max-w-[200px]">Ensure details are correct before assigning.</p>
+        <div class="flex gap-4">
+          <button @click="showAssignModal = false"
+            class="px-8 py-3.5 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all border border-slate-100">Cancel</button>
+          <button @click="assignCRM"
+            :disabled="assigning || !assignForm.teacher_id || !assignForm.week || !assignForm.month_year || selectedAssignments.length === 0"
+            class="bg-[#005daa] disabled:bg-slate-300 hover:bg-[#0075d5] text-white px-10 py-3.5 rounded-2xl font-black text-sm flex items-center gap-3 transition-all shadow-xl shadow-[#005daa]/20 active:scale-95 group">
+            <span v-if="assigning" class="material-symbols-outlined animate-spin">sync</span>
+            <span v-else class="material-symbols-outlined">send</span>
+            <span>Assign Now</span>
+          </button>
         </div>
+      </div>
+    </div>
+  </div>
+  <!-- Manage Assignments Modal -->
+  <div v-if="showManageModal" class="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+    <div class="absolute inset-0 bg-[#001c3a]/60 backdrop-blur-md" @click="showManageModal = false"></div>
+    <div
+      class="relative bg-white w-full max-w-5xl rounded-[32px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 flex flex-col max-h-[90vh]">
+      <div class="px-8 py-6 border-b border-slate-100 bg-white sticky top-0 z-[100] flex items-center justify-between">
+        <div>
+          <h3 class="text-xl font-extrabold text-[#1a1c1c] flex items-center gap-3">
+            <span class="material-symbols-outlined text-[#005daa] text-2xl">manage_history</span>
+            Manage Assignments
+          </h3>
+          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Review and manage curriculum
+            distribution</p>
+        </div>
+        <button @click="showManageModal = false"
+          class="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 transition-all text-slate-400 hover:text-slate-600">
+          <span class="material-symbols-outlined text-2xl">close</span>
+        </button>
+      </div>
+
+      <div
+        class="px-8 py-5 bg-gradient-to-r from-slate-50 to-white border-b border-slate-100 flex flex-wrap gap-4 items-center z-50 relative shadow-inner">
+        <div class="flex items-center gap-2 mr-2">
+          <span class="material-symbols-outlined text-slate-300">filter_list</span>
+          <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">Filters</span>
+        </div>
+
+        <!-- Coach Filter -->
+        <div class="relative group">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <span
+              class="material-symbols-outlined text-[16px] text-[#005daa] opacity-70 group-focus-within:opacity-100 transition-opacity">person</span>
+          </div>
+          <select v-model="manageFilters.coach_name"
+            class="pl-9 pr-8 py-2.5 bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-extrabold text-[#1a1c1c] focus:ring-4 focus:ring-[#005daa]/10 focus:border-[#005daa] outline-none transition-all appearance-none shadow-sm cursor-pointer min-w-[150px]">
+            <option value="All">All Coaches</option>
+            <option v-for="c in uniqueManageCoaches" :key="c" :value="c">{{ c }}</option>
+          </select>
+          <span
+            class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-lg group-hover:text-slate-600 transition-colors">expand_more</span>
+        </div>
+
+        <!-- Week Filter -->
+        <div class="relative group">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <span
+              class="material-symbols-outlined text-[16px] text-emerald-600 opacity-70 group-focus-within:opacity-100 transition-opacity">view_week</span>
+          </div>
+          <select v-model="manageFilters.week"
+            class="pl-9 pr-8 py-2.5 bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-extrabold text-[#1a1c1c] focus:ring-4 focus:ring-emerald-600/10 focus:border-emerald-600 outline-none transition-all appearance-none shadow-sm cursor-pointer min-w-[130px]">
+            <option value="All">All Weeks</option>
+            <option v-for="w in uniqueManageWeeks" :key="w" :value="w">{{ w }}</option>
+          </select>
+          <span
+            class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-lg group-hover:text-slate-600 transition-colors">expand_more</span>
+        </div>
+
+        <!-- Month Filter -->
+        <div class="relative group">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <span
+              class="material-symbols-outlined text-[16px] text-amber-600 opacity-70 group-focus-within:opacity-100 transition-opacity">calendar_month</span>
+          </div>
+          <select v-model="manageFilters.month_year"
+            class="pl-9 pr-8 py-2.5 bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-extrabold text-[#1a1c1c] focus:ring-4 focus:ring-amber-600/10 focus:border-amber-600 outline-none transition-all appearance-none shadow-sm cursor-pointer min-w-[140px]">
+            <option value="All">All Months</option>
+            <option v-for="m in uniqueManageMonths" :key="m" :value="m">{{ m }}</option>
+          </select>
+          <span
+            class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-lg group-hover:text-slate-600 transition-colors">expand_more</span>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="relative group">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <span
+              class="material-symbols-outlined text-[16px] text-purple-600 opacity-70 group-focus-within:opacity-100 transition-opacity">fact_check</span>
+          </div>
+          <select v-model="manageFilters.status"
+            class="pl-9 pr-8 py-2.5 bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-extrabold text-[#1a1c1c] focus:ring-4 focus:ring-purple-600/10 focus:border-purple-600 outline-none transition-all appearance-none shadow-sm cursor-pointer min-w-[150px]">
+            <option value="All">All Statuses</option>
+            <option value="Done">Completed</option>
+            <option value="Pending">Pending</option>
+            <option value="Unmarked">Unmarked</option>
+          </select>
+          <span
+            class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-lg group-hover:text-slate-600 transition-colors">expand_more</span>
+        </div>
+
+        <!-- School Filter -->
+        <div class="relative group" v-if="uniqueManageSchools.length > 0">
+          <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <span
+              class="material-symbols-outlined text-[16px] text-rose-600 opacity-70 group-focus-within:opacity-100 transition-opacity">school</span>
+          </div>
+          <select v-model="manageFilters.school"
+            class="pl-9 pr-8 py-2.5 bg-white border border-slate-200 hover:border-slate-300 rounded-xl text-xs font-extrabold text-[#1a1c1c] focus:ring-4 focus:ring-rose-600/10 focus:border-rose-600 outline-none transition-all appearance-none shadow-sm cursor-pointer min-w-[160px]">
+            <option value="All">All Schools</option>
+            <option v-for="s in uniqueManageSchools" :key="s" :value="s">{{ s }}</option>
+          </select>
+          <span
+            class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 text-lg group-hover:text-slate-600 transition-colors">expand_more</span>
+        </div>
+        <div class="ml-auto flex flex-col items-end justify-center">
+          <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest leading-none">Results</span>
+          <span class="text-lg font-black text-[#005daa] leading-tight">{{ filteredAssignmentsByMe.length }}</span>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-y-auto p-8">
+        <div v-if="filteredAssignmentsByMe.length === 0" class="py-20 text-center">
+          <span class="material-symbols-outlined text-6xl text-slate-200 mb-4">assignment_late</span>
+          <h4 class="text-lg font-bold text-slate-400">No assignments found</h4>
+          <p class="text-sm text-slate-400">Try adjusting your filters.</p>
+        </div>
+        <div v-else class="border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
+          <table class="w-full text-left border-collapse">
+            <thead class="bg-slate-50 border-b border-slate-100">
+              <tr>
+                <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Coach</th>
+                <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">School</th>
+                <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest text-center">Grade
+                </th>
+                <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest">Week/Month</th>
+                <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest text-center">Status
+                </th>
+                <th class="px-6 py-4 text-[10px] font-black uppercase text-slate-500 tracking-widest text-center">Action
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50">
+              <tr v-for="asgn in filteredAssignmentsByMe" :key="asgn.id" class="hover:bg-slate-50/50 transition-colors">
+                <td class="px-6 py-5">
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-[#005daa]/10 flex items-center justify-center text-[#005daa]">
+                      <span class="material-symbols-outlined text-sm">person</span>
+                    </div>
+                    <div>
+                      <p class="text-sm font-bold text-[#1a1c1c]">{{ asgn.coach_name }}</p>
+                      <p class="text-[10px] font-medium text-slate-500">{{ new
+                        Date(asgn.created_at).toLocaleDateString() }}</p>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-5">
+                  <div v-if="asgn.school_name" class="flex items-center gap-2">
+                    <span class="material-symbols-outlined text-rose-400 text-sm">school</span>
+                    <p class="text-xs font-bold text-slate-700">{{ asgn.school_name }}</p>
+                  </div>
+                  <span v-else class="text-slate-300 text-xs">—</span>
+                </td>
+                <td class="px-6 py-5 text-center">
+                  <p class="text-sm font-extrabold text-[#005daa]">{{ formatGrade(asgn.grade) }}</p>
+                  <span
+                    class="px-3 py-0.5 rounded-full bg-slate-100 text-[#1a1c1c] text-[9px] font-black uppercase mt-1 inline-block">{{
+                      asgn.sport }}</span>
+                </td>
+                <td class="px-6 py-5">
+                  <p class="text-xs font-bold text-[#005daa]">{{ asgn.week }}</p>
+                  <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest">{{ asgn.month_year }}</p>
+                </td>
+                <td class="px-6 py-5 text-center">
+                  <div class="flex flex-col items-center gap-1">
+                    <span v-if="asgn.saved_status === 'Done'"
+                      class="px-3 py-1 bg-green-100 text-green-700 text-[10px] font-black uppercase tracking-wider rounded-full">Done</span>
+                    <span v-else-if="asgn.saved_status === 'Pending'"
+                      class="px-3 py-1 bg-orange-100 text-orange-600 text-[10px] font-black uppercase tracking-wider rounded-full">Pending</span>
+                    <span v-else
+                      class="px-3 py-1 bg-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-wider rounded-full">Unmarked</span>
+                    <p v-if="asgn.saved_remark" class="text-[10px] text-slate-500 max-w-[120px] truncate"
+                      :title="asgn.saved_remark">"{{ asgn.saved_remark }}"</p>
+                  </div>
+                </td>
+                <td class="px-6 py-5 text-center">
+                  <button @click="deleteAssignedPlan(asgn.id)"
+                    class="w-9 h-9 mx-auto rounded-xl bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center group shadow-sm active:scale-90"
+                    title="Revoke Assignment">
+                    <span class="material-symbols-outlined text-xl">delete</span>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="p-8 border-t border-slate-100 bg-white text-right">
+        <button @click="showManageModal = false"
+          class="px-8 py-3 rounded-2xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all border border-slate-100">Close
+          Manager</button>
       </div>
     </div>
   </div>
@@ -564,18 +705,68 @@ const assigning = ref(false);
 const coaches = ref<any[]>([]);
 const selectedAssignments = ref<number[]>([]);
 const assignmentsByMe = ref<any[]>([]);
+const lpSummaryTotal = ref(0);
 const assignForm = ref({
   teacher_id: '',
+  school_id: '',
   week: '',
   month_year: '',
 });
+const coachSchools = ref<any[]>([]);
+const loadingCoachSchools = ref(false);
 const modalFilters = ref({
   sport: 'All',
   grades: [] as number[] // Changed from grade: 'All' to grades: [] for multiple selection
 });
 const alreadyAssignedModules = ref<number[]>([]);
 
+const manageFilters = ref({
+  coach_name: 'All',
+  week: 'All',
+  month_year: 'All',
+  status: 'All',
+  school: 'All'
+});
+
+const uniqueManageCoaches = computed(() => Array.from(new Set(assignmentsByMe.value.map(a => a.coach_name))).sort());
+const uniqueManageWeeks = computed(() => Array.from(new Set(assignmentsByMe.value.map(a => a.week))).sort());
+const uniqueManageMonths = computed(() => Array.from(new Set(assignmentsByMe.value.map(a => a.month_year))).sort());
+const uniqueManageSchools = computed(() => Array.from(new Set(assignmentsByMe.value.map(a => a.school_name).filter(Boolean))).sort());
+
+const filteredAssignmentsByMe = computed(() => {
+  return assignmentsByMe.value.filter(a => {
+    if (manageFilters.value.coach_name !== 'All' && a.coach_name !== manageFilters.value.coach_name) return false;
+    if (manageFilters.value.week !== 'All' && a.week !== manageFilters.value.week) return false;
+    if (manageFilters.value.month_year !== 'All' && a.month_year !== manageFilters.value.month_year) return false;
+    if (manageFilters.value.school !== 'All' && (a.school_name || '') !== manageFilters.value.school) return false;
+
+    const statusMatch = a.saved_status || 'Unmarked';
+    if (manageFilters.value.status !== 'All' && statusMatch !== manageFilters.value.status) return false;
+
+    return true;
+  });
+});
+
 import { watch } from 'vue';
+
+watch(
+  () => assignForm.value.teacher_id,
+  async (newTeacherId) => {
+    assignForm.value.school_id = '';
+    coachSchools.value = [];
+    if (!newTeacherId) return;
+    loadingCoachSchools.value = true;
+    try {
+      const res = await fetch(`/api/curriculum/coach-schools/${newTeacherId}`);
+      const data = await res.json();
+      if (data.success) coachSchools.value = data.schools;
+    } catch (err) {
+      console.error('Fetch coach schools error:', err);
+    } finally {
+      loadingCoachSchools.value = false;
+    }
+  }
+);
 
 watch(
   [() => assignForm.value.teacher_id, () => assignForm.value.week, () => assignForm.value.month_year],
@@ -623,20 +814,24 @@ const fetchData = async () => {
 
   loading.value = true;
   try {
-    const [assignRes, modulesRes, coachesRes, byMeRes] = await Promise.all([
+    const [assignRes, modulesRes, coachesRes, byMeRes, summaryRes] = await Promise.all([
       fetch(`/api/curriculum/my-assignments/${userId}`),
       fetch(`/api/curriculum/my-modules/${userId}`),
       fetch('/api/curriculum/coaches'),
-      fetch(`/api/curriculum/assignments-by-me/${userId}`)
+      fetch(`/api/curriculum/assignments-by-me/${userId}`),
+      fetch(`/api/curriculum/my-lp-summary/${userId}`)
     ]);
     const assignData = await assignRes.json();
     const modulesData = await modulesRes.json();
     const coachesData = await coachesRes.json();
     const byMeData = await byMeRes.json();
+    const summaryData = await summaryRes.json();
+
     if (assignData.success) assignments.value = assignData.assignments;
     if (modulesData.success) curriculumModules.value = modulesData.modules;
     if (coachesData.success) coaches.value = coachesData.coaches;
     if (byMeData.success) assignmentsByMe.value = byMeData.assignments;
+    if (summaryData.success) lpSummaryTotal.value = summaryData.totalCount || 0;
   } catch (err) {
     console.error('Fetch data error:', err);
   } finally {
@@ -648,14 +843,17 @@ const openAssignModal = () => {
   showAssignModal.value = true;
   selectedAssignments.value = [];
   alreadyAssignedModules.value = [];
+  coachSchools.value = [];
+  manageFilters.value = { coach_name: 'All', week: 'All', month_year: 'All', status: 'All', school: 'All' };
   assignForm.value = {
     teacher_id: '',
+    school_id: '',
     week: '',
     month_year: '',
   };
   modalFilters.value = {
     sport: 'All',
-    grades: [] // Initialize as empty array for mulitple selection
+    grades: [] // Initialize as empty array for multiple selection
   };
 };
 
@@ -739,7 +937,10 @@ const deleteAssignedPlan = async (id: number) => {
   }
 };
 
-onMounted(fetchData);
+onMounted(() => {
+  fetchData();
+});
+
 
 const sports = computed(() => {
   const uniqueSports = [...new Set(curriculumModules.value.map(m => m.sport))];

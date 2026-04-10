@@ -58,12 +58,12 @@ onMounted(async () => {
       
       sidebarMenu.value = finalFilter as any;
     } else {
-      // If not admin, and they have NO permissions returned from DB, you can either hide everything or leave full access.
-      // Based on prompt "so they only able to see that page only", we will hide everything except Dashboard.
-      sidebarMenu.value = sidebarItems.filter(item => item.to === '/dashboard' || item.header === 'Overview');
+      // If they have no explicit permissions in the DB, show all pages by default
+      sidebarMenu.value = sidebarItems;
     }
   } catch (err) {
     console.error('Failed to load permissions', err);
+    sidebarMenu.value = sidebarItems; // Error fallback to show all
   }
 });
 </script>

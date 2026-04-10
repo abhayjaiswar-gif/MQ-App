@@ -249,10 +249,10 @@ const handleSubmit = async () => {
                   >
                     <option disabled value="">Select assigned role</option>
                     <option value="1">Administrator</option>
-                    <option value="4">Operations Head</option>
+                    <option value="2">Operations Head</option>
                     <option value="3">SSGM</option>
-                    <option value="5">Head Coach</option>
-                    <option value="2">Coach</option>
+                    <option value="4">Head Coach</option>
+                    <option value="5">Coach</option>
                     <option value="6">HR Admin</option>
                   </select>
                   <span class="material-symbols-outlined absolute right-3 top-3.5 pointer-events-none text-slate-400">expand_more</span>

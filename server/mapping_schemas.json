@@ -1,0 +1,42 @@
+{
+  "assign_school": [
+    "id",
+    "user_id",
+    "school_id",
+    "ssgm_id"
+  ],
+  "school_coaches": [
+    "id",
+    "school_id",
+    "user_id",
+    "is_head"
+  ],
+  "schools": [
+    "id",
+    "school_code",
+    "name",
+    "address_line1",
+    "address_line2",
+    "city",
+    "state",
+    "pincode",
+    "email",
+    "phone",
+    "last_updated_on",
+    "last_updated_by",
+    "last_updated_ip",
+    "is_active",
+    "school_key",
+    "mq_om_id",
+    "school_logo",
+    "show_principal_signature",
+    "principal_name",
+    "principal_designation",
+    "head_coach_name",
+    "head_coach_designation",
+    "show_head_coach_signature",
+    "time_table_image",
+    "principal_signature_image",
+    "head_coach_signature_image"
+  ]
+}

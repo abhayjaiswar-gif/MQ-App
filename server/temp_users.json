@@ -1,0 +1,52 @@
+[
+  {
+    "id": 1,
+    "name": "Raahil Dhruva",
+    "role_id": 1
+  },
+  {
+    "id": 2,
+    "name": "RAJ SHEKHAR",
+    "role_id": 3
+  },
+  {
+    "id": 6,
+    "name": "Kinnari Yadav ",
+    "role_id": 4
+  },
+  {
+    "id": 7,
+    "name": "Manoj Ghodekar",
+    "role_id": 4
+  },
+  {
+    "id": 8,
+    "name": "Kunal Bhargav",
+    "role_id": 4
+  },
+  {
+    "id": 9,
+    "name": "Lalit Sharma ",
+    "role_id": 4
+  },
+  {
+    "id": 11,
+    "name": "Shivangni Gour",
+    "role_id": 5
+  },
+  {
+    "id": 17,
+    "name": "Sandeep Gupta",
+    "role_id": 4
+  },
+  {
+    "id": 20,
+    "name": "Sumedh  Jadhav",
+    "role_id": 4
+  },
+  {
+    "id": 22,
+    "name": "VINAYAK YADAV",
+    "role_id": 4
+  }
+]

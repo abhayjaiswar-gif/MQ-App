@@ -1,0 +1,70 @@
+{
+  "cols": [
+    "id",
+    "user_id",
+    "school_id",
+    "ssgm_id"
+  ],
+  "rows": [
+    {
+      "id": 1,
+      "user_id": 25,
+      "school_id": 11,
+      "ssgm_id": null
+    },
+    {
+      "id": 2,
+      "user_id": 25,
+      "school_id": 2,
+      "ssgm_id": null
+    },
+    {
+      "id": 3,
+      "user_id": 25,
+      "school_id": 25,
+      "ssgm_id": null
+    },
+    {
+      "id": 73,
+      "user_id": 110,
+      "school_id": 3,
+      "ssgm_id": 109
+    },
+    {
+      "id": 74,
+      "user_id": 110,
+      "school_id": 5,
+      "ssgm_id": 109
+    },
+    {
+      "id": 75,
+      "user_id": 110,
+      "school_id": 16,
+      "ssgm_id": 109
+    },
+    {
+      "id": 76,
+      "user_id": 110,
+      "school_id": 25,
+      "ssgm_id": 109
+    },
+    {
+      "id": 77,
+      "user_id": 110,
+      "school_id": 29,
+      "ssgm_id": 109
+    },
+    {
+      "id": 123,
+      "user_id": 109,
+      "school_id": 32,
+      "ssgm_id": 2
+    },
+    {
+      "id": 124,
+      "user_id": 44,
+      "school_id": 43,
+      "ssgm_id": 112
+    }
+  ]
+}

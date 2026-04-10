@@ -1,0 +1,215 @@
+[
+  {
+    "Tables_in_appmarcos_mainapp": "assign_school"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "assigned_lesson_plans"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "career_applications"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "complaints"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "dashboard_events"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "dashboard_highlights"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "dashboard_social_content"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "donations"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "email_templates"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "equipment_items"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "equipment_order"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "fcm_tokens"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "feedback_answers"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "feedbacks"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "fitness_test_format_parameters"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "fitness_test_formats"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "fitness_test_report_access"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "fitness_test_result_values"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "fitness_test_results"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "gate_access"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "grade_configuration"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "grading_scales"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "items"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "login_attempts"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "lp_assign"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "lp_photos"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "lp_status"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "lp_status_photos"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "match_report_card"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "mq_report_parents"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "mq_student_fitness_scores"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "mq_student_reports"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "mqreport_batches"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "mqreport_fitness"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "mqreports"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "notifications"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "parameter_grades"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "parameter_info"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "parameter_ranges"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "roles"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "school_coaches"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "school_contacts"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "school_fitness_test_formats"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "school_gallery"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "school_inventory"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "school_visit_audit"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "school_visit_questionnaire"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "schools"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "signatures"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "sku_master"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "sku_requests"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "sport_lp_assign"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "sports_master"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "stds_master"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "stock_reports"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "student_reports"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "students"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "students_backup_20251010"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "uploaded_files"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "uploads"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "user_activity_log"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "user_page_access"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "user_video_views"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "user_video_watch_history"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "users"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "users_log"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "video_access"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "video_stds"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "videos"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "westwood"
+  },
+  {
+    "Tables_in_appmarcos_mainapp": "year_lp_master"
+  }
+]

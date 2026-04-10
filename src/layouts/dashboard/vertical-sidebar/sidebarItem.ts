@@ -9,7 +9,10 @@ import {
   IdcardOutlined,
   ShopOutlined,
   CheckCircleOutlined,
-  BookOutlined
+  BookOutlined,
+  ScheduleOutlined,
+  BarChartOutlined,
+  CustomerServiceOutlined
 } from '@ant-design/icons-vue';
 
 export interface menu {
@@ -34,6 +37,16 @@ const sidebarItem: menu[] = [
     title: 'Dashboard',
     icon: DashboardOutlined,
     to: '/dashboard'
+  },
+  {
+    title: 'Manage Social Hub',
+    icon: PictureOutlined,
+    to: '/dashboard/manage-social'
+  },
+  {
+    title: 'Manage Highlights',
+    icon: PictureOutlined,
+    to: '/manage-highlights'
   },
   
   { header: 'Administration' },
@@ -102,20 +115,16 @@ const sidebarItem: menu[] = [
     icon: BookOutlined,
     children: [
       {
-        title: 'Assign Curriculum',
-        to: '/curriculum/assign'
-      },
-      {
         title: 'Add Curriculum',
         to: '/curriculum/add'
       },
       {
-        title: 'My Curriculums',
-        to: '/curriculum/my'
+        title: 'Curriculum Builder',
+        to: '/curriculum/builder'
       },
       {
-        title: 'LP Master Data',
-        to: '/curriculum/master'
+        title: 'Schedule Lessons',
+        to: '/curriculum/schedule'
       }
     ]
   },
@@ -150,6 +159,22 @@ const sidebarItem: menu[] = [
       {
         title: 'Report Card Generation',
         to: '/reports/report-card'
+      }
+    ]
+  },
+
+  { header: 'Support' },
+  {
+    title: 'Helpdesk',
+    icon: CustomerServiceOutlined,
+    children: [
+      {
+        title: 'Ticket Dashboard',
+        to: '/helpdesk/tickets'
+      },
+      {
+        title: 'Escalation Rules',
+        to: '/helpdesk/rules'
       }
     ]
   }

@@ -14,6 +14,7 @@ interface User {
 interface Stats {
   total_users: number;
   total_ssgm: number;
+  total_head_coaches: number;
   total_coaches: number;
   total_ops: number;
   total_admins: number;
@@ -24,6 +25,7 @@ const users = ref<User[]>([]);
 const stats = ref<Stats>({
   total_users: 0,
   total_ssgm: 0,
+  total_head_coaches: 0,
   total_coaches: 0,
   total_ops: 0,
   total_admins: 0,
@@ -122,7 +124,7 @@ const getAvatarColor = (name: string) => {
       </div>
 
       <!-- Bento Stats Grid -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-10">
         <!-- Total Users -->
         <div class="relative bg-white p-6 rounded-2xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
           <div class="absolute bottom-0 left-0 w-full h-1.5 bg-slate-900 rounded-b-2xl opacity-80"></div>
@@ -153,6 +155,22 @@ const getAvatarColor = (name: string) => {
             <span
               class="text-primary text-xs font-bold flex items-center bg-[#005faa]/5 px-2 py-1 rounded-lg font-inter">
               Lead
+            </span>
+          </div>
+        </div>
+
+        <!-- Head Coaches -->
+        <div class="relative bg-white p-6 rounded-2xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
+          <div class="absolute bottom-0 left-0 w-full h-1.5 bg-indigo-500 rounded-b-2xl"></div>
+          <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2 font-manrope">
+            Head Coaches
+          </p>
+          <div class="flex items-end justify-between">
+            <h3 class="text-3xl font-extrabold text-[#1e293b] font-manrope">
+              {{ loading ? '—' : stats.total_head_coaches.toLocaleString() }}
+            </h3>
+            <span class="text-indigo-600 text-xs font-bold flex items-center bg-indigo-50 px-2 py-1 rounded-lg font-inter">
+              Leaders
             </span>
           </div>
         </div>
