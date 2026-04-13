@@ -16,7 +16,7 @@ const selectedCity = ref('All Cities');
 
 const fetchSchools = async () => {
   try {
-    const response = await fetch('/api/schools');
+    const response = await fetch(`/api/schools?user_id=${sessionStorage.getItem('id') || ''}`);
     const data = await response.json();
     if (data.success) {
       schools.value = data.schools;

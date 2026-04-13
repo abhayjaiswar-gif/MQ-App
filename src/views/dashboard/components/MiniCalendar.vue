@@ -110,7 +110,7 @@ const form = ref({ category: 'Sports', title: '', event_date: '', is_featured: 0
 const fetchAll = async () => {
   try {
     const [resEv, resHol] = await Promise.all([
-      fetch('/api/dashboard/events'),
+      fetch(`/api/dashboard/events?user_id=${sessionStorage.getItem('id') || ''}`),
       fetch('/api/external/holidays')
     ]);
     const [evData, holData] = await Promise.all([resEv.json(), resHol.json()]);

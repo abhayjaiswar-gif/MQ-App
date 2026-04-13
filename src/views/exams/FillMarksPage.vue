@@ -43,9 +43,10 @@ const fetchFilters = async (schoolId = null) => {
         const formatData = await formatRes.json();
         if (formatData.success) examFormats.value = formatData.formats;
 
+        const userId = sessionStorage.getItem('id') || '';
         const url = schoolId
-            ? `/api/fill-marks/filters?school_id=${schoolId}`
-            : '/api/fill-marks/filters';
+            ? `/api/fill-marks/filters?school_id=${schoolId}&user_id=${userId}`
+            : `/api/fill-marks/filters?user_id=${userId}`;
 
         const res = await fetch(url);
         const data = await res.json();

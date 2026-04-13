@@ -29,7 +29,7 @@ const fetchNextIds = async () => {
 
 const fetchSchools = async () => {
     try {
-        const res = await fetch('/api/schools');
+        const res = await fetch(`/api/schools?user_id=${sessionStorage.getItem('id') || ''}`);
         const data = await res.json();
         if (data.success) {
             schools.value = data.schools;

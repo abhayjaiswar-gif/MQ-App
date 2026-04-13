@@ -177,17 +177,37 @@ initUserPageAccessTable();
 
 // 📺 INITIALIZE DASHBOARD SOCIAL CONTENT SCHEMA
 const initSocialContentTable = async () => {
-    try {
-        const [cols] = await db.query(`SHOW COLUMNS FROM dashboard_social_content LIKE 'video_path'`);
-        if (cols.length === 0) {
-            await db.query(`ALTER TABLE dashboard_social_content ADD COLUMN video_path VARCHAR(255) AFTER url`);
-            console.log('✅ Added video_path to dashboard_social_content');
-        }
-    } catch (err) {
-        console.error('INIT SOCIAL CONTENT TABLE ERROR:', err);
+  try {
+    const [cols] = await db.query(`SHOW COLUMNS FROM dashboard_social_content LIKE 'video_path'`);
+    if (cols.length === 0) {
+      await db.query(`ALTER TABLE dashboard_social_content ADD COLUMN video_path VARCHAR(255) AFTER url`);
+      console.log('✅ Added video_path to dashboard_social_content');
     }
+
+    const [schoolCols] = await db.query(`SHOW COLUMNS FROM dashboard_social_content LIKE 'school_id'`);
+    if (schoolCols.length === 0) {
+      await db.query(`ALTER TABLE dashboard_social_content ADD COLUMN school_id INT DEFAULT NULL`);
+      console.log('✅ Added school_id to dashboard_social_content');
+    }
+  } catch (err) {
+    console.error('INIT SOCIAL CONTENT TABLE ERROR:', err);
+  }
 };
 initSocialContentTable();
+
+// 📅 INITIALIZE DASHBOARD EVENTS SCHEMA
+const initDashboardEventsTable = async () => {
+  try {
+    const [cols] = await db.query(`SHOW COLUMNS FROM dashboard_events LIKE 'school_id'`);
+    if (cols.length === 0) {
+      await db.query(`ALTER TABLE dashboard_events ADD COLUMN school_id INT DEFAULT NULL`);
+      console.log('✅ Added school_id to dashboard_events');
+    }
+  } catch (err) {
+    console.error('INIT DASHBOARD EVENTS TABLE ERROR:', err);
+  }
+};
+initDashboardEventsTable();
 
 // 🏫 ADD school_id TO assigned_lesson_plans IF NOT EXISTS
 const initSchoolIdColumn = async () => {
@@ -427,8 +447,15 @@ app.post('/api/register', async (req, res) => {
 });
 // 🏫 GET SCHOOLS API (Filtered by Gallery existence if requested)
 app.get('/api/schools', async (req, res) => {
-  const { hasGallery } = req.query;
+  const { hasGallery, user_id } = req.query;
   try {
+    // 1. Determine assigned schools for this user
+    let schoolIds = [];
+    if (user_id) {
+      const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ?', [user_id]);
+      schoolIds = assignments.map(a => a.school_id);
+    }
+
     let query = `
       SELECT s.*, u.name as om_name,
       (SELECT COUNT(*) FROM students src WHERE src.school_id = s.id) as student_count,
@@ -437,10 +464,21 @@ app.get('/api/schools', async (req, res) => {
       LEFT JOIN users u ON s.mq_om_id = u.id
     `;
 
+    const conditions = [];
+
+    // 2. Apply school access filter
+    if (schoolIds.length > 0) {
+      conditions.push(`s.id IN (${schoolIds.join(',')})`);
+    }
+
     if (hasGallery === 'true') {
-      query += ` WHERE EXISTS (SELECT 1 FROM school_gallery sg WHERE sg.school_id = s.id)`;
+      conditions.push(`EXISTS (SELECT 1 FROM school_gallery sg WHERE sg.school_id = s.id)`);
     } else if (hasGallery === 'false') {
-      query += ` WHERE NOT EXISTS (SELECT 1 FROM school_gallery sg WHERE sg.school_id = s.id)`;
+      conditions.push(`NOT EXISTS (SELECT 1 FROM school_gallery sg WHERE sg.school_id = s.id)`);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ` + conditions.join(' AND ');
     }
 
     const [rows] = await db.query(query);
@@ -1000,27 +1038,45 @@ app.post('/api/students', async (req, res) => {
 // 🎓 GET ALL STUDENTS & DYNAMIC FILTERS
 app.get('/api/students', async (req, res) => {
   try {
+    const { user_id } = req.query;
+
+    // Determine assigned schools
+    let schoolIds = [];
+    if (user_id) {
+      const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ?', [user_id]);
+      schoolIds = assignments.map(a => a.school_id);
+    }
+
+    let whereClause = '';
+    if (schoolIds.length > 0) {
+      const idList = schoolIds.join(',');
+      whereClause = `WHERE st.school_id IN (${idList})`;
+    }
+
     const [students] = await db.query(`
       SELECT st.*, s.name as school_name 
       FROM students st 
       LEFT JOIN schools s ON st.school_id = s.id 
+      ${whereClause}
       ORDER BY st.id DESC
     `);
 
-    // Fetch unique active standards
-    const [standardsResult] = await db.query('SELECT DISTINCT std as standard FROM students WHERE std IS NOT NULL AND std != "" ORDER BY std ASC');
+    // Fetch unique active standards (scoped)
+    const stdWhere = schoolIds.length > 0 ? `AND school_id IN (${schoolIds.join(',')})` : '';
+    const [standardsResult] = await db.query(`SELECT DISTINCT std as standard FROM students WHERE std IS NOT NULL AND std != "" ${stdWhere} ORDER BY std ASC`);
     const standards = standardsResult.map(row => row.standard);
 
-    // Fetch unique active divisions
-    const [divisionsResult] = await db.query('SELECT DISTINCT division FROM students WHERE division IS NOT NULL AND division != "" ORDER BY division ASC');
+    // Fetch unique active divisions (scoped)
+    const [divisionsResult] = await db.query(`SELECT DISTINCT division FROM students WHERE division IS NOT NULL AND division != "" ${stdWhere} ORDER BY division ASC`);
     const divisions = divisionsResult.map(row => row.division);
 
-    // Fetch distinct schools from the actual students data
+    // Fetch distinct schools from the actual students data (scoped)
+    const schoolJoinWhere = schoolIds.length > 0 ? `AND st.school_id IN (${schoolIds.join(',')})` : '';
     const [schoolsResult] = await db.query(`
       SELECT DISTINCT s.name as school_name 
       FROM students st 
       JOIN schools s ON st.school_id = s.id 
-      WHERE s.name IS NOT NULL AND s.name != "" 
+      WHERE s.name IS NOT NULL AND s.name != "" ${schoolJoinWhere}
       ORDER BY s.name ASC
     `);
     const schools = schoolsResult.map(row => row.school_name);
@@ -1334,12 +1390,22 @@ app.get('/api/exam-formats', async (req, res) => {
    2. FILTERS
 ====================================================== */
 app.get('/api/fill-marks/filters', async (req, res) => {
-  const { school_id } = req.query;
+  const { school_id, user_id } = req.query;
 
   try {
-    const [schools] = await db.query(`
-            SELECT id, name FROM schools ORDER BY name
-        `);
+    // Determine assigned schools for this user
+    let schoolIds = [];
+    if (user_id) {
+      const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ?', [user_id]);
+      schoolIds = assignments.map(a => a.school_id);
+    }
+
+    let schoolQuery = 'SELECT id, name FROM schools';
+    if (schoolIds.length > 0) {
+      schoolQuery += ` WHERE id IN (${schoolIds.join(',')})`;
+    }
+    schoolQuery += ' ORDER BY name';
+    const [schools] = await db.query(schoolQuery);
 
     let standards;
     if (school_id) {
@@ -2911,7 +2977,7 @@ app.get('/api/curriculum/sports-by-grade', async (req, res) => {
   try {
     if (!grade) return res.status(400).json({ success: false, message: 'Grade is required' });
     const [rows] = await db.query(
-      "SELECT DISTINCT sport FROM year_lp_master WHERE grade = ? ORDER BY sport ASC",
+      "SELECT DISTINCT sport FROM year_lp_master_new WHERE grade = ? ORDER BY sport ASC",
       [grade]
     );
     res.json({ success: true, sports: rows.map(r => r.sport) });
@@ -2923,10 +2989,16 @@ app.get('/api/curriculum/sports-by-grade', async (req, res) => {
 
 // 🎯 GET UNIQUE STUDENT STANDARDS
 app.get('/api/students/standards', async (req, res) => {
+  const { school_id } = req.query;
   try {
-    const [rows] = await db.query(
-      "SELECT DISTINCT std FROM students ORDER BY CAST(std AS UNSIGNED) ASC"
-    );
+    let query = "SELECT DISTINCT std FROM students WHERE 1=1";
+    let params = [];
+    if (school_id) {
+      query += " AND school_id = ?";
+      params.push(school_id);
+    }
+    query += " ORDER BY CAST(std AS UNSIGNED) ASC";
+    const [rows] = await db.query(query, params);
     res.json({ success: true, standards: rows.map(r => r.std) });
   } catch (err) {
     console.error('FETCH STANDARDS ERROR:', err);
@@ -2936,19 +3008,24 @@ app.get('/api/students/standards', async (req, res) => {
 
 // 🎯 GET UNIQUE DIVISIONS FOR SELECTED STANDARDS
 app.get('/api/students/divisions', async (req, res) => {
-  const { stds } = req.query; // Expecting comma separated or array
+  const { stds, school_id } = req.query; // Expecting comma separated or array
   try {
     let query = "SELECT DISTINCT division FROM students WHERE 1=1";
     let params = [];
-    
+
+    if (school_id) {
+      query += " AND school_id = ?";
+      params.push(school_id);
+    }
+
     if (stds) {
       const stdList = Array.isArray(stds) ? stds : stds.split(',');
       if (stdList.length > 0) {
         query += ` AND std IN (${stdList.map(() => '?').join(',')})`;
-        params = stdList;
+        params.push(...stdList);
       }
     }
-    
+
     query += " ORDER BY division ASC";
     const [rows] = await db.query(query, params);
     res.json({ success: true, divisions: rows.map(r => r.division) });
@@ -2962,7 +3039,7 @@ app.get('/api/students/divisions', async (req, res) => {
 app.get('/api/curriculum/master-list', async (req, res) => {
   const { sport, grade } = req.query;
   try {
-    let query = 'SELECT * FROM year_lp_master WHERE 1=1';
+    let query = 'SELECT * FROM year_lp_master_new WHERE 1=1';
     let params = [];
 
     if (sport && sport !== 'All') {
@@ -2980,6 +3057,65 @@ app.get('/api/curriculum/master-list', async (req, res) => {
   } catch (err) {
     console.error('FETCH MASTER LIST ERROR:', err);
     res.status(500).json({ success: false, message: 'Server error fetching master list' });
+  }
+});
+
+const curriculumEvidenceStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, 'uploads/curriculum_evidence'));
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, 'evidence-' + Date.now() + ext);
+  }
+});
+const uploadEvidence = multer({ storage: curriculumEvidenceStorage });
+app.post('/api/curriculum/save-lp-status', uploadEvidence.single('photo'), async (req, res) => {
+  try {
+    const { lp_no, lp_unique_id, user_id, status, remark, school_id, divisions } = req.body;
+    let evidence_photo = null;
+
+    if (req.file) {
+      evidence_photo = `/uploads/curriculum_evidence/${req.file.filename}`;
+    }
+    const [masterRows] = await db.query('SELECT * FROM year_lp_master_new WHERE unique_id = ?', [lp_unique_id]);
+    if (masterRows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Original lesson plan not found' });
+    }
+    const master = masterRows[0];
+    await db.query(`
+      INSERT INTO coach_lesson_tracking 
+      (unique_id, lp_no, sport, skill, sub_skill, objective, teaching_aids, warm_up, skill_implementation, picture, cool_down, summarization, life_skill, month_year, week, grade, user_id, status, remark, evidence_photo, school_id, divisions)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      master.unique_id,
+      master.lp_no,
+      master.sport,
+      master.skill,
+      master.sub_skill,
+      master.objective,
+      master.teaching_aids,
+      master.warm_up,
+      master.skill_implementation,
+      master.picture,
+      master.cool_down,
+      master.summarization,
+      master.life_skill,
+      master.month_year,
+      master.week,
+      master.grade,
+      user_id || 1, 
+      status || 'Complete',
+      remark || null,
+      evidence_photo,
+      school_id || master.school_id || null,
+      divisions || master.divisions || null
+    ]);
+
+    res.json({ success: true, message: 'Status tracked successfully' });
+  } catch (err) {
+    console.error('SAVE LP STATUS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error saving LP status' });
   }
 });
 
@@ -3062,18 +3198,18 @@ app.get('/api/curriculum/my-assigned-master', async (req, res) => {
 app.post('/api/curriculum/save-lp-status', upload.array('photos', 5), async (req, res) => {
   const connection = await db.getConnection();
   try {
-    const { lp_no, lp_unique_id, user_id, status } = req.body;
-    const remark = req.body.remark || ''; // Ensure remark is at least an empty string to avoid NULL constraint errors
+    const { lp_no, lp_unique_id, user_id, status, school_id, divisions } = req.body;
+    const remark = req.body.remark || ''; 
     const photos = req.files || [];
 
     await connection.beginTransaction();
 
     // 1. Insert or Update status
     const [result] = await connection.query(`
-      INSERT INTO lp_status (lp_no, lp_unique_id, user_id, status, remark)
-      VALUES (?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE status = VALUES(status), remark = VALUES(remark)
-    `, [lp_no, lp_unique_id, user_id, status, remark]);
+      INSERT INTO lp_status (lp_no, lp_unique_id, user_id, status, remark, school_id, divisions)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE status = VALUES(status), remark = VALUES(remark), school_id = VALUES(school_id), divisions = VALUES(divisions)
+    `, [lp_no, lp_unique_id, user_id, status, remark, school_id || null, divisions || null]);
 
     // Get the status ID
     let statusId;
@@ -3372,7 +3508,7 @@ app.post('/api/curriculum/assign-batch', async (req, res) => {
             lp_unique_id, week_no, assign_date, school_id, assign_by
           ) VALUES (?, ?, ?, NOW(), ?, ?, ?, ?, ?)
         `, [
-          teacher_id, lp.lp_no, lp.grade, 
+          teacher_id, lp.lp_no, lp.grade,
           lp.lp_unique_id, weekNumeric, legacyDate, school_id || null, assigned_by
         ]);
       } catch (e) {
@@ -3580,8 +3716,27 @@ app.get('/api/curriculum/tracker-summary', async (req, res) => {
 // 📊 GET DASHBOARD STATS (COUNTS)
 app.get('/api/dashboard/stats', async (req, res) => {
   try {
-    const [[{ students }]] = await db.query('SELECT COUNT(*) as students FROM students');
-    const [[{ schools }]] = await db.query('SELECT COUNT(*) as schools FROM schools');
+    const { user_id } = req.query;
+
+    // 1. Determine assigned schools
+    let schoolIds = [];
+    if (user_id) {
+      const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ?', [user_id]);
+      schoolIds = assignments.map(a => a.school_id);
+    }
+
+    // 2. Build filters (If no assignments, they see all data as an Admin fallback)
+    let studentWhere = '';
+    let schoolWhere = '';
+
+    if (schoolIds.length > 0) {
+      const idList = schoolIds.join(',');
+      studentWhere = `WHERE school_id IN (${idList})`;
+      schoolWhere = `WHERE id IN (${idList})`;
+    }
+
+    const [[{ students }]] = await db.query(`SELECT COUNT(*) as students FROM students ${studentWhere}`);
+    const [[{ schools }]] = await db.query(`SELECT COUNT(*) as schools FROM schools ${schoolWhere}`);
     const [[{ staff }]] = await db.query('SELECT COUNT(*) as staff FROM users');
 
     res.json({
@@ -3601,8 +3756,23 @@ app.get('/api/dashboard/stats', async (req, res) => {
 // ⚡ GET DASHBOARD GALLERY CONTENT (FEED)
 app.get('/api/dashboard/content-feed', async (req, res) => {
   try {
-    const [videos] = await db.query("SELECT * FROM dashboard_social_content WHERE content_type = 'video' AND is_active = 1 ORDER BY id DESC LIMIT 4");
-    const [photos] = await db.query("SELECT * FROM dashboard_social_content WHERE content_type = 'photo' AND is_active = 1 ORDER BY id DESC LIMIT 8");
+    const { user_id } = req.query;
+
+    let schoolIds = [];
+    if (user_id) {
+      const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ?', [user_id]);
+      schoolIds = assignments.map(a => a.school_id);
+    }
+
+    let whereClause = '';
+    if (schoolIds.length > 0) {
+      const idList = schoolIds.join(',');
+      // Show content strictly assigned to our schools OR general content that isn't locked down
+      whereClause = `AND (school_id IN (${idList}) OR school_id IS NULL)`;
+    }
+
+    const [videos] = await db.query(`SELECT * FROM dashboard_social_content WHERE content_type = 'video' AND is_active = 1 ${whereClause} ORDER BY id DESC LIMIT 4`);
+    const [photos] = await db.query(`SELECT * FROM dashboard_social_content WHERE content_type = 'photo' AND is_active = 1 ${whereClause} ORDER BY id DESC LIMIT 8`);
 
     res.json({
       success: true,
@@ -3700,12 +3870,26 @@ app.get('/api/dashboard/students', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 15;
     const offset = parseInt(req.query.offset) || 0;
+    const { user_id } = req.query;
+
+    let schoolIds = [];
+    if (user_id) {
+      const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ?', [user_id]);
+      schoolIds = assignments.map(a => a.school_id);
+    }
+
+    let whereClause = '';
+    if (schoolIds.length > 0) {
+      const idList = schoolIds.join(',');
+      whereClause = `WHERE s.school_id IN (${idList})`;
+    }
 
     const query = `
       SELECT s.id, s.name, s.gr_no, st.name as standard, s.status, sc.name as school
       FROM students s
       LEFT JOIN stds_master st ON s.std_id = st.id
       LEFT JOIN schools sc ON s.school_id = sc.id
+      ${whereClause}
       ORDER BY s.id DESC
       LIMIT ? OFFSET ?
     `;
@@ -3721,7 +3905,21 @@ app.get('/api/dashboard/students', async (req, res) => {
 // 📅 DASHBOARD EVENTS (CALENDAR)
 app.get('/api/dashboard/events', async (req, res) => {
   try {
-    const [rows] = await db.query("SELECT * FROM dashboard_events ORDER BY event_date ASC");
+    const { user_id } = req.query;
+
+    let schoolIds = [];
+    if (user_id) {
+      const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ?', [user_id]);
+      schoolIds = assignments.map(a => a.school_id);
+    }
+
+    let whereClause = '';
+    if (schoolIds.length > 0) {
+      const idList = schoolIds.join(',');
+      whereClause = `WHERE school_id IN (${idList}) OR school_id IS NULL`;
+    }
+
+    const [rows] = await db.query(`SELECT * FROM dashboard_events ${whereClause} ORDER BY event_date ASC`);
     res.json({ success: true, data: rows });
   } catch (err) {
     console.error('GET EVENTS ERROR:', err);
@@ -3764,7 +3962,7 @@ app.post('/api/dashboard/highlights', upload.single('image'), async (req, res) =
     }
 
     const imagePath = file ? file.filename : null;
-    
+
     await db.query(
       "INSERT INTO dashboard_highlights (tagline, title, subtitle, image_path, category, reel_url) VALUES (?, ?, ?, ?, ?, ?)",
       [tagline || '', title, subtitle || '', imagePath, category || 'Event', reel_url || null]
@@ -3816,7 +4014,7 @@ app.get('/api/external/holidays', async (req, res) => {
 app.get('/api/dashboard/growth-stats', async (req, res) => {
   try {
     const [[{ totalStudents }]] = await db.query('SELECT COUNT(*) as totalStudents FROM students');
-    
+
     // Logic: Synthesize growth for 2024, 2025 based on total
     // 2024: ~30%, 2025: ~70%, 2026: 100%
     const y2024 = Math.round(totalStudents * 0.32);
@@ -3830,7 +4028,7 @@ app.get('/api/dashboard/growth-stats', async (req, res) => {
       WHERE YEAR(created_at) = 2026 
       GROUP BY month
     `);
-    
+
     const monthlyData = new Array(12).fill(0).map((_, i) => {
       const real = monthlyResults.find(r => r.month === (i + 1));
       // Add fake growth trail for Jan-Dec 2026 if real data is sparse
@@ -3844,8 +4042,8 @@ app.get('/api/dashboard/growth-stats', async (req, res) => {
         yearly: {
           labels: ['2023', '2024', '2025', '2026'],
           series: [
-            { name: 'Total Capacity', data: [Math.round(y2024*0.8), y2024, y2025, y2026] },
-            { name: 'New Admissions', data: [Math.round(y2024*0.2), Math.round(y2024*0.3), Math.round(y2025-y2024), Math.round(y2026-y2025)] }
+            { name: 'Total Capacity', data: [Math.round(y2024 * 0.8), y2024, y2025, y2026] },
+            { name: 'New Admissions', data: [Math.round(y2024 * 0.2), Math.round(y2024 * 0.3), Math.round(y2025 - y2024), Math.round(y2026 - y2025)] }
           ]
         },
         monthly: {
@@ -4270,7 +4468,7 @@ app.post('/api/tickets/rules', async (req, res) => {
   try {
     const { rules } = req.body;
     if (!rules || !Array.isArray(rules)) return res.status(400).json({ success: false, message: 'Invalid rules array.' });
-    
+
     await db.query('TRUNCATE TABLE ticket_escalation_rules');
     for (const rule of rules) {
       await db.query(
@@ -4289,7 +4487,7 @@ app.post('/api/tickets/rules', async (req, res) => {
 app.post('/api/support/ticket', async (req, res) => {
   try {
     const { subject, name, email, message } = req.body;
-    
+
     // Default to Tier 1
     const [tier1] = await db.query('SELECT * FROM ticket_escalation_rules WHERE tier_level = 1');
     const assigned_role_id = tier1.length > 0 ? tier1[0].assigned_role_id : null;

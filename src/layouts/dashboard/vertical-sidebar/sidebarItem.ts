@@ -125,6 +125,10 @@ const sidebarItem: menu[] = [
       {
         title: 'Schedule Lessons',
         to: '/curriculum/schedule'
+      },
+      {
+        title: 'Weekly Report',
+        to: '/curriculum/weekly-report'
       }
     ]
   },

@@ -43,27 +43,21 @@ const assignmentForm = ref({
 const fetchInitialData = async () => {
   loading.value = true;
   try {
-    const [asgnRes, usersRes, schoolsRes] = await Promise.all([
+    const [asgnRes, schoolsRes, coachesRes] = await Promise.all([
       fetch('/api/school-assignments').then(r => r.json()),
-      fetch('/api/schools').then(r => r.json()), // Assuming this exists or using existing school list
-      // In a real app we might have a specific users endpoint, but let's assume we can fetch them
-      fetch('/api/schools').then(r => r.json()) // Mocking user fetch with school list if no user api
+      fetch('/api/schools').then(r => r.json()), // Fetch ALL schools for assignment
+      fetch('/api/users/coaches').then(r => r.json()) // Fetch all active staff members
     ]);
 
     if (asgnRes.success) {
       assignments.value = asgnRes.assignments;
       stats.value = asgnRes.stats;
     }
-    if (usersRes.success) {
-      allSchools.value = usersRes.schools;
+    if (schoolsRes.success) {
+      allSchools.value = schoolsRes.schools;
     }
-    // For users, let's fetch from basic login or assume we need a user endpoint
-    // MOCK: Let's just use the assignments users for now or fetch from a known endpoint
-    const userRes = await fetch('/api/school-assignments').then(r => r.json());
-    if (userRes.success) {
-      // Extract unique users
-      const seen = new Set();
-      allUsers.value = userRes.assignments.map((a: any) => ({ id: a.user_id, name: a.user_name }));
+    if (coachesRes.success) {
+      allUsers.value = coachesRes.coaches;
     }
 
   } catch (error) {

@@ -17,7 +17,7 @@ const selectedSchoolId = ref<number | null>(null);
 
 const fetchSchools = async () => {
   try {
-    const response = await fetch('/api/schools?hasGallery=true');
+    const response = await fetch(`/api/schools?hasGallery=true&user_id=${sessionStorage.getItem('id') || ''}`);
     const data = await response.json();
     if (data.success) {
       schools.value = data.schools.map((school: any) => ({
@@ -39,7 +39,7 @@ const fetchSchools = async () => {
 
 const fetchAvailableSchools = async () => {
   try {
-    const response = await fetch('/api/schools?hasGallery=false');
+    const response = await fetch(`/api/schools?hasGallery=false&user_id=${sessionStorage.getItem('id') || ''}`);
     const data = await response.json();
     if (data.success) {
       availableSchools.value = data.schools;

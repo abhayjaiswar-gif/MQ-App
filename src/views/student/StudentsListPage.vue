@@ -33,7 +33,7 @@ const addForm = ref({
 
 const fetchSchoolsForModal = async () => {
   try {
-    const res = await fetch('/api/schools');
+    const res = await fetch(`/api/schools?user_id=${sessionStorage.getItem('id') || ''}`);
     const data = await res.json();
     if (data.success) schoolsForModal.value = data.schools;
   } catch (e) { console.error('Error loading schools:', e); }
@@ -130,7 +130,7 @@ const submitEditStudent = async () => {
 const fetchStudents = async () => {
   loading.value = true;
   try {
-    const res = await fetch('/api/students');
+    const res = await fetch(`/api/students?user_id=${sessionStorage.getItem('id') || ''}`);
     const data = await res.json();
 
     if (data.success) {

@@ -82,7 +82,8 @@ const fetchStudents = async () => {
   
   loading.value = true;
   try {
-    const res = await fetch(`/api/dashboard/students?limit=${limit.value}&offset=${offset.value}`);
+    const userId = sessionStorage.getItem('id') || '';
+    const res = await fetch(`/api/dashboard/students?limit=${limit.value}&offset=${offset.value}&user_id=${userId}`);
     const data = await res.json();
     
     if (data.success) {

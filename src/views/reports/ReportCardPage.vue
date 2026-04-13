@@ -55,9 +55,10 @@ const selectedTerm = ref('both');
 
 const fetchFilters = async (schoolId: number | null = null) => {
   try {
+    const userId = sessionStorage.getItem('id') || '';
     const url = schoolId
-      ? `/api/fill-marks/filters?school_id=${schoolId}`
-      : '/api/fill-marks/filters';
+      ? `/api/fill-marks/filters?school_id=${schoolId}&user_id=${userId}`
+      : `/api/fill-marks/filters?user_id=${userId}`;
 
     const res = await fetch(url);
     const data = await res.json();

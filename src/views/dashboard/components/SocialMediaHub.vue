@@ -107,7 +107,8 @@ const content = ref<any>({
 const fetchContent = async () => {
   loading.value = true;
   try {
-    const res = await fetch('/api/dashboard/content-feed');
+    const userId = sessionStorage.getItem('id') || '';
+    const res = await fetch(`/api/dashboard/content-feed?user_id=${userId}`);
     const data = await res.json();
     if (data.success) {
       content.value = data.data;

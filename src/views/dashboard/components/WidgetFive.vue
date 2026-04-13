@@ -20,7 +20,8 @@ const loading = ref(true);
 
 const fetchStats = async () => {
   try {
-    const res = await fetch('/api/dashboard/stats');
+    const userId = sessionStorage.getItem('id') || '';
+    const res = await fetch(`/api/dashboard/stats?user_id=${userId}`);
     const data = await res.json();
     if (data.success) {
       stats.value = data.data;
