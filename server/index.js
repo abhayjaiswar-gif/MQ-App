@@ -447,7 +447,7 @@ app.post('/api/register', async (req, res) => {
 });
 // 🏫 GET SCHOOLS API (Filtered by Gallery existence if requested)
 app.get('/api/schools', async (req, res) => {
-  const { hasGallery, user_id } = req.query;
+  const { hasGallery, hasReports, user_id } = req.query;
   try {
     // 1. Determine assigned schools for this user
     let schoolIds = [];
@@ -475,6 +475,10 @@ app.get('/api/schools', async (req, res) => {
       conditions.push(`EXISTS (SELECT 1 FROM school_gallery sg WHERE sg.school_id = s.id)`);
     } else if (hasGallery === 'false') {
       conditions.push(`NOT EXISTS (SELECT 1 FROM school_gallery sg WHERE sg.school_id = s.id)`);
+    }
+
+    if (hasReports === 'true') {
+      conditions.push(`EXISTS (SELECT 1 FROM year_lp_master_new yn WHERE yn.school_id = s.id)`);
     }
 
     if (conditions.length > 0) {
@@ -4178,6 +4182,152 @@ app.get('/api/curriculum/generate-weekly-report', async (req, res) => {
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
+// 🎯 GET UNIQUE FILTERS (MONTH/WEEK) FOR A SCHOOL
+app.get('/api/curriculum/report-filters/:schoolId', async (req, res) => {
+  try {
+    const { schoolId } = req.params;
+    const sql = `
+      SELECT DISTINCT 
+         CASE WHEN week LIKE 'Week %' THEN week ELSE CONCAT('Week ', week) END as week_no, 
+         REPLACE(REPLACE(month_year, '-', ', '), ', ', ',') as month_year
+      FROM year_lp_master_new
+      WHERE school_id = ? AND week IS NOT NULL AND month_year IS NOT NULL
+      ORDER BY month_year DESC, week_no ASC
+    `;
+    const [rows] = await db.query(sql, [schoolId]);
+    
+    // Group by month_year for the frontend dropdowns
+    const filters = {};
+    rows.forEach(r => {
+      if (!filters[r.month_year]) filters[r.month_year] = [];
+      if (!filters[r.month_year].includes(r.week_no)) {
+        filters[r.month_year].push(r.week_no);
+      }
+    });
+
+    res.json({ success: true, filters });
+  } catch (err) {
+    console.error('FETCH FILTERS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching report filters' });
+  }
+});
+
+// 🎯 GET STRUCTURED REPORT DATA (JSON VERSION)
+app.get('/api/curriculum/report-data', async (req, res) => {
+  try {
+    const { school_id, month_year, week_no } = req.query;
+
+    const sql = `
+        -- New year_lp_master_new (direct school+week assignments)
+        SELECT 
+          yn.lp_no, yn.grade, yn.sport, yn.skill, yn.sub_skill, yn.objective,
+          yn.teaching_aids, yn.warm_up, yn.skill_implementation, yn.cool_down,
+          yn.summarization, yn.life_skill, yn.picture,
+          sch.name as school_name,
+          clt.status AS lp_status, clt.remark AS lp_remark, clt.submitted_at AS done_date,
+          u.name as coach_name,
+          u.profile_pic as coach_avatar,
+          yn.school_id, 
+          CASE WHEN yn.week LIKE 'Week %' THEN yn.week ELSE CONCAT('Week ', yn.week) END as week_no,
+          REPLACE(REPLACE(yn.month_year, '-', ', '), ', ', ',') as month_year,
+          yn.divisions
+        FROM year_lp_master_new yn
+        LEFT JOIN schools sch ON yn.school_id = sch.id
+        LEFT JOIN coach_lesson_tracking clt ON clt.unique_id = yn.unique_id
+        LEFT JOIN users u ON clt.user_id = u.id
+        WHERE yn.school_id = ? 
+          AND CASE WHEN yn.week LIKE 'Week %' THEN yn.week ELSE CONCAT('Week ', yn.week) END = ? 
+          AND REPLACE(REPLACE(yn.month_year, '-', ', '), ', ', ',') = ?
+        ORDER BY sport, lp_no ASC
+    `;
+
+    const [rows] = await db.query(sql, [school_id, week_no, month_year]);
+
+    if (rows.length === 0) {
+      return res.json({ success: true, report: null });
+    }
+
+    // Transform rows into the sport-grouped structure the UI expects
+    const sportsData = {};
+    rows.forEach(row => {
+      const sportName = row.sport || 'General';
+      if (!sportsData[sportName]) {
+        sportsData[sportName] = {
+          sport: sportName,
+          coach_name: row.coach_name || 'Assigned Coach',
+          coach_avatar: row.coach_avatar ? '/uploads/' + row.coach_avatar : '/default-avatar.png',
+          coach_role: `${sportName} Coach`,
+          coach_experience: '5+ Years',
+          is_certified: true,
+          sessions_count: 0,
+          overall_remark: null,
+          overview: `Weekly progression for ${sportName} focus on ${row.skill || 'fundamentals'}.`,
+          skills: [],
+          key_areas: [],
+          gallery: [],
+          video_thumbnail: null
+        };
+        // Handle pictures
+        if (row.picture) {
+           const pics = String(row.picture).split(',').map(p => p.trim()).filter(p => p);
+           sportsData[sportName].gallery = pics.map(p => '/uploads/' + p);
+        }
+      }
+
+      // Increment session count
+      sportsData[sportName].sessions_count++;
+
+      // Capture the first remark as the overall remark for the sport
+      if (!sportsData[sportName].overall_remark && row.lp_remark) {
+        sportsData[sportName].overall_remark = row.lp_remark;
+      }
+
+      // Add skills if unique
+      if (row.skill && !sportsData[sportName].skills.includes(row.skill)) {
+        sportsData[sportName].skills.push(row.skill);
+      }
+
+      // Merge gallery images (handle comma separated strings)
+      if (row.picture) {
+        const pics = String(row.picture).split(',').map(p => p.trim()).filter(p => p);
+        pics.forEach(p => {
+          const url = '/uploads/' + p;
+          if (!sportsData[sportName].gallery.includes(url)) {
+            sportsData[sportName].gallery.push(url);
+          }
+        });
+      }
+
+      // Add key areas from the lesson plan objective/remark
+      sportsData[sportName].key_areas.push({
+        name: row.skill || `Module ${row.lp_no}`,
+        grade: row.grade,
+        divisions: row.divisions,
+        remark: row.lp_remark,
+        status: row.lp_status,
+        done_date: row.done_date,
+        observations: [row.objective].filter(v => v),
+        rating: row.lp_status === 'Done' || row.lp_status === 'Complete' ? 'EXCELLENT' : 'IMPROVING'
+      });
+    });
+
+    res.json({
+      success: true,
+      report: {
+        school_name: rows[0].school_name,
+        month_year,
+        week_no,
+        sports_reports: Object.values(sportsData)
+      }
+    });
+
+  } catch (err) {
+    console.error('FETCH REPORT DATA ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching report details' });
+  }
+});
+
 
 // 📋 GET ASSIGNED LP SUMMARY GROUPED BY MONTH/WEEK (Modernized for assigned_lesson_plans)
 app.get('/api/curriculum/my-lp-summary/:userId', async (req, res) => {
