@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 
 const router = useRouter();
 const loading = ref(false);
+const rolesList = ref<{id: number, name: string}[]>([]);
 
 const form = ref({
   mq_id: '',
@@ -21,6 +22,20 @@ const form = ref({
   web_access: false,
   remarks: ''
 });
+
+const fetchRoles = async () => {
+  try {
+    const res = await fetch('/api/roles');
+    const data = await res.json();
+    if (data.success) {
+      rolesList.value = data.roles;
+    }
+  } catch (err) {
+    console.error('Failed to fetch roles:', err);
+  }
+};
+
+onMounted(fetchRoles);
 
 const handleSubmit = async () => {
   if (!form.value.name || !form.value.email || !form.value.password || !form.value.role_id) {
@@ -206,13 +221,10 @@ const handleSubmit = async () => {
                   class="w-full bg-surface-container-low border-none rounded-lg text-sm px-4 py-3 focus:ring-2 focus:ring-primary-container focus:bg-white transition-all appearance-none cursor-pointer font-bold text-slate-700" 
                   required
                 >
-                  <option disabled selected value="">Select assigned role</option>
-                  <option value="1">Administrator</option>
-                  <option value="2">Operations Head</option>
-                  <option value="3">SSGM</option>
-                  <option value="4">Head Coach</option>
-                  <option value="5">Coach</option>
-                  <option value="6">HR Admin</option>
+                  <option disabled value="">Select assigned role</option>
+                  <option v-for="role in rolesList" :key="role.id" :value="String(role.id)">
+                    {{ role.name }}
+                  </option>
                 </select>
                 
                 <!-- Dynamic Permissions Preview -->

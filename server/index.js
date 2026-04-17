@@ -175,6 +175,27 @@ const initUserPageAccessTable = async () => {
 };
 initUserPageAccessTable();
 
+// 🛡️ INITIALIZE ROLE PAGE ACCESS TABLE
+const initRolePageAccessTable = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS role_page_access (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        role_id INT NOT NULL,
+        route_path VARCHAR(255) NOT NULL,
+        is_granted BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY role_route (role_id, route_path),
+        FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
+      )
+    `);
+  } catch (err) {
+    console.error('INIT ROLE PAGE ACCESS TABLE ERROR:', err);
+  }
+};
+initRolePageAccessTable();
+
 // 📺 INITIALIZE DASHBOARD SOCIAL CONTENT SCHEMA
 const initSocialContentTable = async () => {
   try {
@@ -209,19 +230,7 @@ const initDashboardEventsTable = async () => {
 };
 initDashboardEventsTable();
 
-// 🏫 ADD school_id TO assigned_lesson_plans IF NOT EXISTS
-const initSchoolIdColumn = async () => {
-  try {
-    const [cols] = await db.query(`SHOW COLUMNS FROM assigned_lesson_plans LIKE 'school_id'`);
-    if (cols.length === 0) {
-      await db.query(`ALTER TABLE assigned_lesson_plans ADD COLUMN school_id INT NULL AFTER assigned_by`);
-      console.log('✅ Added school_id to assigned_lesson_plans');
-    }
-  } catch (err) {
-    console.error('INIT school_id COLUMN ERROR:', err);
-  }
-};
-initSchoolIdColumn();
+
 
 const app = express();
 app.use(cors());
@@ -277,7 +286,7 @@ app.post('/api/login', async (req, res) => {
   try {
     const formattedEmail = email.toLowerCase().trim();
     const [rows] = await db.query(
-      'SELECT id, email, password, is_active, hash_key FROM users WHERE email = ?',
+      'SELECT id, name, email, password, is_active, hash_key, role_id FROM users WHERE email = ?',
       [formattedEmail]
     );
     if (rows.length === 0) {
@@ -361,6 +370,7 @@ app.post('/api/login', async (req, res) => {
       token,
       user: {
         id: user.id,
+        name: user.name,
         email: user.email,
         hash_key: user.hash_key,
         role_id: user.role_id
@@ -493,6 +503,9 @@ app.get('/api/schools', async (req, res) => {
   }
 });
 
+
+
+
 // 🏫 GET SINGLE SCHOOL DETAIL
 app.get('/api/schools/:id', async (req, res) => {
   const { id } = req.params;
@@ -505,6 +518,69 @@ app.get('/api/schools/:id', async (req, res) => {
   } catch (err) {
     console.error('FETCH SCHOOL DETAIL ERROR:', err);
     res.status(500).json({ success: false, message: 'Error fetching school details' });
+  }
+});
+
+// 🤖 AUTOMATED STAFF HIERARCHY API
+app.get('/api/staff-hierarchy/automated/:school_id', async (req, res) => {
+  const { school_id } = req.params;
+  try {
+    // 1. Fetch School Info
+    const [schools] = await db.query('SELECT name, school_logo, school_code FROM schools WHERE id = ?', [school_id]);
+    if (schools.length === 0) return res.status(404).json({ success: false, message: 'School not found' });
+    const school = schools[0];
+
+    // 2. Fetch Assignments
+    const [assignments] = await db.query(`
+      SELECT u.id, u.name, u.profile_pic, u.role_id, r.name as role_name
+      FROM assign_school ash
+      JOIN users u ON ash.user_id = u.id
+      JOIN roles r ON u.role_id = r.id
+      WHERE ash.school_id = ?
+    `, [school_id]);
+
+    const [ssgmAssignments] = await db.query(`
+      SELECT u.id, u.name, u.profile_pic, r.name as role_name
+      FROM assign_school ash
+      JOIN users u ON ash.ssgm_id = u.id
+      JOIN roles r ON u.role_id = r.id
+      WHERE ash.school_id = ? LIMIT 1
+    `, [school_id]);
+
+    const headCoach = assignments.find(u => u.role_id === 4);
+    const coaches = assignments.filter(u => u.role_id === 5);
+    const ssgm = ssgmAssignments[0] || assignments.find(u => u.role_id === 3);
+
+    // 3. Construct Hierarchy Response
+    res.json({
+      success: true,
+      data: {
+        school: {
+          name: school.name,
+          logo: school.school_logo,
+          code: school.school_code
+        },
+        ground: {
+          headCoach: headCoach || { name: 'Head Coach TBD', role_name: 'Head Coach' },
+          coaches: coaches.length ? coaches : [{ name: 'Assigned Coach', role_name: 'Coach' }]
+        },
+        headOffice: {
+          ssgm: ssgm || { name: 'Assigned SSGM TBD', role_name: 'SSGM' },
+          personnel: [
+            { name: 'Nandani Rawat', role: 'Operations', image: null },
+            { name: 'Laxman Chalmale', role: 'Operation head', image: null }
+          ],
+          teams: [
+            { id: 'it', name: 'IT Team', member: 'Abhay Jaiswar', role: 'HQ Support' },
+            { id: 'creative', name: 'Creative Team', member: 'Sneha Pawar', role: 'HQ Support' },
+            { id: 'curr', name: 'Curriculum Team', member: 'Vaishnavi Jadhav', role: 'HQ Support' }
+          ]
+        }
+      }
+    });
+  } catch (err) {
+    console.error('AUTOMATED HIERARCHY ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error aggregating hierarchy' });
   }
 });
 
@@ -744,6 +820,48 @@ app.post('/api/match-reports', upload.single('report'), async (req, res) => {
   }
 });
 
+// 📄 GET ALL MIR REPORTS
+app.get('/api/mir-reports', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT mir.id, mir.school_id, mir.user_id, mir.file_path, mir.month_year, mir.created_at,
+             s.name as school_name 
+      FROM mir_reports mir
+      JOIN schools s ON mir.school_id = s.id
+      ORDER BY mir.created_at DESC
+    `);
+    res.json({ success: true, reports: rows });
+  } catch (err) {
+    console.error('FETCH MIR REPORTS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching MIR reports', error: err.message });
+  }
+});
+
+// 📄 UPLOAD MIR REPORT
+app.post('/api/mir-reports', upload.single('report'), async (req, res) => {
+  const { school_id, user_id, month_year } = req.body;
+  const file = req.file;
+
+  if (!file) return res.status(400).json({ success: false, message: 'No report file uploaded' });
+  if (!school_id) return res.status(400).json({ success: false, message: 'School is required' });
+
+  try {
+    const [result] = await db.query(
+      'INSERT INTO mir_reports (school_id, user_id, file_path, month_year) VALUES (?, ?, ?, ?)',
+      [school_id, user_id || 0, file.filename, month_year || '']
+    );
+
+    res.json({
+      success: true,
+      message: 'MIR report uploaded successfully',
+      reportId: result.insertId
+    });
+  } catch (err) {
+    console.error('UPLOAD MIR REPORT ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error uploading MIR report', error: err.message });
+  }
+});
+
 // 👪 GET ALL PARENTS REPORTS
 app.get('/api/parents-reports', async (req, res) => {
   try {
@@ -834,6 +952,42 @@ app.get('/api/users-list', async (req, res) => {
   } catch (err) {
     console.error('FETCH USERS ERROR:', err);
     res.status(500).json({ success: false, message: 'Error fetching users', error: err.message });
+  }
+});
+
+// 📋 GET ALL ROLES
+app.get('/api/roles', async (req, res) => {
+  try {
+    const [roles] = await db.query('SELECT * FROM roles ORDER BY name ASC');
+    res.json({ success: true, roles });
+  } catch (err) {
+    console.error('FETCH ROLES ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching roles', error: err.message });
+  }
+});
+
+// ➕ ADD NEW ROLE
+app.post('/api/roles', async (req, res) => {
+  try {
+    const { name, status } = req.body;
+    if (!name || name.trim() === '') {
+      return res.status(400).json({ success: false, message: 'Role name is required' });
+    }
+    
+    // Default status to 1 if not provided
+    const roleStatus = status !== undefined ? status : 1;
+    
+    // Check if role already exists
+    const [existing] = await db.query('SELECT id FROM roles WHERE name = ?', [name.trim()]);
+    if (existing.length > 0) {
+      return res.status(400).json({ success: false, message: 'Role already exists' });
+    }
+
+    const [result] = await db.query('INSERT INTO roles (name, status) VALUES (?, ?)', [name.trim(), roleStatus]);
+    res.json({ success: true, message: 'Role added successfully', id: result.insertId });
+  } catch (err) {
+    console.error('ADD ROLE ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error while adding role', error: err.message });
   }
 });
 
@@ -3741,14 +3895,42 @@ app.get('/api/dashboard/stats', async (req, res) => {
 
     const [[{ students }]] = await db.query(`SELECT COUNT(*) as students FROM students ${studentWhere}`);
     const [[{ schools }]] = await db.query(`SELECT COUNT(*) as schools FROM schools ${schoolWhere}`);
-    const [[{ staff }]] = await db.query('SELECT COUNT(*) as staff FROM users');
+    
+    let staffCount = 0;
+    let hqStaffCount = 0;
+
+    if (schoolIds.length > 0) {
+      // 1. Calculate On-Ground Staff (HC + Coaches)
+      const [groundStaff] = await db.query(`
+        SELECT COUNT(DISTINCT user_id) as count 
+        FROM assign_school ash
+        JOIN users u ON ash.user_id = u.id
+        WHERE ash.school_id IN (${schoolIds.join(',')})
+        AND u.role_id IN (4, 5)
+      `);
+      
+      // 2. Calculate HQ Staff for these schools (SSGM + 5 template members)
+      const [ssgmCount] = await db.query(`
+        SELECT COUNT(DISTINCT ssgm_id) as count 
+        FROM assign_school 
+        WHERE school_id IN (${schoolIds.join(',')})
+        AND ssgm_id IS NOT NULL
+      `);
+      
+      // Total Combined Staff = Ground + SSGM + 5 (Ops/IT/Creative/Curr)
+      staffCount = Number(groundStaff[0].count) + Number(ssgmCount[0].count) + 5;
+    } else {
+      // Global View (Admin)
+      const [[{ totalStaff }]] = await db.query('SELECT COUNT(*) as totalStaff FROM users');
+      staffCount = totalStaff;
+    }
 
     res.json({
       success: true,
       data: {
         students,
         schools,
-        staff
+        staff: staffCount
       }
     });
   } catch (err) {
@@ -3775,7 +3957,7 @@ app.get('/api/dashboard/content-feed', async (req, res) => {
       whereClause = `AND (school_id IN (${idList}) OR school_id IS NULL)`;
     }
 
-    const [videos] = await db.query(`SELECT * FROM dashboard_social_content WHERE content_type = 'video' AND is_active = 1 ${whereClause} ORDER BY id DESC LIMIT 4`);
+    const [videos] = await db.query(`SELECT * FROM dashboard_social_content WHERE content_type = 'video' AND is_active = 1 ${whereClause} ORDER BY id DESC LIMIT 20`);
     const [photos] = await db.query(`SELECT * FROM dashboard_social_content WHERE content_type = 'photo' AND is_active = 1 ${whereClause} ORDER BY id DESC LIMIT 8`);
 
     res.json({
@@ -3791,7 +3973,12 @@ app.get('/api/dashboard/content-feed', async (req, res) => {
 // 🛠️ MANAGE SOCIAL CONTENT (CRUD)
 app.get('/api/dashboard/manage-content', async (req, res) => {
   try {
-    const [rows] = await db.query("SELECT * FROM dashboard_social_content ORDER BY created_at DESC");
+    const [rows] = await db.query(`
+      SELECT dsc.*, s.name as school_name 
+      FROM dashboard_social_content dsc
+      LEFT JOIN schools s ON dsc.school_id = s.id
+      ORDER BY dsc.created_at DESC
+    `);
     res.json({ success: true, data: rows });
   } catch (err) {
     console.error('MANAGE CONTENT GET ERROR:', err);
@@ -3801,7 +3988,7 @@ app.get('/api/dashboard/manage-content', async (req, res) => {
 
 app.post('/api/dashboard/manage-content', socialUpload, async (req, res) => {
   try {
-    const { content_type, title, url } = req.body;
+    const { content_type, title, url, school_id } = req.body;
     let thumbnail_url = req.body.thumbnail_url || '';
     let video_path = null;
 
@@ -3816,8 +4003,8 @@ app.post('/api/dashboard/manage-content', socialUpload, async (req, res) => {
     }
 
     await db.query(
-      "INSERT INTO dashboard_social_content (content_type, title, url, thumbnail_url, video_path) VALUES (?, ?, ?, ?, ?)",
-      [content_type, title, url, thumbnail_url, video_path]
+      "INSERT INTO dashboard_social_content (content_type, title, url, thumbnail_url, video_path, school_id) VALUES (?, ?, ?, ?, ?, ?)",
+      [content_type, title, url, thumbnail_url, video_path, school_id || null]
     );
     res.json({ success: true, message: 'Content added successfully' });
   } catch (err) {
@@ -4187,12 +4374,17 @@ app.get('/api/curriculum/generate-weekly-report', async (req, res) => {
 app.get('/api/curriculum/report-filters/:schoolId', async (req, res) => {
   try {
     const { schoolId } = req.params;
+    const { publishedOnly } = req.query;
+    
     const sql = `
       SELECT DISTINCT 
          CASE WHEN week LIKE 'Week %' THEN week ELSE CONCAT('Week ', week) END as week_no, 
          REPLACE(REPLACE(month_year, '-', ', '), ', ', ',') as month_year
       FROM year_lp_master_new
-      WHERE school_id = ? AND week IS NOT NULL AND month_year IS NOT NULL
+      WHERE school_id = ? 
+        AND week IS NOT NULL 
+        AND month_year IS NOT NULL
+        ${publishedOnly === 'true' ? ' AND school_able_to_visibale_status = 1' : ''}
       ORDER BY month_year DESC, week_no ASC
     `;
     const [rows] = await db.query(sql, [schoolId]);
@@ -4216,7 +4408,7 @@ app.get('/api/curriculum/report-filters/:schoolId', async (req, res) => {
 // 🎯 GET STRUCTURED REPORT DATA (JSON VERSION)
 app.get('/api/curriculum/report-data', async (req, res) => {
   try {
-    const { school_id, month_year, week_no } = req.query;
+    const { school_id, month_year, week_no, publishedOnly } = req.query;
 
     const sql = `
         -- New year_lp_master_new (direct school+week assignments)
@@ -4239,6 +4431,7 @@ app.get('/api/curriculum/report-data', async (req, res) => {
         WHERE yn.school_id = ? 
           AND CASE WHEN yn.week LIKE 'Week %' THEN yn.week ELSE CONCAT('Week ', yn.week) END = ? 
           AND REPLACE(REPLACE(yn.month_year, '-', ', '), ', ', ',') = ?
+          ${publishedOnly === 'true' ? ' AND yn.school_able_to_visibale_status = 1' : ''}
         ORDER BY sport, lp_no ASC
     `;
 
@@ -4325,6 +4518,36 @@ app.get('/api/curriculum/report-data', async (req, res) => {
   } catch (err) {
     console.error('FETCH REPORT DATA ERROR:', err);
     res.status(500).json({ success: false, message: 'Server error fetching report details' });
+  }
+});
+
+// 🚀 PUBLISH WEEKLY REPORT (Make visible to Principal)
+app.post('/api/curriculum/publish-report', async (req, res) => {
+  try {
+    const { school_id, month_year, week_no } = req.body;
+
+    if (!school_id || !month_year || !week_no) {
+      return res.status(400).json({ success: false, message: 'Missing required parameters' });
+    }
+
+    const sql = `
+      UPDATE year_lp_master_new 
+      SET school_able_to_visibale_status = 1 
+      WHERE school_id = ? 
+        AND CASE WHEN week LIKE 'Week %' THEN week ELSE CONCAT('Week ', week) END = ? 
+        AND REPLACE(REPLACE(month_year, '-', ', '), ', ', ',') = ?
+    `;
+
+    const [result] = await db.query(sql, [school_id, week_no, month_year]);
+
+    res.json({
+      success: true,
+      message: `Report published successfully! ${result.changedRows} records updated.`,
+      updatedRows: result.changedRows
+    });
+  } catch (err) {
+    console.error('PUBLISH REPORT ERROR:', err);
+    res.status(500).json({ success: false, message: 'Internal server error while publishing' });
   }
 });
 
@@ -4584,6 +4807,91 @@ app.post('/api/access/permissions/save', async (req, res) => {
   } catch (err) {
     console.error('SAVE PERMISSIONS ERROR:', err);
     res.status(500).json({ success: false, message: 'Error saving permissions' });
+  }
+});
+
+// 🛡️ GET role-based permissions for a specific role
+app.get('/api/access/role-permissions/:roleId', async (req, res) => {
+  try {
+    const { roleId } = req.params;
+    const [rows] = await db.query('SELECT route_path, is_granted FROM role_page_access WHERE role_id = ?', [roleId]);
+    res.json({ success: true, permissions: rows });
+  } catch (err) {
+    console.error('FETCH ROLE PERMISSIONS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching role permissions' });
+  }
+});
+
+// 🛡️ SAVE role-based permissions
+app.post('/api/access/role-permissions/save', async (req, res) => {
+  try {
+    const { role_id, permissions } = req.body;
+    if (!role_id || !Array.isArray(permissions)) {
+      return res.status(400).json({ success: false, message: 'Invalid data format' });
+    }
+
+    const connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    try {
+      // Reset all permissions for this role
+      await connection.query('UPDATE role_page_access SET is_granted = FALSE WHERE role_id = ?', [role_id]);
+
+      // Upsert granted permissions
+      for (const route of permissions) {
+        await connection.query(`
+          INSERT INTO role_page_access (role_id, route_path, is_granted)
+          VALUES (?, ?, TRUE)
+          ON DUPLICATE KEY UPDATE is_granted = TRUE
+        `, [role_id, route]);
+      }
+
+      await connection.commit();
+      res.json({ success: true, message: 'Role permissions saved successfully!' });
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
+  } catch (err) {
+    console.error('SAVE ROLE PERMISSIONS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error saving role permissions' });
+  }
+});
+
+// 🛡️ GET effective permissions for a user (combines user + role-level access)
+app.get('/api/access/effective-permissions/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Get the user's role_id
+    const [[user]] = await db.query('SELECT role_id FROM users WHERE id = ?', [userId]);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+    // 1. Get user-specific permissions
+    const [userPerms] = await db.query(
+      'SELECT route_path, is_granted FROM user_page_access WHERE user_id = ?', [userId]
+    );
+
+    // 2. Get role-based permissions
+    const [rolePerms] = await db.query(
+      'SELECT route_path, is_granted FROM role_page_access WHERE role_id = ?', [user.role_id]
+    );
+
+    // Merge: user-level overrides role-level
+    const permMap = {};
+    rolePerms.forEach(p => { permMap[p.route_path] = p.is_granted; });
+    userPerms.forEach(p => { permMap[p.route_path] = p.is_granted; }); // user overrides role
+
+    const merged = Object.entries(permMap).map(([route_path, is_granted]) => ({
+       route_path, is_granted
+    }));
+
+    res.json({ success: true, permissions: merged, source: userPerms.length > 0 ? 'user+role' : 'role' });
+  } catch (err) {
+    console.error('EFFECTIVE PERMISSIONS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error computing effective permissions' });
   }
 });
 

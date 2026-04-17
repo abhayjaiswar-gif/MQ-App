@@ -1,18 +1,20 @@
 <template>
   <v-dialog v-model="isOpen" max-width="600" persistent>
-    <v-card class="rounded-[2.5rem] pa-10 bg-white border border-slate-100 shadow-2xl">
-      <v-card-title class="px-0 pt-0 text-h4 font-black text-slate-900 pb-2 flex justify-between items-center">
-        Raise Support Ticket
-        <v-btn icon variant="text" @click="isOpen = false" color="slate-400">
+    <v-card class="rounded-[2.5rem] pa-10 bg-white border border-slate-100 shadow-2xl relative">
+      <div class="flex justify-between items-start mb-2">
+        <v-card-title class="px-0 pt-0 text-h4 font-black text-slate-900 pb-0">
+          How Can We Help You?
+        </v-card-title>
+        <v-btn icon variant="text" @click="isOpen = false" size="small" class="text-slate-400 hover:text-slate-800 -mt-1 -mr-2">
           <span class="material-symbols-outlined">close</span>
         </v-btn>
-      </v-card-title>
-      <p class="text-slate-500 font-medium text-sm mb-10">Please provide detailed information about the issue so we can assist you better.</p>
+      </div>
+      <p class="text-slate-500 font-medium text-sm mb-10">We're here to help! Let us know what you need, and our success team will get back to you shortly.</p>
 
       <v-form @submit.prevent="submitTicket" class="space-y-6">
         <div class="space-y-2">
-          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Grievance Subject</label>
-          <v-text-field v-model="form.subject" placeholder="e.g. Syllabus mismatch in Grade 4" variant="outlined" density="comfortable" class="rounded-xl custom-field"></v-text-field>
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">What do you need help with?</label>
+          <v-text-field v-model="form.subject" placeholder="e.g. Assistance with Grade 4 curriculum setup" variant="outlined" density="comfortable" class="rounded-xl custom-field"></v-text-field>
         </div>
 
         <div class="grid grid-cols-2 gap-6">
@@ -27,14 +29,14 @@
         </div>
 
         <div class="space-y-2">
-          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Problem Description</label>
-          <v-textarea v-model="form.message" placeholder="Describe the issue in detail..." variant="outlined" rows="4" density="comfortable" class="rounded-xl custom-field"></v-textarea>
+          <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">How can we support you?</label>
+          <v-textarea v-model="form.message" placeholder="Please share any details that might help us assist you..." variant="outlined" rows="4" density="comfortable" class="rounded-xl custom-field"></v-textarea>
         </div>
 
         <div class="pt-6">
           <v-btn type="submit" :loading="submitting" block color="primary" size="large" class="rounded-xl h-[60px] font-black text-[12px] uppercase tracking-widest shadow-lg">
             <span class="material-symbols-outlined mr-2">send</span>
-            Register Ticket
+            Send Message
           </v-btn>
         </div>
       </v-form>
@@ -80,7 +82,7 @@ const submitTicket = async () => {
     });
     const data = await res.json();
     if (data.success) {
-      successMsg.value = 'Your ticket has been registered. Our team will contact you soon.';
+      successMsg.value = 'Message sent! Our success team will reach out to you shortly.';
       setTimeout(() => {
         emit('update:modelValue', false);
         form.value = { subject: '', name: '', email: '', message: '' };

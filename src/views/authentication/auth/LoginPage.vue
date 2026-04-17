@@ -1,71 +1,85 @@
 <script setup lang="ts">
 import Logo from '@/layouts/dashboard/logo/LogoDark.vue';
 import AuthLogin from '../authForms/AuthLogin.vue';
-import AuthFooter from './AuthFooter.vue';
 </script>
 
 <template>
-  <v-row class="bg-containerBg position-relative" no-gutters>
-    <div class="blur-logo">
-      <svg width="100%" height="calc(100vh - 175px)" viewBox="0 0 405 809" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path
-          d="M-358.39 358.707L-293.914 294.23L-293.846 294.163H-172.545L-220.81 342.428L-233.272 354.889L-282.697 404.314L-276.575 410.453L0.316589 687.328L283.33 404.314L233.888 354.889L230.407 351.391L173.178 294.163H294.48L294.547 294.23L345.082 344.765L404.631 404.314L0.316589 808.629L-403.998 404.314L-358.39 358.707ZM0.316589 0L233.938 233.622H112.637L0.316589 121.301L-112.004 233.622H-233.305L0.316589 0Z"
-          fill="#69b1ff"
-        ></path>
-        <path
-          d="M-516.39 358.707L-451.914 294.23L-451.846 294.163H-330.545L-378.81 342.428L-391.272 354.889L-440.697 404.314L-434.575 410.453L-157.683 687.328L125.33 404.314L75.8879 354.889L72.4068 351.391L15.1785 294.163H136.48L136.547 294.23L187.082 344.765L246.631 404.314L-157.683 808.629L-561.998 404.314L-516.39 358.707ZM-157.683 0L75.9383 233.622H-45.3627L-157.683 121.301L-270.004 233.622H-391.305L-157.683 0Z"
-          fill="#95de64"
-          opacity="0.6"
-        ></path>
-        <path
-          d="M-647.386 358.707L-582.91 294.23L-582.842 294.163H-461.541L-509.806 342.428L-522.268 354.889L-571.693 404.314L-565.571 410.453L-288.68 687.328L-5.66624 404.314L-55.1082 354.889L-58.5893 351.391L-115.818 294.163H5.48342L5.5507 294.23L56.0858 344.765L115.635 404.314L-288.68 808.629L-692.994 404.314L-647.386 358.707ZM-288.68 0L-55.0578 233.622H-176.359L-288.68 121.301L-401 233.622H-522.301L-288.68 0Z"
-          fill="#fff1f0"
-          opacity="1"
-        ></path>
-      </svg>
-    </div>
-    <v-col cols="12">
-      <div class="pt-6 pl-6">
-        <Logo />
-      </div>
-    </v-col>
-    <!---Login Part-->
-    <v-col cols="12" lg="12" class="d-flex align-center">
-      <v-container>
-        <div class="d-flex align-center justify-center" style="min-height: calc(100vh - 148px)">
-          <v-row justify="center">
-            <v-col cols="12" md="12">
-              <v-card elevation="0" class="loginBox">
-                <v-card elevation="24">
-                  <v-card-text class="pa-sm-10 pa-6">
-                    <!---Login Form-->
-                    <AuthLogin />
-                    <!---Login Form-->
-                  </v-card-text>
-                </v-card>
-              </v-card>
-            </v-col>
-          </v-row>
+  <div class="h-screen w-full flex bg-[#f8fafc] overflow-hidden font-inter">
+    
+    <!-- LEFT PANEL: Brand Visuals (Shown on desktop only) -->
+    <div class="hidden lg:flex w-[55%] relative flex-col justify-between overflow-hidden">
+      <!-- Background Image -->
+      <img src="@/assets/images/auth-bg.png" alt="EduSport Gradient" class="absolute inset-0 w-full h-full object-cover z-0" />
+      
+      <!-- Gradient Overlay for Contrast -->
+      <div class="absolute inset-0 bg-gradient-to-t from-[#001c3a]/100 via-[#001c3a]/60 to-transparent z-10 w-full h-full mix-blend-multiply"></div>
+      
+      <!-- Top Branding -->
+      <div class="relative z-20 p-12">
+        <!-- Modern pill badge -->
+        <div class="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md px-5 py-2.5 rounded-full border border-white/20 shadow-lg">
+          <div class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shadow-[0_0_10px_#34d399]"></div>
+          <span class="text-white font-black uppercase tracking-[0.2em] text-[10px]">MarcosQuay Platform</span>
         </div>
-      </v-container>
-    </v-col>
-    <!---Login Part-->
-    <v-col cols="12">
-      <v-container class="pt-0 pb-6">
-        <AuthFooter />
-      </v-container>
-    </v-col>
-  </v-row>
+      </div>
+
+      <!-- Bottom Inspirational Content -->
+      <div class="relative z-20 p-12 pb-16">
+        <h1 class="text-white font-black text-5xl tracking-tight leading-[1.1] mb-6 drop-shadow-2xl">
+          Empowering The Next<br />
+          <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 to-cyan-300">Generation of Champions.</span>
+        </h1>
+        <p class="text-white/80 text-lg font-medium max-w-lg mb-8 leading-relaxed">
+          The ultimate operating system for modern academies. Manage curriculum, students, and staff all from one powerful, unified platform.
+        </p>
+
+        <!-- Mini Stats -->
+        <div class="flex gap-10 mt-12 pt-8 border-t border-white/10">
+           <div>
+              <p class="text-4xl font-black text-white">40k+</p>
+              <p class="text-emerald-300 font-bold uppercase tracking-widest text-[10px] mt-1 shadow-sm">Students Tracking</p>
+           </div>
+           <div>
+              <p class="text-4xl font-black text-white">100%</p>
+              <p class="text-emerald-300 font-bold uppercase tracking-widest text-[10px] mt-1 shadow-sm">Cloud Synced</p>
+           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: Authentication Form -->
+    <div class="w-full lg:w-[45%] bg-white relative z-10 shadow-[-20px_0_40px_rgba(0,0,0,0.05)] overflow-y-auto custom-scroll flex flex-col">
+      
+      <!-- Mobile Background Fallback Blobs -->
+      <div class="lg:hidden absolute -top-32 -left-32 w-96 h-96 bg-[#005daa]/10 rounded-full blur-3xl"></div>
+      <div class="lg:hidden absolute -bottom-32 -right-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl"></div>
+
+      <!-- Spacer for safe vertical centering -->
+      <div class="flex-grow min-h-[40px]"></div>
+
+      <div class="w-full max-w-[420px] px-8 relative mx-auto z-20 shrink-0">
+        <!-- Form Header -->
+        <div class="mb-10 text-left">
+          <Logo class="mb-8 scale-110 origin-left" />
+          <h2 class="text-3xl font-black text-slate-900 mt-6 tracking-tight">Welcome Back</h2>
+          <p class="text-slate-500 font-medium text-sm mt-2">Sign in to your dashboard to continue your session.</p>
+        </div>
+
+        <v-card elevation="0" class="bg-transparent mb-12">
+          <AuthLogin />
+        </v-card>
+        
+        <div class="mt-8 mb-4 text-center w-full pb-8">
+           <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Powered by MarcosQuay © 2026</p>
+        </div>
+      </div>
+
+      <!-- Spacer for safe vertical centering -->
+      <div class="flex-grow min-h-[40px]"></div>
+    </div>
+  </div>
 </template>
-<style lang="scss">
-.loginBox {
-  max-width: 475px;
-  margin: 0 auto;
-}
-.blur-logo {
-  position: absolute;
-  filter: blur(18px);
-  bottom: 0;
-  transform: inherit;
-}
+
+<style scoped>
+.font-inter { font-family: 'Inter', sans-serif; }
 </style>

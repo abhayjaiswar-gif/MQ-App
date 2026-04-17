@@ -104,6 +104,11 @@ const MainRoutes = {
       component: () => import('@/views/user/UserManagementPage.vue')
     },
     {
+      name: 'StaffHierarchy',
+      path: '/staff/hierarchy',
+      component: () => import('@/views/staff/StaffHierarchyPage.vue')
+    },
+    {
       name: 'CreateUser',
       path: '/management/users/create',
       component: () => import('@/views/user/CreateUserPage.vue')
@@ -127,6 +132,11 @@ const MainRoutes = {
       name: 'MatchReport',
       path: '/reports/match',
       component: () => import('@/views/reports/MatchReportPage.vue')
+    },
+    {
+      name: 'MIRReport',
+      path: '/reports/mir',
+      component: () => import('@/views/reports/MIRReportPage.vue')
     },
     {
       name: 'ParentsReport',
@@ -212,6 +222,11 @@ const MainRoutes = {
       name: 'WeeklyReport',
       path: '/curriculum/weekly-report',
       component: () => import('../views/curriculum/WeeklyReportPage.vue')
+    },
+    {
+      name: 'PrincipalReport',
+      path: '/curriculum/principal-report',
+      component: () => import('@/views/curriculum/PrincipalWeeklyReportPage.vue')
     },
     {
       name: 'AccessManagement',

@@ -31,60 +31,69 @@
         <div class="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
         <p class="text-xs font-black text-slate-400 uppercase tracking-widest">Syncing Media...</p>
       </div>
-
-      <div v-else-if="items.length" class="overflow-x-auto">
-        <table class="w-full text-left">
-          <thead>
-            <tr class="bg-slate-50">
-              <th class="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
-              <th class="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Preview & Title</th>
-              <th class="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">URL / Source</th>
-              <th class="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Dashboard Status</th>
-              <th class="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-slate-50">
-            <tr v-for="item in items" :key="item.id" class="hover:bg-slate-50/50 transition-all">
-              <td class="px-8 py-6">
-                <span :class="item.content_type === 'video' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-blue-50 text-blue-600 border-blue-100'" 
-                      class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border">
-                  {{ item.content_type }}
-                </span>
-              </td>
-              <td class="px-8 py-6">
-                <div class="flex items-center gap-4">
-                  <div class="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-100 flex items-center justify-center relative">
-                    <img v-if="item.thumbnail_url" :src="item.thumbnail_url?.startsWith('http') ? item.thumbnail_url : '/uploads/' + item.thumbnail_url" class="w-full h-full object-cover">
-                    <div v-if="item.video_path" class="absolute inset-0 bg-black/20 flex items-center justify-center">
-                       <span class="material-symbols-outlined text-white text-xs">videocam</span>
-                    </div>
-                  </div>
-                  <span class="text-sm font-black text-slate-800">{{ item.title || 'Untitled' }}</span>
-                </div>
-              </td>
-              <td class="px-8 py-6">
-                <p class="text-[10px] text-slate-500 italic max-w-xs truncate">{{ item.url }}</p>
-              </td>
-              <td class="px-8 py-6 text-center">
-                <v-switch v-model="item.is_active" :true-value="1" :false-value="0" @change="toggleStatus(item)" hide-details color="primary" density="compact" class="d-inline-flex"></v-switch>
-              </td>
-              <td class="px-8 py-6 text-right">
-                <v-btn icon variant="text" color="error" @click="deleteItem(item.id)">
-                  <span class="material-symbols-outlined text-md">delete</span>
-                </v-btn>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Empty State -->
-      <div v-else class="py-40 text-center">
-        <span class="material-symbols-outlined text-6xl text-slate-200 mb-4 block">movie_filter</span>
-        <p class="text-slate-400 font-bold text-sm uppercase tracking-widest">No content managed yet</p>
-      </div>
+ 
+       <div v-else-if="items.length" class="overflow-x-auto">
+         <table class="w-full text-left">
+           <thead>
+             <tr class="bg-slate-50">
+               <th class="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Type</th>
+               <th class="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Preview & Title</th>
+               <th class="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Assigned School</th>
+               <th class="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">URL / Source</th>
+               <th class="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Dashboard Status</th>
+               <th class="px-8 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
+             </tr>
+           </thead>
+           <tbody class="divide-y divide-slate-50">
+             <tr v-for="item in items" :key="item.id" class="hover:bg-slate-50/50 transition-all">
+               <td class="px-8 py-6">
+                 <span :class="item.content_type === 'video' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-blue-50 text-blue-600 border-blue-100'" 
+                       class="px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border">
+                   {{ item.content_type }}
+                 </span>
+               </td>
+               <td class="px-8 py-6">
+                 <div class="flex items-center gap-4">
+                   <div class="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden border border-slate-100 flex items-center justify-center relative">
+                     <img v-if="item.thumbnail_url" :src="item.thumbnail_url?.startsWith('http') ? item.thumbnail_url : '/uploads/' + item.thumbnail_url" class="w-full h-full object-cover">
+                     <div v-if="item.video_path" class="absolute inset-0 bg-black/20 flex items-center justify-center">
+                        <span class="material-symbols-outlined text-white text-xs">videocam</span>
+                     </div>
+                   </div>
+                   <span class="text-sm font-black text-slate-800">{{ item.title || 'Untitled' }}</span>
+                 </div>
+               </td>
+               <td class="px-8 py-6">
+                 <span v-if="item.school_name" class="text-[10px] font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200">
+                    {{ item.school_name }}
+                 </span>
+                 <span v-else class="text-[9px] font-black text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg border border-emerald-100 uppercase tracking-widest">
+                    Global (All Schools)
+                 </span>
+               </td>
+               <td class="px-8 py-6">
+                 <p class="text-[10px] text-slate-500 italic max-w-xs truncate">{{ item.url }}</p>
+               </td>
+               <td class="px-8 py-6 text-center">
+                 <v-switch v-model="item.is_active" :true-value="1" :false-value="0" @change="toggleStatus(item)" hide-details color="primary" density="compact" class="d-inline-flex"></v-switch>
+               </td>
+               <td class="px-8 py-6 text-right">
+                 <v-btn icon variant="text" color="error" @click="deleteItem(item.id)">
+                   <span class="material-symbols-outlined text-md">delete</span>
+                 </v-btn>
+               </td>
+             </tr>
+           </tbody>
+         </table>
+       </div>
+ 
+       <!-- Empty State -->
+       <div v-else class="py-40 text-center">
+         <span class="material-symbols-outlined text-6xl text-slate-200 mb-4 block">movie_filter</span>
+         <p class="text-slate-400 font-bold text-sm uppercase tracking-widest">No content managed yet</p>
+       </div>
     </div>
-
+ 
     <!-- Add Dialog -->
     <v-dialog v-model="showAddDialog" max-width="600">
       <v-card class="rounded-[2.5rem] pa-8 bg-white border border-slate-100">
@@ -96,10 +105,28 @@
         </v-card-title>
         
         <v-form @submit.prevent="handleSubmit" class="space-y-6">
-          <div class="space-y-2">
-            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Content Type</label>
-            <v-select v-model="form.content_type" :items="['video', 'photo']" variant="outlined" density="comfortable" class="rounded-xl"></v-select>
-          </div>
+          <v-row>
+            <v-col cols="12" md="6">
+               <div class="space-y-2">
+                  <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Content Type</label>
+                  <v-select v-model="form.content_type" :items="['video', 'photo']" variant="outlined" density="comfortable" class="rounded-xl"></v-select>
+               </div>
+            </v-col>
+            <v-col cols="12" md="6">
+               <div class="space-y-2">
+                  <label class="text-[10px] font-black text-[#005faa] uppercase tracking-widest">Assign to School</label>
+                  <v-select 
+                    v-model="form.school_id" 
+                    :items="[{ id: null, name: 'Global (All Schools)' }, ...schools]" 
+                    item-title="name" 
+                    item-value="id"
+                    variant="outlined" 
+                    density="comfortable" 
+                    class="rounded-xl"
+                  ></v-select>
+               </div>
+            </v-col>
+          </v-row>
 
           <div class="space-y-2">
             <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Display Title</label>
@@ -188,12 +215,14 @@ import { ref, onMounted, computed } from 'vue';
 const loading = ref(true);
 const showAddDialog = ref(false);
 const items = ref<any[]>([]);
+const schools = ref<any[]>([]);
 
 const form = ref({
   content_type: 'video',
   title: '',
   url: '',
-  thumbnail_url: ''
+  thumbnail_url: '',
+  school_id: null as number | null
 });
 
 const thumbnailFile = ref<File | null>(null);
@@ -227,6 +256,18 @@ const summaryStats = computed(() => [
   { label: 'Active Photos', value: items.value.filter(i => i.content_type === 'photo' && i.is_active).length, icon: 'image', bg: 'bg-blue-50', color: 'text-blue-600' }
 ]);
 
+const fetchSchools = async () => {
+  try {
+    const res = await fetch('/api/schools');
+    const data = await res.json();
+    if (data.success) {
+      schools.value = data.schools;
+    }
+  } catch (err) {
+    console.error('Fetch schools error:', err);
+  }
+};
+
 const fetchItems = async () => {
   loading.value = true;
   try {
@@ -248,6 +289,7 @@ const handleSubmit = async () => {
     formData.append('content_type', form.value.content_type);
     formData.append('title', form.value.title);
     formData.append('url', form.value.url);
+    if (form.value.school_id) formData.append('school_id', form.value.school_id.toString());
     
     if (thumbnailFile.value) {
       formData.append('thumbnail', thumbnailFile.value);
@@ -270,7 +312,7 @@ const handleSubmit = async () => {
     const data = await res.json();
     if (data.success) {
       showAddDialog.value = false;
-      form.value = { content_type: 'video', title: '', url: '', thumbnail_url: '' };
+      form.value = { content_type: 'video', title: '', url: '', thumbnail_url: '', school_id: null };
       thumbnailFile.value = null;
       thumbnailPreview.value = null;
       videoFile.value = null;
@@ -307,7 +349,10 @@ const deleteItem = async (id: number) => {
   }
 };
 
-onMounted(fetchItems);
+onMounted(() => {
+  fetchItems();
+  fetchSchools();
+});
 </script>
 
 <style scoped>

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useCustomizerStore } from '../../../stores/customizer';
+import { useAuthStore } from '@/stores/auth';
 import sidebarItems from './sidebarItem';
-import { useAuthStore } from '@/stores/auth'; // assuming auth store exists, or we use sessionStorage
 
 import NavGroup from './NavGroup/NavGroup.vue';
 import NavItem from './NavItem/NavItem.vue';
@@ -10,6 +10,7 @@ import NavCollapse from './NavCollapse/NavCollapse.vue';
 import Logo from '../logo/LogoDark.vue';
 
 const customizer = useCustomizerStore();
+const authStore = useAuthStore();
 const sidebarMenu = ref(sidebarItems);
 
 onMounted(async () => {
@@ -20,7 +21,7 @@ onMounted(async () => {
   if (roleId === '1') return; // Admin bypass
 
   try {
-    const res = await fetch(`/api/access/permissions/${userId}`);
+    const res = await fetch(`/api/access/effective-permissions/${userId}`);
     const data = await res.json();
     if (data.success && data.permissions.length > 0) {
       const allowedPaths = data.permissions.filter((p: any) => p.is_granted).map((p: any) => p.route_path);
@@ -80,7 +81,7 @@ onMounted(async () => {
     :rail="customizer.mini_sidebar"
     expand-on-hover
   >
-    <div class="pa-5">
+    <div>
       <Logo />
     </div>
     <!-- ---------------------------------------------- -->
@@ -105,5 +106,24 @@ onMounted(async () => {
         <!-- <ExtraBox /> -->
       </div>
     </perfect-scrollbar>
+
+    <!-- Fixed Logout Button -->
+    <template v-slot:append>
+      <div class="pa-4 border-t border-slate-100">
+        <v-btn
+          block
+          variant="tonal"
+          color="error"
+          rounded="lg"
+          class="text-none font-weight-bold"
+          @click="authStore.logout()"
+        >
+          <template v-slot:prepend>
+            <span class="material-symbols-outlined text-lg">logout</span>
+          </template>
+          Logout
+        </v-btn>
+      </div>
+    </template>
   </v-navigation-drawer>
 </template>

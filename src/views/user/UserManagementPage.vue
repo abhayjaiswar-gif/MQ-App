@@ -63,6 +63,54 @@ watch([searchQuery, roleFilter, statusFilter], () => {
   currentPage.value = 1;
 });
 
+// Dynamic Roles extraction for filter dropdown
+const uniqueRoles = computed(() => {
+  const roles = new Set(users.value.map(u => u.role_name).filter(Boolean));
+  return ['All Roles', ...Array.from(roles)];
+});
+
+// Add Role Modal Logic
+const isRoleModalOpen = ref(false);
+const newRoleName = ref('');
+const newRoleStatus = ref('Active');
+const submittingRole = ref(false);
+const roleErrorMsg = ref('');
+const roleSuccessMsg = ref('');
+
+const submitRole = async () => {
+  if (!newRoleName.value) return;
+  submittingRole.value = true;
+  roleErrorMsg.value = '';
+  roleSuccessMsg.value = '';
+  
+  try {
+    const res = await fetch('/api/roles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        name: newRoleName.value,
+        status: newRoleStatus.value === 'Active' ? 1 : 0 
+      })
+    });
+    const data = await res.json();
+    if (data.success) {
+      roleSuccessMsg.value = 'Role added successfully!';
+      setTimeout(() => {
+        isRoleModalOpen.value = false;
+        newRoleName.value = '';
+        newRoleStatus.value = 'Active';
+        roleSuccessMsg.value = '';
+      }, 1500);
+    } else {
+      roleErrorMsg.value = data.message;
+    }
+  } catch (err) {
+    roleErrorMsg.value = 'Network error occurred.';
+  } finally {
+    submittingRole.value = false;
+  }
+};
+
 const filteredUsers = computed(() => {
   return users.value.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
@@ -116,11 +164,18 @@ const getAvatarColor = (name: string) => {
             for
             all academic staff.</p>
         </div>
-        <button @click="$router.push('/management/users/create')"
-          class="bg-[#005faa] hover:bg-[#004a88] text-white px-6 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all shadow-lg shadow-[#005faa]/20 active:scale-95">
-          <span class="material-symbols-outlined">person_add</span>
-          <span>Add New User</span>
-        </button>
+        <div class="flex items-center gap-3">
+          <button @click="isRoleModalOpen = true"
+            class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all shadow-sm active:scale-95">
+            <span class="material-symbols-outlined">badge</span>
+            <span>Add Role</span>
+          </button>
+          <button @click="$router.push('/management/users/create')"
+            class="bg-[#005faa] hover:bg-[#004a88] text-white px-5 py-3 rounded-xl font-bold text-sm flex items-center gap-2 transition-all shadow-lg shadow-[#005faa]/20 active:scale-95">
+            <span class="material-symbols-outlined">person_add</span>
+            <span>Add New User</span>
+          </button>
+        </div>
       </div>
 
       <!-- Bento Stats Grid -->
@@ -227,13 +282,7 @@ const getAvatarColor = (name: string) => {
             <div class="relative flex-1 sm:flex-none sm:min-w-[160px]">
               <select v-model="roleFilter"
                 class="w-full appearance-none bg-slate-50 px-4 py-2.5 pr-10 rounded-xl text-sm font-bold text-slate-600 border-none focus:ring-2 focus:ring-primary/20 cursor-pointer font-inter">
-                <option>All Roles</option>
-                <option>Administrator</option>
-                <option>Operations Head</option>
-                <option>SSGM</option>
-                <option>Head Coach</option>
-                <option>Coach</option>
-                <option>HR</option>
+                <option v-for="role in uniqueRoles" :key="role" :value="role">{{ role }}</option>
               </select>
               <span
                 class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[18px]">expand_more</span>
@@ -440,6 +489,56 @@ const getAvatarColor = (name: string) => {
         </div>
       </div>
     </div>
+
+    <!-- Add Role Modal -->
+    <v-dialog v-model="isRoleModalOpen" max-width="480" persistent>
+      <v-card class="rounded-[2rem] pa-8 bg-white border-0 shadow-2xl">
+        <div class="flex justify-between items-center mb-6">
+          <div class="flex items-center gap-3">
+             <div class="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center font-bold relative overflow-hidden">
+                <span class="material-symbols-outlined text-[20px] relative z-10">badge</span>
+             </div>
+             <h3 class="text-2xl font-black text-slate-900 tracking-tight">Create Role</h3>
+          </div>
+          <v-btn icon variant="text" @click="isRoleModalOpen = false" color="slate-400" class="hover:text-slate-800">
+            <span class="material-symbols-outlined">close</span>
+          </v-btn>
+        </div>
+        
+        <p class="text-slate-500 font-medium text-sm mb-6 leading-relaxed">Add a new functional role to the system. Once created, you can assign users to this new tier.</p>
+
+        <v-form @submit.prevent="submitRole" class="space-y-6">
+          <div class="space-y-2">
+            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Role Name</label>
+            <v-text-field v-model="newRoleName" placeholder="e.g. Master Trainer" variant="outlined" density="comfortable" class="modern-input"></v-text-field>
+          </div>
+
+          <div class="space-y-2">
+            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-1">Account Status</label>
+            <v-select
+              v-model="newRoleStatus"
+              :items="['Active', 'Inactive']"
+              variant="outlined"
+              density="comfortable"
+              class="modern-input"
+            ></v-select>
+          </div>
+          
+          <v-alert v-if="roleErrorMsg" type="error" variant="tonal" class="rounded-xl border border-red-200">
+             <span class="text-xs font-bold">{{ roleErrorMsg }}</span>
+          </v-alert>
+          <v-alert v-if="roleSuccessMsg" type="success" variant="tonal" class="rounded-xl border border-emerald-200">
+             <span class="text-xs font-bold">{{ roleSuccessMsg }}</span>
+          </v-alert>
+          
+          <div class="pt-2">
+             <v-btn type="submit" :loading="submittingRole" block size="x-large" color="primary" class="rounded-xl font-black text-[12px] h-[56px] shadow-[0_8px_20px_rgba(0,93,170,0.25)] hover:scale-[1.02] transition-transform lowercase-override tracking-widest">
+               <span class="material-symbols-outlined mr-2">add_circle</span> SAVE ROLE
+             </v-btn>
+          </div>
+        </v-form>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -451,4 +550,8 @@ const getAvatarColor = (name: string) => {
 .font-body {
   font-family: 'Inter', sans-serif;
 }
+
+.lowercase-override { text-transform: uppercase !important; }
+.modern-input :deep(.v-field__outline) { border-radius: 16px !important; border-color: #f1f5f9 !important; }
+.modern-input :deep(.v-field__input) { color: #1e293b !important; font-weight: 600 !important; font-size: 13px !important; }
 </style>

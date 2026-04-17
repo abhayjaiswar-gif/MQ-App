@@ -8,59 +8,84 @@
           <p class="text-slate-500 font-medium">Manage sidebar module visibility and system access levels for staff.</p>
         </div>
 
+        <!-- Mode Tabs -->
+        <div class="flex gap-2 mb-8">
+          <button @click="mode = 'user'" :class="mode === 'user' ? 'bg-[#005daa] text-white shadow-lg shadow-[#005daa]/20' : 'bg-white text-slate-600 border border-slate-200'" class="px-6 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 flex items-center gap-2">
+            <span class="material-symbols-outlined text-lg">person</span>
+            Per User
+          </button>
+          <button @click="mode = 'role'" :class="mode === 'role' ? 'bg-[#005daa] text-white shadow-lg shadow-[#005daa]/20' : 'bg-white text-slate-600 border border-slate-200'" class="px-6 py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 flex items-center gap-2">
+            <span class="material-symbols-outlined text-lg">badge</span>
+            Per Role
+          </button>
+        </div>
+
         <!-- Bento Layout Container -->
         <div class="grid grid-cols-12 gap-8">
           
-          <!-- User Selection & Role Template -->
+          <!-- Left Sidebar: Selection -->
           <section class="col-span-12 lg:col-span-4 space-y-8">
             <div class="bg-white rounded-xl p-8 shadow-sm border border-slate-100 relative">
               
-              <!-- Loading Overlay inside Selection Card -->
+              <!-- Loading Overlay -->
               <div v-if="loadingUsers" class="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-sm rounded-xl">
                  <div class="w-8 h-8 border-4 border-[#005daa] border-t-transparent rounded-full animate-spin"></div>
               </div>
 
-              <h3 class="text-lg font-bold mb-6 flex items-center gap-2 text-[#1a1c1c]">
-                <span class="material-symbols-outlined text-[#005daa]" data-icon="person_search">person_search</span>
-                Select Staff Member
-              </h3>
-              
-              <div class="space-y-4">
-                <div>
-                  <label class="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2 block">Personnel</label>
-                  <div class="relative">
-                    <select v-model="selectedUserId" @change="handleUserSelection" class="w-full bg-slate-50 border-none rounded-lg py-3 px-4 text-sm font-bold text-[#1a1c1c] focus:ring-2 focus:ring-[#005daa]/20 appearance-none">
-                      <option value="" disabled>-- Select a user --</option>
-                      <option v-for="user in users" :key="user.id" :value="user.id">
-                        {{ user.name }} {{ user.role_name ? `- ${user.role_name}` : '' }}
-                      </option>
-                    </select>
-                    <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">expand_more</span>
+              <!-- USER MODE -->
+              <template v-if="mode === 'user'">
+                <h3 class="text-lg font-bold mb-6 flex items-center gap-2 text-[#1a1c1c]">
+                  <span class="material-symbols-outlined text-[#005daa]">person_search</span>
+                  Select Staff Member
+                </h3>
+                <div class="space-y-4">
+                  <div>
+                    <label class="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2 block">Personnel</label>
+                    <div class="relative">
+                      <select v-model="selectedUserId" @change="handleUserSelection" class="w-full bg-slate-50 border-none rounded-lg py-3 px-4 text-sm font-bold text-[#1a1c1c] focus:ring-2 focus:ring-[#005daa]/20 appearance-none">
+                        <option value="" disabled>-- Select a user --</option>
+                        <option v-for="user in users" :key="user.id" :value="user.id">
+                          {{ user.name }} {{ user.role_name ? `- ${user.role_name}` : '' }}
+                        </option>
+                      </select>
+                      <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">expand_more</span>
+                    </div>
                   </div>
                 </div>
+              </template>
 
-                <div class="pt-4 border-t border-slate-100">
-                  <label class="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-4 block">Quick Role Templates</label>
-                  <div class="grid grid-cols-1 gap-2">
-                    <button @click="applyTemplate('ssgm_manager')" class="flex items-center justify-between p-3 rounded-lg bg-[#b45309]/10 text-[#b45309] hover:bg-[#b45309]/20 transition-colors text-sm font-semibold">
-                      SSGM Manager
-                      <span class="material-symbols-outlined text-lg">bolt</span>
-                    </button>
-                    <button @click="applyTemplate('head_coach')" class="flex items-center justify-between p-3 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 transition-colors text-sm font-semibold">
-                      Head Coach
-                      <span class="material-symbols-outlined text-lg">sports_soccer</span>
-                    </button>
-                    <button @click="applyTemplate('admin')" class="flex items-center justify-between p-3 rounded-lg bg-slate-50 text-slate-600 hover:bg-slate-100 transition-colors text-sm font-semibold">
-                      Administrator
-                      <span class="material-symbols-outlined text-lg">admin_panel_settings</span>
-                    </button>
+              <!-- ROLE MODE -->
+              <template v-else>
+                <h3 class="text-lg font-bold mb-6 flex items-center gap-2 text-[#1a1c1c]">
+                  <span class="material-symbols-outlined text-[#005daa]">badge</span>
+                  Select Role
+                </h3>
+                <div class="space-y-4">
+                  <div>
+                    <label class="text-[10px] uppercase tracking-wider font-bold text-slate-400 mb-2 block">System Role</label>
+                    <div class="relative">
+                      <select v-model="selectedRoleId" @change="handleRoleSelection" class="w-full bg-slate-50 border-none rounded-lg py-3 px-4 text-sm font-bold text-[#1a1c1c] focus:ring-2 focus:ring-[#005daa]/20 appearance-none">
+                        <option value="" disabled>-- Select a role --</option>
+                        <option v-for="role in rolesList" :key="role.id" :value="role.id">
+                          {{ role.name }}
+                        </option>
+                      </select>
+                      <span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">expand_more</span>
+                    </div>
+                  </div>
+
+                  <div v-if="selectedRoleId" class="mt-4 p-3 bg-blue-50 border border-blue-100 rounded-lg">
+                    <p class="text-[11px] text-[#005daa] font-semibold leading-relaxed">
+                      <span class="material-symbols-outlined text-sm align-middle mr-1">info</span>
+                      Pages assigned here will apply to <strong>all users</strong> with this role automatically.
+                    </p>
                   </div>
                 </div>
-              </div>
+              </template>
             </div>
 
-            <!-- Selected User Info Card -->
-            <div v-if="selectedUser" class="bg-[#005daa] rounded-xl p-8 text-white shadow-lg overflow-hidden relative">
+            <!-- Selected Info Card (User Mode) -->
+            <div v-if="mode === 'user' && selectedUser" class="bg-[#005daa] rounded-xl p-8 text-white shadow-lg overflow-hidden relative">
               <div class="relative z-10">
                 <div class="flex items-center gap-4 mb-6">
                   <div class="w-16 h-16 rounded-full border-2 border-white/20 bg-white/10 flex items-center justify-center font-black text-2xl uppercase">
@@ -71,7 +96,6 @@
                     <p class="text-xs text-[#a5c8ff] opacity-90">{{ selectedUser.email }}</p>
                   </div>
                 </div>
-                
                 <div class="space-y-3">
                   <div class="flex justify-between text-sm">
                     <span class="opacity-70">Role Group</span>
@@ -83,12 +107,34 @@
                   </div>
                 </div>
               </div>
-              <!-- Abstract Design Element -->
               <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
             </div>
-            <div v-else class="bg-slate-100 rounded-xl p-8 text-center border border-dashed border-slate-300">
+
+            <!-- Selected Info Card (Role Mode) -->
+            <div v-if="mode === 'role' && selectedRoleObj" class="bg-gradient-to-br from-[#005daa] to-[#003d7a] rounded-xl p-8 text-white shadow-lg overflow-hidden relative">
+              <div class="relative z-10">
+                <div class="flex items-center gap-4 mb-6">
+                  <div class="w-16 h-16 rounded-full border-2 border-white/20 bg-white/10 flex items-center justify-center font-black text-2xl">
+                     <span class="material-symbols-outlined text-3xl">badge</span>
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-xl">{{ selectedRoleObj.name }}</h4>
+                    <p class="text-xs text-[#a5c8ff] opacity-90">Role-level permissions</p>
+                  </div>
+                </div>
+                <div class="space-y-3">
+                  <div class="flex justify-between text-sm">
+                    <span class="opacity-70">Granted Modules</span>
+                    <span class="font-medium">{{ grantedCount }} Active</span>
+                  </div>
+                </div>
+              </div>
+              <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
+            </div>
+
+            <div v-if="(mode === 'user' && !selectedUser) || (mode === 'role' && !selectedRoleObj)" class="bg-slate-100 rounded-xl p-8 text-center border border-dashed border-slate-300">
                <span class="material-symbols-outlined text-4xl text-slate-300 mb-2">how_to_reg</span>
-               <p class="text-sm font-bold text-slate-400">Select a staff member above to view and edit their access.</p>
+               <p class="text-sm font-bold text-slate-400">{{ mode === 'user' ? 'Select a staff member above to view and edit their access.' : 'Select a role above to configure its page permissions.' }}</p>
             </div>
           </section>
 
@@ -96,7 +142,6 @@
           <section class="col-span-12 lg:col-span-8">
             <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden relative">
               
-              <!-- Loading Overlay inside Access Card -->
               <div v-if="loadingPermissions" class="absolute inset-0 z-10 flex items-center justify-center bg-white/70 backdrop-blur-sm">
                  <div class="w-8 h-8 border-4 border-[#005daa] border-t-transparent rounded-full animate-spin"></div>
               </div>
@@ -104,11 +149,13 @@
               <div class="p-8 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                   <h3 class="text-lg font-bold text-[#1a1c1c]">Sidebar Access Control</h3>
-                  <p class="text-xs text-slate-400 font-medium tracking-wide">Toggle individual dashboard visibility mapping.</p>
+                  <p class="text-xs text-slate-400 font-medium tracking-wide">
+                    {{ mode === 'user' ? 'Toggle individual dashboard visibility mapping.' : 'Configure which pages this role can access.' }}
+                  </p>
                 </div>
                 <div class="flex gap-3">
-                  <button @click="discardChanges" :disabled="!selectedUserId || isSaving" class="px-4 py-2 rounded-lg text-sm font-semibold text-[#005daa] bg-white border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50">Discard</button>
-                  <button @click="savePermissions" :disabled="!selectedUserId || isSaving" class="px-6 py-2 rounded-lg text-sm font-bold bg-[#005daa] text-white hover:bg-[#004785] transition-transform active:scale-95 shadow-md shadow-[#005daa]/20 disabled:opacity-50 flex items-center gap-2">
+                  <button @click="discardChanges" :disabled="!isAnythingSelected || isSaving" class="px-4 py-2 rounded-lg text-sm font-semibold text-[#005daa] bg-white border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50">Discard</button>
+                  <button @click="savePermissions" :disabled="!isAnythingSelected || isSaving" class="px-6 py-2 rounded-lg text-sm font-bold bg-[#005daa] text-white hover:bg-[#004785] transition-transform active:scale-95 shadow-md shadow-[#005daa]/20 disabled:opacity-50 flex items-center gap-2">
                     <span v-if="isSaving" class="material-symbols-outlined animate-spin text-sm">sync</span>
                     Save Changes
                   </button>
@@ -126,14 +173,12 @@
                   <tbody class="divide-y divide-slate-100">
                     
                     <template v-for="(group, gIndex) in moduleGroups" :key="gIndex">
-                      <!-- Group Header -->
                       <tr class="bg-slate-50/50">
                         <td colspan="2" class="px-8 py-3 text-[10px] uppercase tracking-widest font-black text-slate-500 bg-slate-100/50">
                           {{ group.header }}
                         </td>
                       </tr>
                       
-                      <!-- Group Items -->
                       <tr v-for="module in group.items" :key="module.to" class="hover:bg-slate-50 transition-colors group/row">
                         <td class="px-8 py-5">
                           <div class="flex items-center gap-4">
@@ -148,7 +193,7 @@
                         </td>
                         <td class="px-8 py-5 text-right flex justify-start pl-8 items-center h-[80px]">
                           <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" :value="module.to" v-model="grantedRoutes" :disabled="!selectedUserId" class="sr-only peer"/>
+                            <input type="checkbox" :value="module.to" v-model="grantedRoutes" :disabled="!isAnythingSelected" class="sr-only peer"/>
                             <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#005daa] peer-disabled:opacity-50"></div>
                             <span class="ml-3 text-xs font-bold text-slate-500 uppercase tracking-widest w-16 text-left">
                                {{ grantedRoutes.includes(module.to) ? 'Granted' : 'Hidden' }}
@@ -181,16 +226,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import sidebarItem from '@/layouts/dashboard/vertical-sidebar/sidebarItem';
 
-// Interfaces
 interface User {
   id: number;
   name: string;
   email: string;
   role_name: string | null;
   role_id: number;
+}
+
+interface RoleItem {
+  id: number;
+  name: string;
 }
 
 interface ModuleItem {
@@ -204,9 +253,13 @@ interface ModuleGroup {
   items: ModuleItem[];
 }
 
-// State
+const mode = ref<'user' | 'role'>('role');
 const users = ref<User[]>([]);
+const rolesList = ref<RoleItem[]>([]);
+
 const selectedUserId = ref<number | string>('');
+const selectedRoleId = ref<number | string>('');
+
 const grantedRoutes = ref<string[]>([]);
 const originalGrantedRoutes = ref<string[]>([]);
 
@@ -216,9 +269,16 @@ const isSaving = ref(false);
 
 const moduleGroups = ref<ModuleGroup[]>([]);
 
-// Computed
 const selectedUser = computed(() => {
   return users.value.find(u => u.id === selectedUserId.value) || null;
+});
+
+const selectedRoleObj = computed(() => {
+  return rolesList.value.find(r => r.id === selectedRoleId.value) || null;
+});
+
+const isAnythingSelected = computed(() => {
+  return mode.value === 'user' ? !!selectedUserId.value : !!selectedRoleId.value;
 });
 
 const totalModules = computed(() => {
@@ -231,13 +291,12 @@ const grantedCount = computed(() => {
   return grantedRoutes.value.length;
 });
 
-// Initializer
 onMounted(async () => {
   parseSidebarItems();
+  await fetchRoles();
   await fetchUsers();
 });
 
-// Helper: Flatten sidebar configuration to logically grouped sections
 const parseSidebarItems = () => {
   let currentHeader = 'General Modules';
   const groups: ModuleGroup[] = [];
@@ -251,7 +310,6 @@ const parseSidebarItems = () => {
       }
       currentHeader = item.header;
     } else {
-      // If it's a top level link (e.g., Dashboard)
       if (item.to) {
         currentGroupItems.push({
            title: item.title || 'Unknown',
@@ -259,13 +317,12 @@ const parseSidebarItems = () => {
            icon: item.icon
         });
       }
-      // If it has children
       if (item.children) {
         item.children.forEach(child => {
            currentGroupItems.push({
              title: `${item.title} - ${child.title}`,
              to: child.to || '',
-             icon: item.icon // inherit parent icon
+             icon: item.icon
            });
         });
       }
@@ -279,7 +336,6 @@ const parseSidebarItems = () => {
   moduleGroups.value = groups;
 };
 
-// Retrieve Material symbol string from ant design object/name if possible, fallback gracefully
 const getIconString = (iconRef: any) => {
   if (!iconRef) return 'folder';
   const name = iconRef.name || iconRef.displayName || 'folder';
@@ -300,7 +356,18 @@ const getIconString = (iconRef: any) => {
   return iconMap[name] || 'label';
 };
 
-// Data Fetchers
+const fetchRoles = async () => {
+  try {
+    const res = await fetch('/api/roles');
+    const data = await res.json();
+    if (data.success) {
+      rolesList.value = data.roles;
+    }
+  } catch (err) {
+    console.error('Fetch roles error:', err);
+  }
+};
+
 const fetchUsers = async () => {
   loadingUsers.value = true;
   try {
@@ -324,7 +391,6 @@ const handleUserSelection = async () => {
     const res = await fetch(`/api/access/permissions/${selectedUserId.value}`);
     const data = await res.json();
     if (data.success) {
-      // Filter for granted true
       const activeRoutes = data.permissions.filter((p: any) => p.is_granted).map((p: any) => p.route_path);
       grantedRoutes.value = [...activeRoutes];
       originalGrantedRoutes.value = [...activeRoutes];
@@ -337,23 +403,45 @@ const handleUserSelection = async () => {
   }
 };
 
+const handleRoleSelection = async () => {
+  if (!selectedRoleId.value) return;
+
+  loadingPermissions.value = true;
+  try {
+    const res = await fetch(`/api/access/role-permissions/${selectedRoleId.value}`);
+    const data = await res.json();
+    if (data.success) {
+      const activeRoutes = data.permissions.filter((p: any) => p.is_granted).map((p: any) => p.route_path);
+      grantedRoutes.value = [...activeRoutes];
+      originalGrantedRoutes.value = [...activeRoutes];
+    }
+  } catch (err) {
+    console.error('Fetch role permissions error:', err);
+    grantedRoutes.value = [];
+  } finally {
+    loadingPermissions.value = false;
+  }
+};
+
 const savePermissions = async () => {
-   if (!selectedUserId.value) return;
+   if (!isAnythingSelected.value) return;
    
    isSaving.value = true;
    try {
-     const res = await fetch('/api/access/permissions/save', {
+     const url = mode.value === 'user' ? '/api/access/permissions/save' : '/api/access/role-permissions/save';
+     const body = mode.value === 'user' 
+       ? { user_id: selectedUserId.value, permissions: grantedRoutes.value }
+       : { role_id: selectedRoleId.value, permissions: grantedRoutes.value };
+
+     const res = await fetch(url, {
        method: 'POST',
        headers: { 'Content-Type': 'application/json' },
-       body: JSON.stringify({
-         user_id: selectedUserId.value,
-         permissions: grantedRoutes.value
-       })
+       body: JSON.stringify(body)
      });
      
      const data = await res.json();
      if (data.success) {
-       alert('Permissions updated successfully.');
+       alert(mode.value === 'user' ? 'User permissions updated successfully.' : 'Role permissions updated successfully. All users with this role will see these pages.');
        originalGrantedRoutes.value = [...grantedRoutes.value];
      } else {
        alert('Error saving permissions.');
@@ -369,41 +457,6 @@ const savePermissions = async () => {
 const discardChanges = () => {
   grantedRoutes.value = [...originalGrantedRoutes.value];
 };
-
-const applyTemplate = (templateId: string) => {
-  let paths: string[] = [];
-  if (templateId === 'admin') {
-    // Grant all
-    moduleGroups.value.forEach(g => {
-      g.items.forEach(i => paths.push(i.to));
-    });
-  } else if (templateId === 'head_coach') {
-     // Dashboards, Assign, My, LP Master
-     paths = [
-       '/dashboard', 
-       '/curriculum/assign',
-       '/curriculum/my',
-       '/curriculum/master'
-     ];
-  } else if (templateId === 'ssgm_manager') {
-      // Student, exams, reports, gallery
-      paths = [
-        '/dashboard',
-        '/student',
-        '/exams',
-        '/exams/fill-marks',
-        '/school/gallery',
-        '/reports/match',
-        '/reports/parents',
-        '/reports/report-card'
-      ];
-  }
-  
-  // ensure we only assign paths that actually exist in the parsed list
-  const validPaths = moduleGroups.value.flatMap(g => g.items.map(i => i.to));
-  grantedRoutes.value = paths.filter(p => validPaths.includes(p));
-};
-
 </script>
 
 <style scoped>

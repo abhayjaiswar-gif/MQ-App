@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 // icons
 import {
   LogoutOutlined,
@@ -17,6 +17,14 @@ import { useAuthStore } from '@/stores/auth';
 
 const tab = ref(null);
 const authStore = useAuthStore();
+
+const currentUser = computed(() => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}');
+  } catch {
+    return {};
+  }
+});
 </script>
 
 <template>
@@ -29,8 +37,8 @@ const authStore = useAuthStore();
         <img src="@/assets/images/users/avatar-1.png" width="32" alt="Julia" />
       </v-avatar>
       <div>
-        <h6 class="text-h6 mb-0">JWT User</h6>
-        <p class="text-caption mb-0">UI/UX Designer</p>
+        <h6 class="text-h6 mb-0">{{ currentUser.name || 'User' }}</h6>
+        <p class="text-caption mb-0">{{ currentUser.email || '' }}</p>
       </div>
       <div class="ml-auto">
         <v-btn variant="text" color="primary" rounded="sm" icon size="large" @click="authStore.logout()">

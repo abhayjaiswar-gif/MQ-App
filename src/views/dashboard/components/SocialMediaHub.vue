@@ -15,18 +15,18 @@
     </v-card-item>
 
     <v-card-text class="pa-6">
-      <!-- 🎬 Instagram Videos Grid -->
-      <div class="mb-8">
-        <div class="flex items-center gap-2 mb-4">
-          <span class="material-symbols-outlined text-[#E1306C] text-lg font-bold">video_library</span>
-          <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Recent Reels</h3>
-        </div>
-        
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- 🎬 Instagram Videos Grid -->
+        <div class="mb-8">
+          <div class="flex items-center gap-2 mb-4">
+            <span class="material-symbols-outlined text-[#E1306C] text-lg font-bold">video_library</span>
+            <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Recent Reels</h3>
+          </div>
+          
+        <div class="grid grid-flow-col auto-cols-[calc(50%-8px)] lg:auto-cols-[calc(25%-12px)] gap-4 overflow-x-auto no-scrollbar -mx-2 px-2 scroll-smooth pb-4">
           <template v-if="content.videos && content.videos.length">
             <div v-for="video in content.videos" :key="video.id" 
                  @click="openUrl(video.url)"
-                 class="relative aspect-[9/16] bg-slate-100 rounded-2xl overflow-hidden group cursor-pointer border border-slate-50">
+                 class="relative aspect-[9/16] bg-slate-100 rounded-2xl overflow-hidden group cursor-pointer border border-slate-50 shadow-sm flex-shrink-0">
               
               <!-- Native Video Player (Autoplay) -->
               <template v-if="video.video_path">
@@ -39,58 +39,59 @@
                   class="absolute inset-0 w-full h-full object-cover"
                 ></video>
               </template>
-
-              <!-- Thumbnail Fallback -->
-              <template v-else>
-                <img :src="video.thumbnail_url?.startsWith('http') ? video.thumbnail_url : '/uploads/' + video.thumbnail_url" 
-                     class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-              </template>
-              
-              <div class="absolute inset-0 bg-black/10 group-hover:bg-black/30 transition-all flex flex-col justify-end p-4">
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="material-symbols-outlined text-white text-md">play_circle</span>
-                  <span class="text-white text-[10px] font-bold truncate">{{ video.title }}</span>
-                </div>
-              </div>
-            </div>
-          </template>
-          <template v-else>
-            <!-- Premium Placeholders -->
-            <div v-for="i in 4" :key="i" class="relative aspect-[9/16] bg-slate-100 rounded-2xl overflow-hidden group cursor-pointer border border-slate-50 shadow-inner animate-pulse">
-               <div class="absolute inset-0 flex items-center justify-center">
-                  <span class="material-symbols-outlined text-slate-300 text-3xl">play_arrow</span>
+ 
+               <!-- Thumbnail Fallback -->
+               <template v-else>
+                 <img :src="video.thumbnail_url?.startsWith('http') ? video.thumbnail_url : '/uploads/' + video.thumbnail_url" 
+                      class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+               </template>
+               
+               <div class="absolute inset-0 bg-black/10 group-hover:bg-black/30 transition-all flex flex-col justify-end p-4">
+                 <div class="flex items-center gap-2 mb-1">
+                   <div class="bg-white/20 backdrop-blur-md rounded-full p-1.5 flex items-center justify-center">
+                    <span class="material-symbols-outlined text-white text-[14px]">play_arrow</span>
+                   </div>
+                   <span class="text-white text-[10px] font-black truncate drop-shadow-md uppercase tracking-widest opacity-90">{{ video.title }}</span>
+                 </div>
                </div>
             </div>
-          </template>
+           </template>
+           <template v-else>
+             <div v-for="i in 4" :key="i" class="relative aspect-[9/16] bg-slate-100 rounded-2xl overflow-hidden animate-pulse flex-shrink-0">
+                <div class="absolute inset-0 flex items-center justify-center">
+                   <span class="material-symbols-outlined text-slate-200 text-3xl opacity-50">movie</span>
+                </div>
+             </div>
+           </template>
         </div>
-      </div>
-
-      <!-- 🖼️ School Activity Photos -->
-      <div>
-        <div class="flex items-center gap-2 mb-4">
-          <span class="material-symbols-outlined text-[#1890FF] text-lg font-bold">photo_camera</span>
-          <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">School Snapshots</h3>
         </div>
-        
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+  
+        <!-- 🖼️ School Activity Photos -->
+        <div>
+          <div class="flex items-center gap-2 mb-4">
+            <span class="material-symbols-outlined text-[#1890FF] text-lg font-bold">photo_camera</span>
+            <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">School Snapshots</h3>
+          </div>
+          
+          <div class="grid grid-flow-col auto-cols-[calc(50%-8px)] md:auto-cols-[calc(25%-12px)] gap-4 overflow-x-auto no-scrollbar -mx-2 px-2 scroll-smooth pb-4">
           <template v-if="content.photos && content.photos.length">
             <div v-for="photo in content.photos" :key="photo.id" 
                  @click="openUrl(photo.url)"
-                 class="relative aspect-square bg-slate-100 rounded-2xl overflow-hidden group cursor-pointer border border-slate-50">
+                 class="relative aspect-square bg-slate-100 rounded-2xl overflow-hidden group cursor-pointer border border-slate-50 shadow-sm flex-shrink-0">
               <img :src="photo.thumbnail_url?.startsWith('http') ? photo.thumbnail_url : '/uploads/' + photo.thumbnail_url" 
                    class="w-full h-full object-cover transition-all duration-300 group-hover:scale-105" />
-              <div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+              <div class="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                 <p class="text-[9px] text-white font-black uppercase tracking-widest">{{ photo.title || 'Academy' }}</p>
               </div>
             </div>
           </template>
           <template v-else>
-            <div v-for="i in 8" :key="i" class="aspect-square bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center">
-               <span class="material-symbols-outlined text-slate-200">image</span>
+            <div v-for="i in 8" :key="i" class="aspect-square bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center animate-pulse flex-shrink-0">
+               <span class="material-symbols-outlined text-slate-200 opacity-50">image</span>
             </div>
           </template>
         </div>
-      </div>
+        </div>
     </v-card-text>
   </v-card>
 </template>
@@ -133,4 +134,15 @@ onMounted(() => {
 .text-slate-900 { color: #0F172A !important; }
 .text-slate-400 { color: #94A3B8 !important; }
 .tracking-wider { letter-spacing: 0.1em !important; }
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.no-scrollbar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
 </style>

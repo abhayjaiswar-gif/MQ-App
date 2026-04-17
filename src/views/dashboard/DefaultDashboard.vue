@@ -2,7 +2,7 @@
 import WidgetFive from './components/WidgetFive.vue';
 import SocialMediaHub from './components/SocialMediaHub.vue';
 import RaiseTicketCard from './components/RaiseTicketCard.vue';
-import AcademyRoster from './components/AcademyRoster.vue';
+import StudentHighlights from './components/StudentHighlights.vue';
 import MiniCalendar from './components/MiniCalendar.vue';
 import HighlightSwiper from './components/HighlightSwiper.vue';
 </script>
@@ -19,8 +19,8 @@ import HighlightSwiper from './components/HighlightSwiper.vue';
       <!-- Social Media & Activity Hub -->
       <SocialMediaHub />
       
-      <!-- Academy Student Roster -->
-      <AcademyRoster />
+      <!-- Students Highlight Swiper -->
+      <StudentHighlights />
     </v-col>
 
     <!-- 📊 SIDEBAR CONTENT (Right Column) -->

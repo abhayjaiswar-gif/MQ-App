@@ -63,100 +63,160 @@ async function validate() {
 </script>
 
 <template>
-  <div class="d-flex justify-space-between align-center">
-    <h3 class="text-h3 text-center mb-0">Sign up</h3>
-    <router-link to="/login1" class="text-primary text-decoration-none">Already have an account?</router-link>
-  </div>
-  <v-form ref="Regform" lazy-validation action="/dashboards/analytical" class="mt-7 loginForm">
-    <v-row class="my-0">
-      <v-col cols="12" sm="6" class="py-0">
-        <div class="mb-6">
-          <v-label>First Name*</v-label>
-          <v-text-field
-            v-model="firstname"
-            :rules="firstRules"
-            hide-details="auto"
-            required
-            variant="outlined"
-            class="mt-2"
-            color="primary"
-            placeholder="John"
-          ></v-text-field>
-        </div>
-      </v-col>
-      <v-col cols="12" sm="6" class="py-0">
-        <div class="mb-6">
-          <v-label>Last Name*</v-label>
-          <v-text-field
-            v-model="lastname"
-            :rules="lastRules"
-            hide-details="auto"
-            required
-            variant="outlined"
-            class="mt-2"
-            color="primary"
-            placeholder="Doe"
-          ></v-text-field>
-        </div>
-      </v-col>
-    </v-row>
-    <div class="mb-6">
-      <v-label>Company</v-label>
-      <v-text-field hide-details="auto" variant="outlined" class="mt-2" color="primary" placeholder="Demo Inc."></v-text-field>
-    </div>
-    <div class="mb-6">
-      <v-label>Email Address*</v-label>
-      <v-text-field
-        v-model="email"
-        :rules="emailRules"
-        placeholder="demo@company.com"
-        class="mt-2"
-        required
-        hide-details="auto"
-        variant="outlined"
-        color="primary"
-        @input="email"
-      ></v-text-field>
-    </div>
-    <div class="mb-6">
-      <v-label>Password</v-label>
-      <v-text-field
-        v-model="password"
-        :rules="passwordRules"
-        placeholder="*****"
-        required
-        variant="outlined"
-        color="primary"
-        hide-details="auto"
-        :type="show1 ? 'text' : 'password'"
-        class="mt-2"
-        @input="password"
+  <div>
+    <v-form ref="Regform" lazy-validation class="mt-4 loginForm">
+
+      <!-- NAME GRID -->
+      <v-row class="my-0">
+        <v-col cols="12" sm="6" class="py-0">
+          <div class="mb-6">
+            <p class="text-[11px] font-black uppercase tracking-widest text-[#001c3a] mb-2 pl-1">First Name</p>
+            <v-text-field
+              v-model="firstname"
+              :rules="firstRules"
+              hide-details="auto"
+              required
+              variant="outlined"
+              class="modern-input shadow-sm hover:shadow-md transition-shadow"
+              color="#005daa"
+              base-color="#e2e8f0"
+              bg-color="white"
+              placeholder="John"
+            ></v-text-field>
+          </div>
+        </v-col>
+        <v-col cols="12" sm="6" class="py-0">
+          <div class="mb-6">
+            <p class="text-[11px] font-black uppercase tracking-widest text-[#001c3a] mb-2 pl-1">Last Name</p>
+            <v-text-field
+              v-model="lastname"
+              :rules="lastRules"
+              hide-details="auto"
+              required
+              variant="outlined"
+              class="modern-input shadow-sm hover:shadow-md transition-shadow"
+              color="#005daa"
+              base-color="#e2e8f0"
+              bg-color="white"
+              placeholder="Doe"
+            ></v-text-field>
+          </div>
+        </v-col>
+      </v-row>
+
+      <!-- COMPANY -->
+      <div class="mb-6">
+        <p class="text-[11px] font-black uppercase tracking-widest text-[#001c3a] mb-2 pl-1">Academy / School</p>
+        <v-text-field 
+          hide-details="auto" 
+          variant="outlined" 
+          class="modern-input shadow-sm hover:shadow-md transition-shadow" 
+          color="#005daa"
+          base-color="#e2e8f0"
+          bg-color="white"
+          placeholder="EduSport Academy High"
+        ></v-text-field>
+      </div>
+
+      <!-- EMAIL -->
+      <div class="mb-6">
+        <p class="text-[11px] font-black uppercase tracking-widest text-[#001c3a] mb-2 pl-1">Business Email Address</p>
+        <v-text-field
+          v-model="email"
+          :rules="emailRules"
+          placeholder="admin@academy.edu"
+          required
+          hide-details="auto"
+          variant="outlined"
+          class="modern-input shadow-sm hover:shadow-md transition-shadow"
+          color="#005daa"
+          base-color="#e2e8f0"
+          bg-color="white"
+          @input="email"
+        ></v-text-field>
+      </div>
+
+      <!-- PASSWORD -->
+      <div class="mb-2">
+        <p class="text-[11px] font-black uppercase tracking-widest text-[#001c3a] mb-2 pl-1">Secure Password</p>
+        <v-text-field
+          v-model="password"
+          :rules="passwordRules"
+          placeholder="••••••••••••"
+          required
+          variant="outlined"
+          class="modern-input shadow-sm hover:shadow-md transition-shadow"
+          color="#005daa"
+          base-color="#e2e8f0"
+          bg-color="white"
+          hide-details="auto"
+          :type="show1 ? 'text' : 'password'"
+          @input="password"
+        >
+          <template #append-inner>
+            <v-btn icon variant="text" size="small" class="opacity-60 hover:opacity-100">
+              <EyeInvisibleOutlined v-if="!show1" @click="show1 = true" />
+              <EyeOutlined v-else @click="show1 = false" />
+            </v-btn>
+          </template>
+        </v-text-field>
+      </div>
+
+      <!-- TERMS -->
+      <div class="mt-4 mb-8 pl-1">
+        <p class="text-xs font-semibold text-slate-500">
+          By signing up, you agree to our
+          <a href="#" class="text-[#005daa] hover:underline font-bold">Terms of Service</a>
+          and
+          <a href="#" class="text-[#005daa] hover:underline font-bold">Privacy Policy</a>.
+        </p>
+      </div>
+
+      <!-- BUTTON -->
+      <v-btn 
+        color="#005daa" 
+        block 
+        class="login-btn rounded-xl shadow-[0_8px_20px_rgba(0,93,170,0.25)] hover:scale-[1.02] transition-transform font-black uppercase tracking-widest text-[12px]" 
+        size="x-large" 
+        height="56"
+        @click="validate()" 
+        :loading="isSubmitting"
       >
-        <template v-slot:append-inner>
-          <v-btn color="secondary" icon rounded variant="text">
-            <EyeInvisibleOutlined :style="{ color: 'rgb(var(--v-theme-secondary))' }" v-if="show1 == false" @click="show1 = !show1" />
-            <EyeOutlined :style="{ color: 'rgb(var(--v-theme-secondary))' }" v-if="show1 == true" @click="show1 = !show1" />
-          </v-btn>
-        </template>
-      </v-text-field>
-    </div>
+        Sign Up Now
+      </v-btn>
 
-    <div class="d-sm-inline-flex align-center mt-2 mb-7 mb-sm-0 font-weight-bold">
-      <h6 class="text-caption">
-        By Signing up, you agree to our
-        <router-link to="/register" class="text-primary link-hover font-weight-medium">Terms of Service </router-link>
-        and
-        <router-link to="/register" class="text-primary link-hover font-weight-medium">Privacy Policy</router-link>
-      </h6>
-    </div>
-    <v-btn color="primary" block class="mt-4" variant="flat" size="large" @click="validate()" :loading="isSubmitting">Create Account</v-btn>
+      <!-- ALERTS -->
+      <div v-if="apiSuccess" class="mt-4">
+        <v-alert type="success" variant="tonal" class="rounded-xl border border-emerald-200">
+           <span class="text-xs font-black">{{ apiSuccess }}</span>
+        </v-alert>
+      </div>
+      <div v-if="apiError" class="mt-4">
+        <v-alert type="error" variant="tonal" class="rounded-xl border border-red-200">
+           <span class="text-xs font-black">{{ apiError }}</span>
+        </v-alert>
+      </div>
 
-    <!-- SUCCESS / ERROR ALERTS -->
-    <v-alert v-if="apiSuccess" type="success" variant="tonal" class="mt-4">
-      {{ apiSuccess }}
-    </v-alert>
-    <v-alert v-if="apiError" type="error" variant="tonal" class="mt-4">
-      {{ apiError }}
-    </v-alert>
-  </v-form>
+      <div class="mt-6 text-center">
+         <p class="text-xs font-semibold text-slate-500">
+            Already have an account? 
+            <router-link to="/login1" class="text-[#005daa] font-bold ml-1 hover:underline">Log in</router-link>
+         </p>
+      </div>
+
+    </v-form>
+  </div>
 </template>
+
+<style scoped>
+.modern-input :deep(.v-field__outline) { 
+   border-radius: 16px !important; 
+}
+.modern-input :deep(.v-field__input) { 
+   font-weight: 600 !important; 
+   color: #0f172a !important;
+}
+.login-btn {
+  background: linear-gradient(135deg, #005daa 0%, #004580 100%) !important;
+}
+</style>

@@ -36,92 +36,101 @@ async function validate(values: any, { setErrors }: any) {
 </script>
 
 <template>
-  <div class="d-flex justify-space-between align-center">
-    <h3 class="text-h3 text-center mb-0">Login</h3>
-    <router-link to="/register" class="text-primary text-decoration-none">
-      Don't Have an account?
-    </router-link>
-  </div>
+  <div>
+    <Form @submit="validate" class="mt-4 loginForm" v-slot="{ errors, isSubmitting }">
 
-  <Form @submit="validate" class="mt-7 loginForm" v-slot="{ errors, isSubmitting }">
-
-    <!-- EMAIL -->
-    <div class="mb-6">
-      <v-label>Email Address</v-label>
-      <v-text-field
-        v-model="username"
-        :rules="emailRules"
-        class="mt-2"
-        variant="outlined"
-        color="primary"
-        hide-details="auto"
-      />
-    </div>
-
-    <!-- PASSWORD -->
-    <div>
-      <v-label>Password</v-label>
-      <v-text-field
-        v-model="password"
-        :rules="passwordRules"
-        :type="show1 ? 'text' : 'password'"
-        class="mt-2"
-        variant="outlined"
-        color="primary"
-        hide-details="auto"
-      >
-        <template #append-inner>
-          <v-btn icon variant="text">
-            <EyeInvisibleOutlined
-              v-if="!show1"
-              @click="show1 = true"
-            />
-            <EyeOutlined
-              v-else
-              @click="show1 = false"
-            />
-          </v-btn>
-        </template>
-      </v-text-field>
-    </div>
-
-    <!-- REMEMBER -->
-    <div class="d-flex align-center mt-4 mb-7">
-      <v-checkbox
-        v-model="checkbox"
-        label="Keep me signed in"
-        color="primary"
-        hide-details
-      />
-      <div class="ml-auto">
-        <router-link to="/login1" class="text-darkText">
-          Forgot Password?
-        </router-link>
+      <!-- EMAIL -->
+      <div class="mb-6">
+        <p class="text-[11px] font-black uppercase tracking-widest text-[#001c3a] mb-2 pl-1">Business Email</p>
+        <v-text-field
+          v-model="username"
+          :rules="emailRules"
+          placeholder="name@academy.edu"
+          variant="outlined"
+          color="#005daa"
+          hide-details="auto"
+          class="modern-input shadow-sm hover:shadow-md transition-shadow"
+          base-color="#e2e8f0"
+          bg-color="white"
+        />
       </div>
-    </div>
 
-    <!-- BUTTON -->
-    <v-btn
-      color="primary"
-      :loading="isSubmitting"
-      block
-      class="mt-5"
-      size="large"
-      type="submit"
-    >
-      Login
-    </v-btn>
+      <!-- PASSWORD -->
+      <div class="mb-2">
+        <div class="flex justify-between items-end mb-2 pl-1">
+           <p class="text-[11px] font-black uppercase tracking-widest text-[#001c3a]">Password</p>
+           <router-link to="/login1" class="text-[11px] font-bold text-[#005daa] hover:underline pr-1">
+             Forgot Password?
+           </router-link>
+        </div>
+        <v-text-field
+          v-model="password"
+          :rules="passwordRules"
+          placeholder="••••••••••••"
+          :type="show1 ? 'text' : 'password'"
+          variant="outlined"
+          color="#005daa"
+          hide-details="auto"
+          class="modern-input shadow-sm hover:shadow-md transition-shadow"
+          base-color="#e2e8f0"
+          bg-color="white"
+        >
+          <template #append-inner>
+            <v-btn icon variant="text" size="small" class="opacity-60 hover:opacity-100">
+              <EyeInvisibleOutlined v-if="!show1" @click="show1 = true" />
+              <EyeOutlined v-else @click="show1 = false" />
+            </v-btn>
+          </template>
+        </v-text-field>
+      </div>
 
-    <!-- ERROR -->
-    <div v-if="errors.apiError" class="mt-2">
-      <v-alert color="error">{{ errors.apiError }}</v-alert>
-    </div>
+      <!-- REMEMBER -->
+      <div class="flex items-center mb-8 ml-n2">
+        <v-checkbox
+          v-model="checkbox"
+          color="#005daa"
+          hide-details
+          density="compact"
+        >
+           <template #label>
+              <span class="text-xs font-semibold text-slate-500">Keep me signed in for 30 days</span>
+           </template>
+        </v-checkbox>
+      </div>
 
-  </Form>
+      <!-- BUTTON -->
+      <v-btn
+        color="#005daa"
+        :loading="isSubmitting"
+        block
+        class="login-btn rounded-xl shadow-[0_8px_20px_rgba(0,93,170,0.25)] hover:scale-[1.02] transition-transform font-black uppercase tracking-widest text-[12px]"
+        size="x-large"
+        height="56"
+        type="submit"
+      >
+        Access Dashboard
+      </v-btn>
+
+      <!-- ERROR -->
+      <div v-if="errors.apiError" class="mt-4">
+        <v-alert color="error" variant="tonal" class="rounded-xl border border-red-200">
+           <span class="text-xs font-black">{{ errors.apiError }}</span>
+        </v-alert>
+      </div>
+
+    </Form>
+  </div>
 </template>
 
 <style scoped>
-.loginForm .v-text-field input {
-  font-weight: 500;
+.modern-input :deep(.v-field__outline) { 
+   border-radius: 16px !important; 
+}
+.modern-input :deep(.v-field__input) { 
+   font-weight: 600 !important; 
+   color: #0f172a !important;
+}
+.login-btn {
+  background: linear-gradient(135deg, #005daa 0%, #004580 100%) !important;
 }
 </style>

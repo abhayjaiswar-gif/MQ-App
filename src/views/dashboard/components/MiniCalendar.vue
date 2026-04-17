@@ -46,8 +46,8 @@
       <!-- 📋 Upcoming Mini List (Timeline Countdown) -->
       <div class="space-y-4">
          <h4 class="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Highlights Timeline</h4>
-         <div v-if="upcomingEvents.length" class="relative before:absolute before:inset-y-0 before:left-[19px] before:w-px before:bg-slate-100 space-y-4 pl-1">
-            <div v-for="(event, i) in upcomingEvents.slice(0,3)" :key="event.id" class="relative pl-12">
+         <div v-if="upcomingEvents.length" class="relative before:absolute before:inset-y-0 before:left-[19px] before:w-px before:bg-slate-100 space-y-4 pl-1 max-h-[260px] overflow-y-auto custom-scroll pr-2 pb-2">
+            <div v-for="(event, i) in upcomingEvents" :key="event.id" class="relative pl-12">
                <!-- Timeline Dot -->
                <div class="absolute left-[-2px] top-1/2 -translate-y-1/2 w-[42px] h-[42px] rounded-xl flex flex-col items-center justify-center shadow-sm border-[3px] border-white z-10" :class="getCategoryTag(event.category)">
                   <span class="text-[7px] font-black uppercase leading-none">{{ formatMonth(event.event_date) }}</span>
@@ -161,8 +161,9 @@ const calendarDays = computed(() => {
       currentMonth: true,
       isToday: today.getFullYear() === currentYear.value && today.getMonth() === currentMonth.value && today.getDate() === i,
       events: mergedEvents.value.filter(e => {
-        const eDate = String(e.event_date).split('T')[0];
-        return eDate === dStr;
+        const eDateObj = new Date(e.event_date);
+        const eDateLocalStr = `${eDateObj.getFullYear()}-${String(eDateObj.getMonth() + 1).padStart(2,'0')}-${String(eDateObj.getDate()).padStart(2,'0')}`;
+        return eDateLocalStr === dStr;
       })
     });
   }
@@ -223,4 +224,9 @@ onMounted(() => {
 .custom-field :deep(.v-field__input) { color: #1e293b !important; font-weight: 600 !important; font-size: 13px !important; }
 @keyframes pulse { 0% { opacity: 0.5; transform: scale(0.8); } 50% { opacity: 1; transform: scale(1.1); } 100% { opacity: 0.5; transform: scale(0.8); } }
 .animate-pulse { animation: pulse 2s ease-in-out infinite; }
+
+.custom-scroll::-webkit-scrollbar { width: 4px; }
+.custom-scroll::-webkit-scrollbar-track { background: transparent; }
+.custom-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+.custom-scroll::-webkit-scrollbar-thumb:hover { background: #cbd5e1; }
 </style>

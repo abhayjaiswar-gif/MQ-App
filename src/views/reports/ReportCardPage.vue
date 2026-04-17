@@ -231,6 +231,14 @@ const downloadSinglePdf = (resultId: string | number) => {
   window.open(`/api/reports/download-single/${resultId}?overrides=${encodeURIComponent(options)}`, '_blank');
 };
 
+const viewReportCard = (resultId: string | number, showQr: boolean) => {
+  const options = JSON.stringify({
+    selectedTerm: selectedTerm.value,
+    showScanner: showQr
+  });
+  window.open(`/api/reports/download-single/${resultId}?overrides=${encodeURIComponent(options)}`, '_blank');
+};
+
 const openPreview = async (resultId: string | number) => {
   previewLoading.value = true;
   showPreview.value = true;
@@ -477,22 +485,46 @@ onMounted(fetchFilters);
                   </span>
                 </td>
                 <td class="px-8 py-5 text-right">
-                  <div v-if="student.status === 'Generated'" class="flex items-center justify-end gap-3">
-                    <button @click="openPreview(student.id)"
-                      class="bg-white text-primary font-bold text-[10px] px-3 py-1.5 rounded-lg border border-primary/20 hover:bg-primary hover:text-white transition-all shadow-sm uppercase tracking-widest">
-                      Preview
-                    </button>
-                    <button @click="downloadSinglePdf(student.id)"
-                      class="bg-primary text-white font-bold text-[10px] px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-all shadow-sm flex items-center gap-1 uppercase tracking-widest">
-                      <span class="material-symbols-outlined text-[14px]">download</span> PDF
-                    </button>
+                  <div class="flex items-center justify-end gap-2">
+                    <!-- View button with QR choice dropdown -->
+                    <v-menu location="bottom end" offset="4">
+                      <template v-slot:activator="{ props }">
+                        <button v-bind="props"
+                          class="bg-white text-[#005daa] font-bold text-[10px] px-3 py-1.5 rounded-lg border border-[#005daa]/20 hover:bg-[#005daa] hover:text-white transition-all shadow-sm uppercase tracking-widest flex items-center gap-1">
+                          <span class="material-symbols-outlined text-[14px]">visibility</span> View
+                          <span class="material-symbols-outlined text-[12px]">expand_more</span>
+                        </button>
+                      </template>
+                      <v-list density="compact" class="rounded-xl shadow-xl border border-slate-100 py-1" min-width="180">
+                        <v-list-item @click="viewReportCard(student.id, true)" class="px-4">
+                          <template v-slot:prepend>
+                            <span class="material-symbols-outlined text-[#005daa] text-lg mr-3">qr_code_2</span>
+                          </template>
+                          <v-list-item-title class="text-xs font-bold">With QR Code</v-list-item-title>
+                        </v-list-item>
+                        <v-list-item @click="viewReportCard(student.id, false)" class="px-4">
+                          <template v-slot:prepend>
+                            <span class="material-symbols-outlined text-slate-400 text-lg mr-3">qr_code_2_off</span>
+                          </template>
+                          <v-list-item-title class="text-xs font-bold">Without QR Code</v-list-item-title>
+                        </v-list-item>
+                      </v-list>
+                    </v-menu>
+                    <template v-if="student.status === 'Generated'">
+                      <button @click="downloadSinglePdf(student.id)"
+                        class="bg-[#005daa] text-white font-bold text-[10px] px-3 py-1.5 rounded-lg hover:bg-[#005daa]/90 transition-all shadow-sm flex items-center gap-1 uppercase tracking-widest">
+                        <span class="material-symbols-outlined text-[14px]">download</span> PDF
+                      </button>
+                    </template>
+                    <template v-else-if="student.status === 'Pending'">
+                      <button @click="startBulkGeneration"
+                        class="bg-surface-container-high text-on-surface font-bold text-[10px] px-3 py-1.5 rounded-lg hover:bg-[#005daa] hover:text-white transition-all shadow-sm uppercase tracking-widest">
+                        Generate
+                      </button>
+                    </template>
+                    <span v-else
+                      class="text-[10px] font-bold text-on-surface-variant uppercase italic animate-pulse">Syncing...</span>
                   </div>
-                  <button v-else-if="student.status === 'Pending'" @click="startBulkGeneration"
-                    class="bg-surface-container-high text-on-surface font-bold text-[10px] px-3 py-1.5 rounded-lg hover:bg-primary hover:text-white transition-all shadow-sm uppercase tracking-widest">
-                    Generate
-                  </button>
-                  <span v-else
-                    class="text-[10px] font-bold text-on-surface-variant uppercase italic animate-pulse">Syncing...</span>
                 </td>
               </tr>
               <tr v-if="hasMore" v-intersect="handleIntersect">
@@ -524,74 +556,6 @@ onMounted(fetchFilters);
             <button class="p-2 rounded-lg hover:bg-surface-container text-on-surface-variant transition-all">
               <span class="material-symbols-outlined text-sm">chevron_right</span>
             </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Summary Metric Footer -->
-      <div class="grid grid-cols-4 gap-6 mt-10 pb-12">
-        <div
-          class="bg-white p-6 rounded-2xl shadow-sm border border-outline-variant/10 group hover:shadow-md transition-all">
-          <div class="flex items-start justify-between mb-4">
-            <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">Approved Reports</p>
-            <div class="p-2 bg-green-50 rounded-lg">
-              <span class="material-symbols-outlined text-green-600 text-lg">verified</span>
-            </div>
-          </div>
-          <div class="flex items-end justify-between">
-            <p class="text-3xl font-extrabold font-headline text-on-surface">842</p>
-            <div class="text-[10px] text-green-600 font-bold flex items-center bg-green-50 px-2 py-1 rounded-full">
-              <span class="material-symbols-outlined text-[12px] mr-1">trending_up</span>
-              12%
-            </div>
-          </div>
-          <div class="mt-3 w-full bg-surface-container h-1 rounded-full overflow-hidden">
-            <div class="bg-green-500 h-full w-[85%]"></div>
-          </div>
-        </div>
-        <div
-          class="bg-white p-6 rounded-2xl shadow-sm border border-outline-variant/10 group hover:shadow-md transition-all">
-          <div class="flex items-start justify-between mb-4">
-            <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">Awaiting Signature</p>
-            <div class="p-2 bg-amber-50 rounded-lg">
-              <span class="material-symbols-outlined text-amber-600 text-lg">signature</span>
-            </div>
-          </div>
-          <p class="text-3xl font-extrabold font-headline text-on-surface">156</p>
-          <div class="mt-2 text-[10px] text-on-surface-variant font-bold flex items-center">
-            <span class="material-symbols-outlined text-[12px] mr-1">history</span>
-            In Principal's Queue
-          </div>
-        </div>
-        <div
-          class="bg-white p-6 rounded-2xl shadow-sm border border-outline-variant/10 group hover:shadow-md transition-all text-error">
-          <div class="flex items-start justify-between mb-4">
-            <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">Failed Generations</p>
-            <div class="p-2 bg-red-50 rounded-lg">
-              <span class="material-symbols-outlined text-red-600 text-lg">warning</span>
-            </div>
-          </div>
-          <p class="text-3xl font-extrabold font-headline">3</p>
-          <div class="mt-2 text-[10px] font-bold flex items-center">
-            <span class="material-symbols-outlined text-[12px] mr-1">report_problem</span>
-            Requires re-entry
-          </div>
-        </div>
-        <div
-          class="bg-white p-6 rounded-2xl shadow-sm border border-outline-variant/10 group hover:shadow-md transition-all">
-          <div class="flex items-start justify-between mb-4">
-            <p class="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">Generation Speed</p>
-            <div class="p-2 bg-primary/5 rounded-lg">
-              <span class="material-symbols-outlined text-primary text-lg">speed</span>
-            </div>
-          </div>
-          <div class="flex items-end space-x-1">
-            <p class="text-3xl font-extrabold font-headline text-on-surface">1.2s</p>
-            <span class="text-xs font-bold text-on-surface-variant pb-1">/report</span>
-          </div>
-          <div class="mt-2 text-[10px] text-on-surface-variant font-bold flex items-center">
-            <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1.5"></span>
-            Server Status: Healthy
           </div>
         </div>
       </div>

@@ -25,8 +25,8 @@
             <div class="flex items-start justify-between mb-4">
               <div
                 class="w-14 h-14 bg-white rounded-2xl flex items-center justify-center border border-slate-200 shrink-0 overflow-hidden shadow-sm p-2">
-                <img v-if="school.school_logo" :src="`/uploads/${encodeURIComponent(school.school_logo)}`" @error="handleImageError"
-                  class="w-full h-full object-contain" />
+                <img v-if="school.school_logo" :src="`/uploads/${encodeURIComponent(school.school_logo)}`"
+                  @error="handleImageError" class="w-full h-full object-contain" />
                 <span v-else class="text-primary font-bold text-xl">{{ school.name?.charAt(0) }}</span>
               </div>
               <span
@@ -168,7 +168,7 @@
             <span class="px-3 py-1 bg-primary/10 text-primary font-bold rounded-full text-xs shrink-0">{{
               selectedMonthYear }}</span>
             <span class="px-3 py-1 bg-slate-100 text-slate-600 font-bold rounded-full text-xs shrink-0">{{ selectedWeek
-              }}</span>
+            }}</span>
           </div>
         </div>
         <div class="flex items-center gap-3">
@@ -187,19 +187,19 @@
 
       <!-- PAGE 1: PREMIUM COVER Experience -->
       <section
-        class="report-cover relative h-[700px] mb-12 rounded-[32px] overflow-hidden shadow-2xl flex flex-col justify-between p-12 text-white page-break-after mx-auto">
+        class="report-cover relative h-[700px] mb-12 rounded-[32px] overflow-hidden shadow-2xl flex flex-col justify-between p-12 text-slate-800 page-break-after mx-auto">
         <!-- Hero Visual Background -->
-        <div class="absolute inset-0 z-0">
+        <div class="absolute inset-0 z-0 bg-white">
           <img src="@/assets/report-cover.png"
-            class="w-full h-full object-cover brightness-[0.7] transform hover:scale-105 transition-transform duration-[10s]" />
-          <div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/80"></div>
+            class="w-full h-full object-contain opacity-40 transform hover:scale-105 transition-transform duration-[10s]" />
+          <div class="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-white/60"></div>
         </div>
 
         <!-- Top Layer: Dual Branding -->
         <div class="relative z-10 flex justify-between items-start">
           <!-- Left: School Branding Box -->
           <div
-            class="w-24 h-24 bg-white rounded-2xl p-4 border border-white/20 flex items-center justify-center shadow-lg">
+            class="w-24 h-24 bg-white rounded-2xl p-4 border border-slate-200 flex items-center justify-center shadow-lg">
             <img v-if="selectedSchool.school_logo" :src="`/uploads/${encodeURIComponent(selectedSchool.school_logo)}`"
               @error="handleImageError" class="w-full h-full object-contain" />
             <span v-else class="text-3xl font-black text-slate-800">S</span>
@@ -208,34 +208,36 @@
           <!-- Right: Company Branding Box -->
           <div class="flex flex-col items-end">
             <div
-              class="w-24 h-24 bg-white rounded-2xl p-4 border border-white/20 flex items-center justify-center shadow-lg">
+              class="w-24 h-24 bg-white rounded-2xl p-4 border border-slate-200 flex items-center justify-center shadow-lg">
               <img :src="companyLogo" alt="ESA Logo" class="w-full h-full object-contain" />
             </div>
-            <p class="text-[10px] font-black tracking-[0.3em] opacity-60 uppercase mt-3">Advanced Curriculum System</p>
+            <p class="text-[10px] font-black tracking-[0.3em] text-slate-400 uppercase mt-3">Advanced Curriculum System
+            </p>
           </div>
         </div>
 
         <!-- Center Content Block: Identity -->
         <div
-          class="relative z-10 max-w-2xl mx-auto text-center py-10 px-8 bg-white/5 backdrop-blur-xl border border-white/10 rounded-[40px] shadow-2xl mt-auto mb-12 transform hover:-translate-y-1 transition-all duration-500">
+          class="relative z-10 max-w-2xl mx-auto text-center py-10 px-8 bg-white/40 backdrop-blur-xl border border-slate-200 rounded-[40px] shadow-2xl mt-auto mb-12 transform hover:-translate-y-1 transition-all duration-500">
           <p class="text-xs font-black uppercase tracking-[0.5em] mb-4 text-primary">Academic Year 2024-25</p>
-          <h1 class="text-5xl font-black tracking-tighter mb-4 leading-none">Weekly Performance Report</h1>
+          <h1 class="text-5xl font-black tracking-tighter mb-4 leading-none text-slate-800">Weekly Performance Report
+          </h1>
           <div class="flex items-center justify-center gap-4 mb-4">
-            <span class="h-px w-8 bg-white/20"></span>
-            <span class="text-lg font-bold opacity-80">{{ selectedMonthYear }} • {{ selectedWeek }}</span>
-            <span class="h-px w-8 bg-white/20"></span>
+            <span class="h-px w-8 bg-slate-200"></span>
+            <span class="text-lg font-bold text-slate-600">{{ selectedMonthYear }} • {{ selectedWeek }}</span>
+            <span class="h-px w-8 bg-slate-200"></span>
           </div>
-          <p class="text-3xl font-bold tracking-tight text-white mb-2">{{ selectedSchool.name }}</p>
-          <p class="text-base font-medium opacity-60 italic">“Building Discipline. Inspiring Excellence.”</p>
+          <p class="text-3xl font-bold tracking-tight text-slate-800 mb-2">{{ selectedSchool.name }}</p>
+          <p class="text-base font-medium text-slate-400 italic">“Building Discipline. Inspiring Excellence.”</p>
         </div>
 
         <!-- Bottom Footer Branding -->
-        <div class="relative z-10 flex justify-between items-end border-t border-white/10 pt-6">
+        <div class="relative z-10 flex justify-between items-end border-t border-slate-100 pt-6">
           <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined opacity-50 text-sm">school</span>
-            <p class="text-[10px] font-bold tracking-wider opacity-50 uppercase">Official Institution Record</p>
+            <span class="material-symbols-outlined text-slate-400 text-sm">school</span>
+            <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">Official Institution Record</p>
           </div>
-          <p class="text-[10px] font-black tracking-widest opacity-50 uppercase">© 2026 Elite Sports Academy</p>
+          <p class="text-[10px] font-black tracking-widest text-slate-400 uppercase">© 2026 Elite Sports Academy</p>
         </div>
       </section>
 
@@ -405,22 +407,28 @@
 
     <!-- PUBLISH MODAL -->
     <Transition name="modal-fade">
-      <div v-if="showPublishModal" class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
-        <div class="bg-white rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl transform transition-all scale-100">
+      <div v-if="showPublishModal"
+        class="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
+        <div
+          class="bg-white rounded-[32px] w-full max-w-md overflow-hidden shadow-2xl transform transition-all scale-100">
           <div class="p-8 text-center">
-            <div class="w-20 h-20 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-emerald-500">
+            <div
+              class="w-20 h-20 bg-emerald-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-emerald-500">
               <span class="material-symbols-outlined text-4xl">verified</span>
             </div>
             <h3 class="text-2xl font-black text-slate-800 mb-2">Publish Report</h3>
             <p class="text-slate-500 font-medium leading-relaxed">
-              This will make the weekly performance report for <strong>{{ selectedMonthYear }} • {{ selectedWeek }}</strong> visible to the School Principal.
+              This will make the weekly performance report for <strong>{{ selectedMonthYear }} • {{ selectedWeek
+              }}</strong> visible to the School Principal.
             </p>
           </div>
           <div class="flex border-t border-slate-100">
-            <button @click="showPublishModal = false" class="flex-1 px-6 py-5 text-sm font-bold text-slate-400 hover:bg-slate-50 transition-colors">
+            <button @click="showPublishModal = false"
+              class="flex-1 px-6 py-5 text-sm font-bold text-slate-400 hover:bg-slate-50 transition-colors">
               Cancel
             </button>
-            <button @click="handlePublish" class="flex-1 px-6 py-5 text-sm font-black text-emerald-500 hover:bg-emerald-50 transition-colors border-l border-slate-100">
+            <button @click="handlePublish"
+              class="flex-1 px-6 py-5 text-sm font-black text-emerald-500 hover:bg-emerald-50 transition-colors border-l border-slate-100">
               Confirm Publication
             </button>
           </div>
@@ -430,7 +438,8 @@
 
     <!-- SUCCESS NOTIFICATION -->
     <Transition name="slide-up">
-      <div v-if="showSuccessToast" class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[110] bg-slate-900 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/10">
+      <div v-if="showSuccessToast"
+        class="fixed bottom-10 left-1/2 -translate-x-1/2 z-[110] bg-slate-900 text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/10">
         <div class="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center">
           <span class="material-symbols-outlined text-white text-xs">check</span>
         </div>
@@ -451,15 +460,34 @@ const loadingSchools = ref(true);
 const showPublishModal = ref(false);
 const showSuccessToast = ref(false);
 
-const handlePublish = () => {
-  showPublishModal.value = false;
-  // Simulate API call delay
-  setTimeout(() => {
-    showSuccessToast.value = true;
-    setTimeout(() => {
-      showSuccessToast.value = false;
-    }, 4000);
-  }, 300);
+const handlePublish = async () => {
+  if (!selectedSchool.value || !selectedMonthYear.value || !selectedWeek.value) return;
+
+  try {
+    const res = await fetch('/api/curriculum/publish-report', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        school_id: selectedSchool.value.id,
+        month_year: selectedMonthYear.value,
+        week_no: selectedWeek.value
+      })
+    });
+
+    const data = await res.json();
+    if (data.success) {
+      showPublishModal.value = false;
+      showSuccessToast.value = true;
+      setTimeout(() => {
+        showSuccessToast.value = false;
+      }, 4000);
+    } else {
+      alert('Error publishing report: ' + (data.message || 'Unknown error'));
+    }
+  } catch (err) {
+    console.error('Publish Error:', err);
+    alert('Failed to connect to the server. Please try again.');
+  }
 };
 
 const selectedMonthYear = ref<string | null>(null);
@@ -724,9 +752,12 @@ const printReport = () => {
 .sports-pattern-bg {
   position: fixed;
   inset: 0;
-  opacity: 0.04;
+  opacity: 0.05;
   pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 10 L20 10 L20 20 L10 20 Z' fill='%2364748b' opacity='0.2'/%3E%3Ccircle cx='50' cy='50' r='5' fill='%2364748b' opacity='0.2'/%3E%3Cpath d='M80 80 L90 80 L90 90 L80 90 Z' fill='%2364748b' opacity='0.2'/%3E%3C/svg%3E");
+  background-image: url('@/assets/background_of_report_card.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
   z-index: 0;
 }
 

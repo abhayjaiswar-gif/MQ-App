@@ -455,7 +455,7 @@ onMounted(fetchFilters);
 <template>
     <div class="bg-surface text-on-surface antialiased flex min-h-screen overflow-hidden font-inter text-sm relative">
         <!-- Custom Toast Notification -->
-        <div v-if="toastMessage" 
+        <div v-if="toastMessage"
             class="fixed bottom-8 right-8 z-[9999] px-6 py-4 rounded-2xl shadow-xl border font-manrope font-extrabold flex items-center gap-3 transition-all duration-300 animate-in slide-in-from-bottom-8 fade-in"
             :class="toastType === 'success' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-red-50 text-red-700 border-red-200'">
             <span class="material-symbols-outlined text-[24px]">
@@ -480,11 +480,6 @@ onMounted(fetchFilters);
                             performance metrics.</p>
                     </div>
                     <div class="flex flex-wrap gap-3">
-                        <button @click="aiFillMarks"
-                            class="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 rounded-lg shadow-lg shadow-purple-200 transition-all uppercase tracking-widest font-manrope">
-                            <span class="material-symbols-outlined text-[18px]">psychology</span>
-                            AI Fill Marks
-                        </button>
                         <button @click="exportTemplate"
                             class="flex items-center gap-2 px-4 py-2 text-xs font-bold text-primary bg-white border border-slate-200 hover:bg-slate-50 rounded-lg transition-all uppercase tracking-widest font-manrope shadow-sm">
                             <span class="material-symbols-outlined text-[18px]">download</span>
@@ -661,14 +656,15 @@ onMounted(fetchFilters);
                                             </select>
                                         </template>
                                         <template v-else>
-                                            <div class="relative min-h-[50px] flex flex-col items-center justify-center">
+                                            <div
+                                                class="relative min-h-[50px] flex flex-col items-center justify-center">
                                                 <input v-model="student.marks[param.id]"
                                                     class="w-[90px] text-center border rounded-xl text-[11px] font-bold py-2 shadow-sm transition-all font-manrope outline-none"
                                                     :type="param.ctype === 'Text' ? 'text' : 'number'"
                                                     :placeholder="param.clabel || '0.0'"
-                                                    :class="isInvalid(student, param.id, student.marks[param.id]) 
-                                                            ? '!border-red-500 !ring-2 !ring-red-200 !bg-red-50 text-red-700' 
-                                                            : 'bg-slate-50/50 border-slate-200 text-slate-700 focus:ring-4 focus:ring-primary/10 focus:border-primary'" />
+                                                    :class="isInvalid(student, param.id, student.marks[param.id])
+                                                        ? '!border-red-500 !ring-2 !ring-red-200 !bg-red-50 text-red-700'
+                                                        : 'bg-slate-50/50 border-slate-200 text-slate-700 focus:ring-4 focus:ring-primary/10 focus:border-primary'" />
 
                                                 <!-- Validation Message -->
                                                 <div v-if="isInvalid(student, param.id, student.marks[param.id])"

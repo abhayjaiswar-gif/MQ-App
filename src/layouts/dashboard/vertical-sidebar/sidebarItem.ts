@@ -79,6 +79,10 @@ const sidebarItem: menu[] = [
       {
         title: 'User Permissions',
         to: '/management/access'
+      },
+      {
+        title: 'Staff Hierarchy',
+        to: '/staff/hierarchy'
       }
     ]
   },
@@ -129,6 +133,10 @@ const sidebarItem: menu[] = [
       {
         title: 'Weekly Report',
         to: '/curriculum/weekly-report'
+      },
+      {
+        title: 'Principal Report',
+        to: '/curriculum/principal-report'
       }
     ]
   },
@@ -155,6 +163,10 @@ const sidebarItem: menu[] = [
       {
         title: 'Match Report',
         to: '/reports/match'
+      },
+      {
+        title: 'MIR Report',
+        to: '/reports/mir'
       },
       {
         title: 'Parents Report Card',

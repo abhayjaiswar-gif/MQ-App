@@ -1,7 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useCustomizerStore } from '../../../stores/customizer';
 // icons
-import { MenuFoldOutlined, SearchOutlined, GithubOutlined } from '@ant-design/icons-vue';
+import { MenuFoldOutlined, SearchOutlined } from '@ant-design/icons-vue';
 
 // dropdown imports
 import NotificationDD from './NotificationDD.vue';
@@ -9,6 +10,15 @@ import Searchbar from './SearchBarPanel.vue';
 import ProfileDD from './ProfileDD.vue';
 
 const customizer = useCustomizerStore();
+
+const userName = computed(() => {
+  try {
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return user.name || 'User';
+  } catch {
+    return 'User';
+  }
+});
 </script>
 
 <template>
@@ -74,25 +84,8 @@ const customizer = useCustomizerStore();
     <!---right part -->
     <!-- ---------------------------------------------- -->
 
-    <!-- ---------------------------------------------- -->
-    <!-- Github -->
-    <!-- ---------------------------------------------- -->
-    <v-btn
-      icon
-      class="text-secondary hidden-sm-and-down d-flex"
-      color="darkText"
-      rounded="sm"
-      variant="text"
-      href="https://github.com/codedthemes/mantis-free-vuetify-vuejs-admin-template"
-      target="_blank"
-    >
-      <GithubOutlined :style="{ fontSize: '16px' }" />
-    </v-btn>
 
-    <!-- ---------------------------------------------- -->
-    <!-- Notification -->
-    <!-- ---------------------------------------------- -->
-    <NotificationDD />
+
 
     <!-- ---------------------------------------------- -->
     <!-- User Profile -->
@@ -104,7 +97,7 @@ const customizer = useCustomizerStore();
             <v-avatar class="mr-sm-2 mr-0 py-2">
               <img src="@/assets/images/users/avatar-1.png" alt="Julia" />
             </v-avatar>
-            <h6 class="text-subtitle-1 mb-0 d-sm-block d-none">JWT User</h6>
+            <h6 class="text-subtitle-1 mb-0 d-sm-block d-none">{{ userName }}</h6>
           </div>
         </v-btn>
       </template>
