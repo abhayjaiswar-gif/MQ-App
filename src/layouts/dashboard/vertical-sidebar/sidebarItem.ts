@@ -69,6 +69,16 @@ const sidebarItem: menu[] = [
     ]
   },
   {
+    title: 'Team',
+    icon: TeamOutlined,
+    children: [
+      {
+        title: 'Team Management',
+        to: '/management/teams'
+      }
+    ]
+  },
+  {
     title: 'User Management',
     icon: UserOutlined,
     children: [
@@ -127,18 +137,25 @@ const sidebarItem: menu[] = [
         to: '/curriculum/builder'
       },
       {
-        title: 'Schedule Lessons',
-        to: '/curriculum/schedule'
-      },
-      {
         title: 'Weekly Report',
         to: '/curriculum/weekly-report'
       },
       {
         title: 'Principal Report',
         to: '/curriculum/principal-report'
+      },
+      {
+        title: 'AOP Tracking',
+        to: '/management/aop-tracking'
       }
     ]
+  },
+  
+  { header: 'Session Management' },
+  {
+    title: 'Mark Lecture',
+    icon: CheckCircleOutlined,
+    to: '/management/lectures/mark'
   },
   
   { header: 'Operations' },

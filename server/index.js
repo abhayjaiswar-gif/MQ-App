@@ -230,6 +230,89 @@ const initDashboardEventsTable = async () => {
 };
 initDashboardEventsTable();
 
+// ⚾ INITIALIZE TEAMS TABLE
+const initTeamsTable = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS teams (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        sport VARCHAR(100),
+        school_id INT,
+        coach_id INT,
+        status VARCHAR(50) DEFAULT 'Preparation',
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE SET NULL,
+        FOREIGN KEY (coach_id) REFERENCES users(id) ON DELETE SET NULL
+      )
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS team_players (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        team_id INT,
+        student_id INT,
+        assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE CASCADE,
+        FOREIGN KEY (student_id) REFERENCES students(id) ON DELETE CASCADE
+      )
+    `);
+    console.log('✅ Teams and Roster tables initialized');
+  } catch (err) {
+    console.error('INIT TEAMS TABLE ERROR:', err);
+  }
+};
+initTeamsTable();
+
+// 📅 INITIALIZE MARKED LECTURES TABLE (Manual Entries)
+const initMarkedLecturesTable = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS marked_lectures (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        school_id INT NOT NULL,
+        coach_id INT NOT NULL,
+        sport VARCHAR(255) NOT NULL,
+        lecture_date DATE NOT NULL,
+        start_time TIME NOT NULL,
+        end_time TIME NOT NULL,
+        grades TEXT, -- Stored as comma-separated or JSON list
+        division VARCHAR(50),
+        status VARCHAR(50) DEFAULT 'Completed',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE,
+        FOREIGN KEY (coach_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+    console.log('✅ Marked Lectures table initialized');
+  } catch (err) {
+    console.error('INIT MARKED LECTURES TABLE ERROR:', err);
+  }
+};
+const initSupportTicketsTable = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS support_tickets (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL,
+        subject VARCHAR(255) NOT NULL,
+        message TEXT NOT NULL,
+        status ENUM('Open', 'In Progress', 'Resolved', 'Closed') DEFAULT 'Open',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ Support Tickets table initialized');
+  } catch (err) {
+    console.error('INIT SUPPORT TICKETS TABLE ERROR:', err);
+  }
+};
+initSupportTicketsTable();
+
 
 
 const app = express();
@@ -583,6 +666,163 @@ app.get('/api/staff-hierarchy/automated/:school_id', async (req, res) => {
     res.status(500).json({ success: false, message: 'Error aggregating hierarchy' });
   }
 });
+
+// 📅 LECTURE MANAGEMENT APIS
+app.get('/api/coaches', async (req, res) => {
+  const { school_id } = req.query;
+  try {
+    let query = `
+      SELECT u.id, u.name, u.email, u.profile_pic, r.name as role_name
+      FROM users u
+      JOIN roles r ON u.role_id = r.id
+      WHERE u.role_id IN (4, 5) AND u.is_active = 1
+    `;
+    const params = [];
+
+    if (school_id) {
+      query += ` AND EXISTS (SELECT 1 FROM assign_school ash WHERE ash.user_id = u.id AND ash.school_id = ?)`;
+      params.push(school_id);
+    }
+
+    const [rows] = await db.query(query, params);
+    res.json({ success: true, coaches: rows });
+  } catch (err) {
+    console.error('FETCH COACHES ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching coaches' });
+  }
+});
+
+app.post('/api/lectures', async (req, res) => {
+  const { school_id, coach_id, sport, lecture_date, start_time, end_time, grades, division } = req.body;
+  try {
+    const [result] = await db.query(
+      `INSERT INTO marked_lectures 
+       (school_id, coach_id, sport, lecture_date, start_time, end_time, grades, division, status) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Completed')`,
+      [school_id, coach_id, sport, lecture_date, start_time, end_time, JSON.stringify(grades), division]
+    );
+    res.json({ success: true, message: 'Lecture marked successfully', id: result.insertId });
+  } catch (err) {
+    console.error('SAVE LECTURE ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error saving lecture entry' });
+  }
+});
+
+app.get('/api/lectures', async (req, res) => {
+  const { school_id, coach_id } = req.query;
+  try {
+    let query = `
+      SELECT ml.*, s.name as school_name, u.name as coach_name 
+      FROM marked_lectures ml
+      JOIN schools s ON ml.school_id = s.id
+      JOIN users u ON ml.coach_id = u.id
+    `;
+    const conditions = [];
+    const params = [];
+
+    if (school_id) {
+      conditions.push('ml.school_id = ?');
+      params.push(school_id);
+    }
+    if (coach_id) {
+      conditions.push('ml.coach_id = ?');
+      params.push(coach_id);
+    }
+
+    if (conditions.length > 0) {
+      query += ' WHERE ' + conditions.join(' AND ');
+    }
+    
+    query += ' ORDER BY ml.lecture_date DESC, ml.created_at DESC LIMIT 50';
+
+    const [rows] = await db.query(query, params);
+    res.json({ success: true, lectures: rows });
+  } catch (err) {
+    console.error('FETCH LECTURES ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching lectures' });
+  }
+});
+
+app.get('/api/school-metadata/:school_id', async (req, res) => {
+  const { school_id } = req.params;
+  try {
+    const [grades] = await db.query(
+      'SELECT DISTINCT std FROM students WHERE school_id = ? AND status = 1 ORDER BY std',
+      [school_id]
+    );
+    const [divisions] = await db.query(
+      'SELECT DISTINCT division FROM students WHERE school_id = ? AND status = 1 ORDER BY division',
+      [school_id]
+    );
+    
+    res.json({ 
+      success: true, 
+      grades: grades.map(g => g.std), 
+      divisions: divisions.map(d => d.division) 
+    });
+  } catch (err) {
+    console.error('FETCH METADATA ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching school metadata' });
+  }
+});
+
+// 🎫 SUPPORT TICKETING APIS
+app.post('/api/support/ticket', async (req, res) => {
+  const { name, email, subject, message } = req.body;
+  try {
+    if (!name || !email || !subject || !message) {
+      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    }
+
+    const [result] = await db.query(
+      `INSERT INTO support_tickets (name, email, subject, message, status) VALUES (?, ?, ?, ?, 'Open')`,
+      [name, email, subject, message]
+    );
+
+    res.json({ success: true, message: 'Ticket submitted successfully', id: result.insertId });
+  } catch (err) {
+    console.error('SUBMIT TICKET ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error submitting support ticket' });
+  }
+});
+
+app.get('/api/tickets/all', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT t.*, 
+             '1' as current_tier, 
+             'Support Agent' as role_name,
+             t.created_at as last_escalated_at
+      FROM support_tickets t 
+      ORDER BY t.created_at DESC
+    `);
+    res.json({ success: true, tickets: rows });
+  } catch (err) {
+    console.error('FETCH TICKETS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching tickets' });
+  }
+});
+
+app.put('/api/tickets/:id/action', async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  
+  // Map frontend status 'pending' to 'Open' / 'In Progress' if needed
+  let dbStatus = status;
+  if (status === 'pending') dbStatus = 'Open';
+  if (status === 'resolved') dbStatus = 'Resolved';
+  if (status === 'closed') dbStatus = 'Closed';
+
+  try {
+    await db.query('UPDATE support_tickets SET status = ? WHERE id = ?', [dbStatus, id]);
+    res.json({ success: true, message: `Ticket ${id} updated to ${dbStatus}` });
+  } catch (err) {
+    console.error('UPDATE TICKET ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error updating ticket' });
+  }
+});
+
+
 
 // 🏫 ADD NEW SCHOOL API
 app.post('/api/schools', schoolUploadFields, async (req, res) => {
@@ -4260,34 +4500,39 @@ app.get('/api/curriculum/generate-weekly-report', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required parameters' });
     }
 
-    // 1. Fetch Unified Assignments
+    // 1. Fetch Unified Assignments (Schedule + Tracking)
     const sql = `
-      SELECT * FROM (
+      SELECT 
+        u.*,
+        sch.name as school_name,
+        usr.name as coach_full_name
+      FROM (
+        -- Planned Schedule entries
         SELECT 
-          alp.lp_no, alp.grade, alp.sport, alp.skill, alp.sub_skill, alp.objective,
-          sch.name as school_name,
-          ls.status AS lp_status, ls.remark AS lp_remark,
-          alp.school_id, alp.week as week_no, alp.month_year
-        FROM assigned_lesson_plans alp
-        LEFT JOIN schools sch ON alp.school_id = sch.id
-        LEFT JOIN lp_status ls ON ls.lp_unique_id = alp.lp_unique_id AND ls.user_id = alp.assigned_to
+          yn.unique_id, yn.lp_no, yn.grade, yn.sport, yn.skill, yn.sub_skill, yn.objective,
+          yn.school_id, 
+          CASE WHEN yn.week LIKE 'Week %' THEN yn.week ELSE CONCAT('Week ', yn.week) END as week_no,
+          REPLACE(REPLACE(yn.month_year, '-', ', '), ', ', ',') as month_year,
+          clt.status AS lp_status, clt.remark AS lp_remark, clt.user_id as tracked_user_id
+        FROM year_lp_master_new yn
+        LEFT JOIN coach_lesson_tracking clt ON clt.unique_id = yn.unique_id
         
         UNION ALL
-
+        
+        -- Ad-hoc entries (Tracked but not in schedule)
         SELECT 
-          la.lp_id as lp_no, la.grade, lp.sport, lp.skill, lp.sub_skill, lp.objective,
-          sch.name as school_name,
-          ls.status AS lp_status, ls.remark AS lp_remark,
-          la.school_id, CONCAT('Week ', la.week_no) as week_no,
-          DATE_FORMAT(la.assign_date, '%b, %Y') as month_year
-        FROM lp_assign la
-        JOIN year_lp_master lp ON la.lp_id = lp.lp_no
-        LEFT JOIN schools sch ON la.school_id = sch.id
-        LEFT JOIN lp_status ls ON ls.lp_unique_id = la.lp_unique_id AND ls.user_id = la.user_id
-        WHERE la.lp_id != 0
-      ) unified
-      WHERE school_id = ? AND week_no = ? AND month_year = ?
-      ORDER BY lp_no ASC
+          clt.unique_id, clt.lp_no, clt.grade, clt.sport, clt.skill, clt.sub_skill, clt.objective,
+          clt.school_id, 
+          CASE WHEN clt.week LIKE 'Week %' THEN clt.week ELSE CONCAT('Week ', clt.week) END as week_no,
+          REPLACE(REPLACE(clt.month_year, '-', ', '), ', ', ',') as month_year,
+          clt.status AS lp_status, clt.remark AS lp_remark, clt.user_id as tracked_user_id
+        FROM coach_lesson_tracking clt
+        WHERE clt.unique_id NOT IN (SELECT unique_id FROM year_lp_master_new WHERE unique_id IS NOT NULL)
+      ) u
+      LEFT JOIN schools sch ON u.school_id = sch.id
+      LEFT JOIN users usr ON u.tracked_user_id = usr.id
+      WHERE u.school_id = ? AND u.week_no = ? AND u.month_year = ?
+      ORDER BY u.lp_no ASC
     `;
 
     const [rows] = await db.query(sql, [school_id, week_no, month_year]);
@@ -4411,28 +4656,49 @@ app.get('/api/curriculum/report-data', async (req, res) => {
     const { school_id, month_year, week_no, publishedOnly } = req.query;
 
     const sql = `
-        -- New year_lp_master_new (direct school+week assignments)
+       SELECT 
+        u.*,
+        sch.name as school_name,
+        usr.name as coach_name,
+        usr.profile_pic as coach_avatar
+      FROM (
+        -- 1. All from Schedule (Plan)
         SELECT 
-          yn.lp_no, yn.grade, yn.sport, yn.skill, yn.sub_skill, yn.objective,
+          yn.unique_id, yn.lp_no, yn.grade, yn.sport, yn.skill, yn.sub_skill, yn.objective,
           yn.teaching_aids, yn.warm_up, yn.skill_implementation, yn.cool_down,
           yn.summarization, yn.life_skill, yn.picture,
-          sch.name as school_name,
-          clt.status AS lp_status, clt.remark AS lp_remark, clt.submitted_at AS done_date,
-          u.name as coach_name,
-          u.profile_pic as coach_avatar,
           yn.school_id, 
           CASE WHEN yn.week LIKE 'Week %' THEN yn.week ELSE CONCAT('Week ', yn.week) END as week_no,
           REPLACE(REPLACE(yn.month_year, '-', ', '), ', ', ',') as month_year,
-          yn.divisions
+          yn.divisions,
+          clt.status AS lp_status, clt.remark AS lp_remark, clt.submitted_at AS done_date, clt.user_id as tracked_user_id,
+          yn.school_able_to_visibale_status
         FROM year_lp_master_new yn
-        LEFT JOIN schools sch ON yn.school_id = sch.id
         LEFT JOIN coach_lesson_tracking clt ON clt.unique_id = yn.unique_id
-        LEFT JOIN users u ON clt.user_id = u.id
-        WHERE yn.school_id = ? 
-          AND CASE WHEN yn.week LIKE 'Week %' THEN yn.week ELSE CONCAT('Week ', yn.week) END = ? 
-          AND REPLACE(REPLACE(yn.month_year, '-', ', '), ', ', ',') = ?
-          ${publishedOnly === 'true' ? ' AND yn.school_able_to_visibale_status = 1' : ''}
-        ORDER BY sport, lp_no ASC
+        
+        UNION ALL
+        
+        -- 2. Ad-hoc Entries (In Tracking but NOT in Schedule)
+        SELECT 
+          clt.unique_id, clt.lp_no, clt.grade, clt.sport, clt.skill, clt.sub_skill, clt.objective,
+          clt.teaching_aids, clt.warm_up, clt.skill_implementation, clt.cool_down,
+          clt.summarization, clt.life_skill, clt.picture,
+          clt.school_id, 
+          CASE WHEN clt.week LIKE 'Week %' THEN clt.week ELSE CONCAT('Week ', clt.week) END as week_no,
+          REPLACE(REPLACE(clt.month_year, '-', ', '), ', ', ',') as month_year,
+          clt.divisions,
+          clt.status AS lp_status, clt.remark AS lp_remark, clt.submitted_at AS done_date, clt.user_id as tracked_user_id,
+          1 as school_able_to_visibale_status 
+        FROM coach_lesson_tracking clt
+        WHERE clt.unique_id NOT IN (SELECT unique_id FROM year_lp_master_new WHERE unique_id IS NOT NULL)
+      ) u
+      LEFT JOIN schools sch ON u.school_id = sch.id
+      LEFT JOIN users usr ON u.tracked_user_id = usr.id
+      WHERE u.school_id = ? 
+        AND u.week_no = ? 
+        AND u.month_year = ?
+        ${publishedOnly === 'true' ? ' AND u.school_able_to_visibale_status = 1' : ''}
+      ORDER BY sport, lp_no ASC
     `;
 
     const [rows] = await db.query(sql, [school_id, week_no, month_year]);
@@ -5023,6 +5289,270 @@ setInterval(async () => {
     console.error("Escalation worker error:", err);
   }
 }, 5 * 60 * 1000);
+
+// ⚽ TEAM MANAGEMENT APIS
+app.get('/api/teams', async (req, res) => {
+  try {
+    const sql = `
+      SELECT t.*, s.name as school_name, u.name as coach_name, u.profile_pic as coach_avatar,
+             (SELECT COUNT(*) FROM team_players WHERE team_id = t.id) as players_count
+      FROM teams t
+      LEFT JOIN schools s ON t.school_id = s.id
+      LEFT JOIN users u ON t.coach_id = u.id
+      ORDER BY t.created_at DESC
+    `;
+    const [rows] = await db.query(sql);
+    res.json({ success: true, teams: rows });
+  } catch (err) {
+    console.error('FETCH TEAMS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching teams' });
+  }
+});
+
+app.post('/api/teams', async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    const { name, sport, school_id, coach_id, description, status, roster } = req.body;
+    
+    if (!name) return res.status(400).json({ success: false, message: 'Team name is required' });
+
+    // 1. Create Team
+    const [teamResult] = await connection.query(
+      `INSERT INTO teams (name, sport, school_id, coach_id, description, status) VALUES (?, ?, ?, ?, ?, ?)`,
+      [name, sport, school_id, coach_id, description, status || 'Preparation']
+    );
+    const teamId = teamResult.insertId;
+
+    // 2. Process Roster
+    if (roster && Array.isArray(roster)) {
+      for (const p of roster) {
+        if (!p.Name) continue;
+        
+        // Find or Create Student
+        let studentId;
+        const [existing] = await connection.query(
+          `SELECT id FROM students WHERE name = ? AND school_id = ? AND std = ? AND division = ?`,
+          [p.Name, school_id, p.Std?.toString(), p.Division?.toString()]
+        );
+
+        if (existing.length > 0) {
+          studentId = existing[0].id;
+        } else {
+          const [newStudent] = await connection.query(
+            `INSERT INTO students (name, school_id, std, division, gender, roll_number, status) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [p.Name, school_id, p.Std?.toString() || 'TBD', p.Division?.toString() || 'TBD', 'TBD', 'TBD', 1]
+          );
+          studentId = newStudent.insertId;
+        }
+
+        // Link to Team
+        await connection.query(
+          `INSERT INTO team_players (team_id, student_id) VALUES (?, ?)`,
+          [teamId, studentId]
+        );
+      }
+    }
+
+    await connection.commit();
+    res.json({ success: true, message: 'Team and Roster created successfully', id: teamId });
+  } catch (err) {
+    await connection.rollback();
+    console.error('CREATE TEAM ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error creating team and roster' });
+  } finally {
+    connection.release();
+  }
+});
+
+// Duplicate coaches endpoint removed to avoid conflict with the one at line 671
+
+// 📝 LECTURE MANAGEMENT APIS
+app.get('/api/management/lectures', async (req, res) => {
+  const { school_id } = req.query;
+  
+  try {
+    let lecturesSql = `
+      SELECT l.*, u.name as coach_name, s.name as school_name 
+      FROM marked_lectures l
+      JOIN users u ON l.coach_id = u.id
+      JOIN schools s ON l.school_id = s.id
+    `;
+    let metricsSql = `
+      SELECT 
+        COUNT(*) as total_lectures,
+        AVG(TIMESTAMPDIFF(MINUTE, start_time, end_time)) as avg_duration,
+        COUNT(DISTINCT coach_id) as active_coaches
+      FROM marked_lectures
+    `;
+    let params = [];
+
+    if (school_id) {
+      lecturesSql += ' WHERE l.school_id = ?';
+      metricsSql += ' WHERE school_id = ?';
+      params = [school_id];
+    }
+    
+    lecturesSql += ' ORDER BY l.lecture_date DESC, l.start_time DESC';
+
+    const [rows] = await db.query(lecturesSql, params);
+    const [stats] = await db.query(metricsSql, params);
+
+    res.json({ 
+      success: true, 
+      lectures: rows,
+      metrics: {
+        total: stats[0].total_lectures || 0,
+        avgDuration: Math.round(stats[0].avg_duration || 0),
+        activeCoaches: stats[0].active_coaches || 0
+      }
+    });
+  } catch (err) {
+    console.error('FETCH LECTURES ERROR:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.post('/api/management/lectures', async (req, res) => {
+  const { school_id, coach_id, sport, lecture_date, start_time, end_time, grades, division } = req.body;
+  
+  if (!school_id || !coach_id || !sport || !lecture_date || !start_time || !end_time) {
+    return res.status(400).json({ success: false, message: 'Missing required fields' });
+  }
+
+  try {
+    const [result] = await db.query(`
+      INSERT INTO marked_lectures (school_id, coach_id, sport, lecture_date, start_time, end_time, grades, division)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      school_id, 
+      coach_id, 
+      sport, 
+      lecture_date, 
+      start_time, 
+      end_time, 
+      Array.isArray(grades) ? grades.join(',') : grades, 
+      division
+    ]);
+    
+    res.json({ success: true, lectureId: result.insertId });
+  } catch (err) {
+    console.error('CREATE LECTURE ERROR:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get('/api/management/lecture-metadata', async (req, res) => {
+  const { user_id } = req.query;
+  try {
+    // 1. Schools assigned to the user
+    let schoolsSql = 'SELECT id, name FROM schools';
+    let params = [];
+    
+    // Check if user_id is a valid number/ID (ignore 'undefined', 'null', or empty)
+    const validUserId = user_id && user_id !== 'undefined' && user_id !== 'null';
+    
+    if (validUserId) {
+       schoolsSql = `
+        SELECT s.id, s.name 
+        FROM schools s
+        JOIN assign_school asgn ON s.id = asgn.school_id
+        WHERE asgn.user_id = ?
+      `;
+      params = [user_id];
+    }
+    const [schools] = await db.query(schoolsSql, params);
+
+    // 2. Coaches (Role 4, 5)
+    const [coaches] = await db.query(`
+      SELECT u.id, u.name, r.name as role_name 
+      FROM users u 
+      JOIN roles r ON u.role_id = r.id 
+      WHERE u.role_id IN (4, 5) AND u.is_active = 1 
+      ORDER BY u.name ASC
+    `);
+
+    // 3. Sports from year_lp_master_new
+    const [sports] = await db.query('SELECT DISTINCT sport FROM year_lp_master_new WHERE sport IS NOT NULL ORDER BY sport ASC');
+
+    res.json({ 
+      success: true, 
+      schools, 
+      coaches, 
+      sports: sports.map(s => s.sport)
+    });
+  } catch (err) {
+    console.error('FETCH METADATA ERROR:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 📊 AOP CURRICULUM TRACKING APIS
+app.get('/api/curriculum/aop-metadata', async (req, res) => {
+  try {
+    const [sports] = await db.query('SELECT DISTINCT sport FROM year_lp_master WHERE sport IS NOT NULL ORDER BY sport ASC');
+    
+    res.json({ 
+      success: true, 
+      sports: sports.map(s => s.sport)
+    });
+  } catch (err) {
+    console.error('AOP METADATA ERROR:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.get('/api/curriculum/aop-stats', async (req, res) => {
+  const { user_id, sport } = req.query;
+  const hasUser = user_id && user_id !== 'undefined' && user_id !== 'null';
+  
+  try {
+    // Determine the user's assigned school IDs
+    let schoolIds = [];
+    if (hasUser) {
+      const [assigned] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ?', [user_id]);
+      schoolIds = assigned.map(a => a.school_id);
+    }
+
+    const sql = `
+      SELECT 
+        t.sport,
+        t.total_plans,
+        COALESCE(p.completed_count, 0) as completed_plans
+      FROM (
+        SELECT sport, COUNT(*) as total_plans 
+        FROM year_lp_master 
+        WHERE (? IS NULL OR sport = ?)
+        GROUP BY sport
+      ) t
+      LEFT JOIN (
+        SELECT ylm.sport, COUNT(*) as completed_count
+        FROM lp_status ls
+        JOIN year_lp_master ylm ON ls.lp_unique_id = ylm.lp_unique_id
+        WHERE LOWER(ls.status) IN ('done', 'complete', 'completed', 'submitted')
+        ${schoolIds.length > 0 ? `AND ls.school_id IN (${schoolIds.join(',')})` : (hasUser ? 'AND 1=0' : '')}
+        AND (? IS NULL OR ylm.sport = ?)
+        GROUP BY ylm.sport
+      ) p ON t.sport = p.sport
+      ORDER BY t.sport ASC
+    `;
+    
+    const sportFilter = (sport && sport !== 'All') ? sport : null;
+    const params = [sportFilter, sportFilter, sportFilter, sportFilter];
+
+    const [rows] = await db.query(sql, params);
+    
+    const stats = rows.map(r => ({
+      ...r,
+      progress: r.total_plans > 0 ? Math.round((r.completed_plans / r.total_plans) * 100) : 0
+    }));
+
+    res.json({ success: true, stats });
+  } catch (err) {
+    console.error('AOP STATS ERROR:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
 app.listen(3000, () => {
   console.log('🚀 Server running on http://localhost:3000');

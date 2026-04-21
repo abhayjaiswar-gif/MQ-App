@@ -247,6 +247,26 @@ const MainRoutes = {
       name: 'EscalationRules',
       path: '/helpdesk/rules',
       component: () => import('@/views/helpdesk/EscalationRules.vue')
+    },
+    {
+      name: 'TeamManagement',
+      path: '/management/teams',
+      component: () => import('@/views/management/TeamManagementPage.vue')
+    },
+    {
+      name: 'AddTeam',
+      path: '/management/teams/add',
+      component: () => import('@/views/management/AddTeamPage.vue')
+    },
+    {
+      name: 'MarkLecture',
+      path: '/management/lectures/mark',
+      component: () => import('@/views/management/MarkLecturePage.vue')
+    },
+    {
+      name: 'AOPDashboard',
+      path: '/management/aop-tracking',
+      component: () => import('../views/management/AOPDashboard.vue')
     }
   ]
 };
