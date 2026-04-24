@@ -547,14 +547,29 @@
         </div>
         
         <div v-if="markStatus === 'Complete'" class="animate-in fade-in slide-in-from-top-2 duration-200">
-           <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Evidence Photo</label>
-           <div class="border-2 border-dashed border-slate-200 rounded-xl p-6 text-center hover:bg-slate-50 transition-colors relative" :class="{'bg-slate-50': previewUrl}">
-             <input type="file" accept="image/*" @change="handlePhotoUpload" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-             <div v-if="!previewUrl" class="flex flex-col items-center gap-2 pointer-events-none">
+           <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex justify-between">
+             <span>Evidence Photos</span>
+             <span class="text-primary">{{ markPhotos.length }} selected</span>
+           </label>
+           <div class="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-50 transition-colors relative min-h-[120px] flex flex-col items-center justify-center">
+             <input type="file" accept="image/*" multiple @change="handlePhotoUpload" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+             
+             <div v-if="previewUrls.length === 0" class="flex flex-col items-center gap-2 pointer-events-none">
                <span class="material-symbols-outlined text-3xl text-slate-300">add_a_photo</span>
-               <p class="text-xs text-slate-500 font-medium">Click to capture or upload</p>
+               <p class="text-xs text-slate-500 font-medium">Click to upload multiple photos</p>
              </div>
-             <img v-else :src="previewUrl" class="max-h-40 mx-auto rounded-lg shadow-sm object-cover" />
+             
+             <div v-else class="grid grid-cols-3 gap-2 w-full">
+                <div v-for="(url, idx) in previewUrls" :key="idx" class="relative aspect-square group/thumb">
+                  <img :src="url" class="w-full h-full object-cover rounded-lg shadow-sm border border-slate-100" />
+                  <button @click.stop.prevent="removePhoto(idx)" class="absolute -top-1 -right-1 bg-white shadow-md rounded-full w-5 h-5 flex items-center justify-center text-error border border-slate-100 z-20">
+                    <span class="material-symbols-outlined text-[14px]">close</span>
+                  </button>
+                </div>
+                <div v-if="previewUrls.length < 10" class="aspect-square border-2 border-dashed border-slate-100 rounded-lg flex items-center justify-center text-slate-300">
+                   <span class="material-symbols-outlined">add</span>
+                </div>
+             </div>
            </div>
         </div>
       </div>
@@ -607,25 +622,37 @@ const loadingFinalContent = ref(false);
 
 const showMarkModal = ref(false);
 const markStatus = ref('Complete');
-const markPhoto = ref<File | null>(null);
-const previewUrl = ref<string | null>(null);
+const markPhotos = ref<File[]>([]);
+const previewUrls = ref<string[]>([]);
 const isSubmittingMark = ref(false);
 const modalRemark = ref('');
 
 const openMarkModal = () => {
   showMarkModal.value = true;
   markStatus.value = 'Complete';
-  markPhoto.value = null;
-  previewUrl.value = null;
+  markPhotos.value = [];
+  previewUrls.value = [];
   modalRemark.value = '';
 };
 
 const handlePhotoUpload = (e: Event) => {
   const target = e.target as HTMLInputElement;
-  if (target.files && target.files.length > 0) {
-    markPhoto.value = target.files[0];
-    previewUrl.value = URL.createObjectURL(target.files[0]);
+  if (target.files) {
+    const files = Array.from(target.files);
+    if (markPhotos.value.length + files.length > 10) {
+      alert('You can only upload up to 10 photos.');
+      return;
+    }
+    files.forEach(file => {
+      markPhotos.value.push(file);
+      previewUrls.value.push(URL.createObjectURL(file));
+    });
   }
+};
+
+const removePhoto = (idx: number) => {
+  markPhotos.value.splice(idx, 1);
+  previewUrls.value.splice(idx, 1);
 };
 const programTypes = [
   { id: 'sdp', name: 'SDP (Specialized)', icon: 'stars', bgClass: 'bg-blue-100', textClass: 'text-blue-700', description: 'Advanced training modules focused on high-performance athlete development.' },
@@ -830,8 +857,10 @@ const submitMarking = async () => {
       payload.append('divisions', selectedDivisions.value.join(','));
     }
 
-    if (markPhoto.value) {
-      payload.append('photo', markPhoto.value);
+    if (markPhotos.value.length > 0) {
+      markPhotos.value.forEach(photo => {
+        payload.append('photos', photo);
+      });
     }
 
     const res = await fetch('/api/curriculum/save-lp-status', {

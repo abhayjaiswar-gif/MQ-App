@@ -199,17 +199,36 @@ initRolePageAccessTable();
 // 📺 INITIALIZE DASHBOARD SOCIAL CONTENT SCHEMA
 const initSocialContentTable = async () => {
   try {
+    // Create table if it doesn't exist (includes all columns from the start)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS dashboard_social_content (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        platform VARCHAR(100),
+        title VARCHAR(255),
+        url VARCHAR(500),
+        video_path VARCHAR(255) DEFAULT NULL,
+        school_id INT DEFAULT NULL,
+        thumbnail VARCHAR(255),
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Migrate: add video_path if missing (for existing deployments)
     const [cols] = await db.query(`SHOW COLUMNS FROM dashboard_social_content LIKE 'video_path'`);
     if (cols.length === 0) {
       await db.query(`ALTER TABLE dashboard_social_content ADD COLUMN video_path VARCHAR(255) AFTER url`);
       console.log('✅ Added video_path to dashboard_social_content');
     }
 
+    // Migrate: add school_id if missing (for existing deployments)
     const [schoolCols] = await db.query(`SHOW COLUMNS FROM dashboard_social_content LIKE 'school_id'`);
     if (schoolCols.length === 0) {
       await db.query(`ALTER TABLE dashboard_social_content ADD COLUMN school_id INT DEFAULT NULL`);
       console.log('✅ Added school_id to dashboard_social_content');
     }
+
+    console.log('✅ Dashboard Social Content table initialized');
   } catch (err) {
     console.error('INIT SOCIAL CONTENT TABLE ERROR:', err);
   }
@@ -219,11 +238,29 @@ initSocialContentTable();
 // 📅 INITIALIZE DASHBOARD EVENTS SCHEMA
 const initDashboardEventsTable = async () => {
   try {
+    // Create table if it doesn't exist (includes all columns from the start)
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS dashboard_events (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        event_date DATE,
+        event_time TIME,
+        location VARCHAR(255),
+        school_id INT DEFAULT NULL,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Migrate: add school_id if missing (for existing deployments)
     const [cols] = await db.query(`SHOW COLUMNS FROM dashboard_events LIKE 'school_id'`);
     if (cols.length === 0) {
       await db.query(`ALTER TABLE dashboard_events ADD COLUMN school_id INT DEFAULT NULL`);
       console.log('✅ Added school_id to dashboard_events');
     }
+
+    console.log('✅ Dashboard Events table initialized');
   } catch (err) {
     console.error('INIT DASHBOARD EVENTS TABLE ERROR:', err);
   }
@@ -292,6 +329,8 @@ const initMarkedLecturesTable = async () => {
     console.error('INIT MARKED LECTURES TABLE ERROR:', err);
   }
 };
+initMarkedLecturesTable();
+
 const initSupportTicketsTable = async () => {
   try {
     await db.query(`
@@ -312,6 +351,47 @@ const initSupportTicketsTable = async () => {
   }
 };
 initSupportTicketsTable();
+const initBirthdayTable = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS birthday_table (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        birthday_date DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY user_birthday (user_id),
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      )
+    `);
+    console.log('✅ Birthday Table initialized');
+  } catch (err) {
+    console.error('INIT BIRTHDAY TABLE ERROR:', err);
+  }
+};
+initBirthdayTable();
+
+// 📄 INITIALIZE MIR REPORTS TABLE
+const initMIRReportsTable = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS mir_reports (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        school_id INT NOT NULL,
+        user_id INT DEFAULT 0,
+        file_path VARCHAR(255) NOT NULL,
+        month_year VARCHAR(50),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (school_id) REFERENCES schools(id) ON DELETE CASCADE
+      )
+    `);
+    console.log('✅ MIR Reports table initialized');
+  } catch (err) {
+    console.error('INIT MIR REPORTS TABLE ERROR:', err);
+  }
+};
+initMIRReportsTable();
+
 
 
 
@@ -445,7 +525,17 @@ app.post('/api/login', async (req, res) => {
       { expiresIn: '8h' }
     );
 
-    console.log('🎉 LOGIN SUCCESS');
+    // ✅ Update last_login
+    await db.query('UPDATE users SET last_login = NOW() WHERE id = ?', [user.id]);
+
+    // ✅ Fetch assigned school_id
+    const [schoolRows] = await db.query(
+      'SELECT school_id FROM assign_school WHERE user_id = ? LIMIT 1',
+      [user.id]
+    );
+    const school_id = schoolRows.length > 0 ? schoolRows[0].school_id : null;
+
+    console.log('🎉 LOGIN SUCCESS, SCHOOL_ID:', school_id);
 
     return res.json({
       success: true,
@@ -456,7 +546,8 @@ app.post('/api/login', async (req, res) => {
         name: user.name,
         email: user.email,
         hash_key: user.hash_key,
-        role_id: user.role_id
+        role_id: user.role_id,
+        school_id
       }
     });
 
@@ -538,6 +629,40 @@ app.post('/api/register', async (req, res) => {
     });
   }
 });
+
+// 🎂 BIRTHDAY APIS
+app.get('/api/user-birthday/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const [rows] = await db.query('SELECT birthday_date FROM birthday_table WHERE user_id = ?', [userId]);
+    if (rows.length > 0) {
+      res.json({ success: true, hasBirthday: true, birthday: rows[0].birthday_date });
+    } else {
+      res.json({ success: true, hasBirthday: false });
+    }
+  } catch (err) {
+    console.error('FETCH BIRTHDAY ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching birthday status' });
+  }
+});
+
+app.post('/api/user-birthday', async (req, res) => {
+  const { userId, birthdayDate } = req.body;
+  if (!userId || !birthdayDate) {
+    return res.status(400).json({ success: false, message: 'User ID and Birthday Date are required' });
+  }
+  try {
+    await db.query(
+      'INSERT INTO birthday_table (user_id, birthday_date) VALUES (?, ?) ON DUPLICATE KEY UPDATE birthday_date = ?',
+      [userId, birthdayDate, birthdayDate]
+    );
+    res.json({ success: true, message: 'Birthday saved successfully' });
+  } catch (err) {
+    console.error('SAVE BIRTHDAY ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error saving birthday' });
+  }
+});
+
 // 🏫 GET SCHOOLS API (Filtered by Gallery existence if requested)
 app.get('/api/schools', async (req, res) => {
   const { hasGallery, hasReports, user_id } = req.query;
@@ -571,7 +696,10 @@ app.get('/api/schools', async (req, res) => {
     }
 
     if (hasReports === 'true') {
-      conditions.push(`EXISTS (SELECT 1 FROM year_lp_master_new yn WHERE yn.school_id = s.id)`);
+      conditions.push(`(
+        EXISTS (SELECT 1 FROM year_lp_master_new yn WHERE yn.school_id = s.id) 
+        OR EXISTS (SELECT 1 FROM coach_lesson_tracking clt WHERE clt.school_id = s.id)
+      )`);
     }
 
     if (conditions.length > 0) {
@@ -767,41 +895,8 @@ app.get('/api/school-metadata/:school_id', async (req, res) => {
 });
 
 // 🎫 SUPPORT TICKETING APIS
-app.post('/api/support/ticket', async (req, res) => {
-  const { name, email, subject, message } = req.body;
-  try {
-    if (!name || !email || !subject || !message) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
-    }
+// Redundant endpoints removed for consolidation below.
 
-    const [result] = await db.query(
-      `INSERT INTO support_tickets (name, email, subject, message, status) VALUES (?, ?, ?, ?, 'Open')`,
-      [name, email, subject, message]
-    );
-
-    res.json({ success: true, message: 'Ticket submitted successfully', id: result.insertId });
-  } catch (err) {
-    console.error('SUBMIT TICKET ERROR:', err);
-    res.status(500).json({ success: false, message: 'Error submitting support ticket' });
-  }
-});
-
-app.get('/api/tickets/all', async (req, res) => {
-  try {
-    const [rows] = await db.query(`
-      SELECT t.*, 
-             '1' as current_tier, 
-             'Support Agent' as role_name,
-             t.created_at as last_escalated_at
-      FROM support_tickets t 
-      ORDER BY t.created_at DESC
-    `);
-    res.json({ success: true, tickets: rows });
-  } catch (err) {
-    console.error('FETCH TICKETS ERROR:', err);
-    res.status(500).json({ success: false, message: 'Error fetching tickets' });
-  }
-});
 
 app.put('/api/tickets/:id/action', async (req, res) => {
   const { id } = req.params;
@@ -1335,6 +1430,127 @@ app.get('/api/users/coaches', async (req, res) => {
 });
 
 // 🔍 GET SINGLE USER
+app.get('/api/users/login-status', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT id, name, email, role_id, last_login, profile_pic,
+      CASE 
+        WHEN DATE(last_login) = CURDATE() THEN 1 
+        ELSE 0 
+      END as logged_in_today
+      FROM users 
+      WHERE is_active = 1
+      ORDER BY name ASC
+    `);
+
+    const loggedIn = rows.filter(u => u.logged_in_today === 1);
+    const notLoggedIn = rows.filter(u => u.logged_in_today === 0);
+
+    res.json({
+      success: true,
+      data: {
+        loggedIn,
+        notLoggedIn,
+        total: rows.length
+      }
+    });
+  } catch (err) {
+    console.error('FETCH LOGIN STATUS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching login status' });
+  }
+});
+
+// 🔍 GET ASSIGNED USER LOGIN STATUS (New Endpoint)
+app.get('/api/assigned-users/login-status', async (req, res) => {
+  const { user_id } = req.query;
+
+  try {
+    if (!user_id) {
+       return res.status(400).json({ success: false, message: 'User ID is required' });
+    }
+
+    const query = `
+      SELECT u.id, u.name, u.email, u.role_id, u.last_login, u.profile_pic,
+      CASE 
+        WHEN DATE(u.last_login) = CURDATE() THEN 1 
+        ELSE 0 
+      END as logged_in_today
+      FROM users u
+      JOIN assigned_users au ON u.id = au.subordinate_id
+      WHERE au.manager_id = ?
+      AND u.is_active = 1
+      ORDER BY u.name ASC
+    `;
+
+    const [rows] = await db.query(query, [user_id]);
+
+    const loggedIn = rows.filter(u => u.logged_in_today === 1);
+    const notLoggedIn = rows.filter(u => u.logged_in_today === 0);
+
+    res.json({
+      success: true,
+      data: {
+        loggedIn,
+        notLoggedIn,
+        total: rows.length
+      }
+    });
+  } catch (err) {
+    console.error('FETCH ASSIGNED LOGIN STATUS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching assigned login status' });
+  }
+});
+
+// 👥 GET USER HIERARCHY
+app.get('/api/user-hierarchy', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT manager_id, subordinate_id 
+      FROM assigned_users
+    `);
+    
+    // Group assignments by manager
+    const assignments = rows.reduce((acc, curr) => {
+      if (!acc[curr.manager_id]) acc[curr.manager_id] = [];
+      acc[curr.manager_id].push(curr.subordinate_id);
+      return acc;
+    }, {});
+
+    res.json({ success: true, assignments });
+  } catch (err) {
+    console.error('FETCH HIERARCHY ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching hierarchy' });
+  }
+});
+
+// 💾 SAVE USER HIERARCHY
+app.post('/api/user-hierarchy', async (req, res) => {
+  const { manager_id, subordinate_ids } = req.body;
+  if (!manager_id || !Array.isArray(subordinate_ids)) {
+    return res.status(400).json({ success: false, message: 'Invalid data provided' });
+  }
+  
+  const connection = await db.getConnection();
+  try {
+    await connection.beginTransaction();
+    await connection.query('DELETE FROM assigned_users WHERE manager_id = ?', [manager_id]);
+    
+    if (subordinate_ids.length > 0) {
+      const values = subordinate_ids.map(subId => [manager_id, subId]);
+      await connection.query('INSERT INTO assigned_users (manager_id, subordinate_id) VALUES ?', [values]);
+    }
+    
+    await connection.commit();
+    res.json({ success: true, message: 'Assignments updated successfully' });
+  } catch (err) {
+    await connection.rollback();
+    console.error('SAVE HIERARCHY ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error saving hierarchy' });
+  } finally {
+    connection.release();
+  }
+});
+
 app.get('/api/users/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -3468,13 +3684,13 @@ const curriculumEvidenceStorage = multer.diskStorage({
   }
 });
 const uploadEvidence = multer({ storage: curriculumEvidenceStorage });
-app.post('/api/curriculum/save-lp-status', uploadEvidence.single('photo'), async (req, res) => {
+app.post('/api/curriculum/save-lp-status', uploadEvidence.array('photos', 10), async (req, res) => {
   try {
     const { lp_no, lp_unique_id, user_id, status, remark, school_id, divisions } = req.body;
     let evidence_photo = null;
 
-    if (req.file) {
-      evidence_photo = `/uploads/curriculum_evidence/${req.file.filename}`;
+    if (req.files && req.files.length > 0) {
+      evidence_photo = req.files.map(file => `/uploads/curriculum_evidence/${file.filename}`).join(',');
     }
     const [masterRows] = await db.query('SELECT * FROM year_lp_master_new WHERE unique_id = ?', [lp_unique_id]);
     if (masterRows.length === 0) {
@@ -3592,50 +3808,7 @@ app.get('/api/curriculum/my-assigned-master', async (req, res) => {
   }
 });
 
-// 📸 SAVE LP STATUS (DONE/PENDING)
-app.post('/api/curriculum/save-lp-status', upload.array('photos', 5), async (req, res) => {
-  const connection = await db.getConnection();
-  try {
-    const { lp_no, lp_unique_id, user_id, status, school_id, divisions } = req.body;
-    const remark = req.body.remark || ''; 
-    const photos = req.files || [];
 
-    await connection.beginTransaction();
-
-    // 1. Insert or Update status
-    const [result] = await connection.query(`
-      INSERT INTO lp_status (lp_no, lp_unique_id, user_id, status, remark, school_id, divisions)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE status = VALUES(status), remark = VALUES(remark), school_id = VALUES(school_id), divisions = VALUES(divisions)
-    `, [lp_no, lp_unique_id, user_id, status, remark, school_id || null, divisions || null]);
-
-    // Get the status ID
-    let statusId;
-    if (result.insertId) {
-      statusId = result.insertId;
-    } else {
-      const [existing] = await connection.query('SELECT id FROM lp_status WHERE lp_unique_id = ? AND user_id = ?', [lp_unique_id, user_id]);
-      statusId = existing[0].id;
-    }
-
-    // 2. Save photos if Done
-    if (status === 'Done' && photos.length > 0) {
-      for (const file of photos) {
-        const photoPath = `uploads/${file.filename}`;
-        await connection.query('INSERT INTO lp_status_photos (lp_status_id, photo_path) VALUES (?, ?)', [statusId, photoPath]);
-      }
-    }
-
-    await connection.commit();
-    res.json({ success: true, message: `Status marked as ${status} successfully!` });
-  } catch (err) {
-    await connection.rollback();
-    console.error('SAVE LP STATUS ERROR:', err);
-    res.status(500).json({ success: false, message: 'Error saving status' });
-  } finally {
-    connection.release();
-  }
-});
 
 // 🗑️ REMOVE LP STATUS
 app.post('/api/curriculum/remove-lp-status', async (req, res) => {
@@ -4136,6 +4309,15 @@ app.get('/api/dashboard/stats', async (req, res) => {
     const [[{ students }]] = await db.query(`SELECT COUNT(*) as students FROM students ${studentWhere}`);
     const [[{ schools }]] = await db.query(`SELECT COUNT(*) as schools FROM schools ${schoolWhere}`);
     
+    // 3. Additional Stats (Principal View)
+    let lectureWhere = schoolIds.length > 0 ? `WHERE school_id IN (${schoolIds.join(',')})` : '';
+    let weeklyWhere = schoolIds.length > 0 ? `WHERE school_id IN (${schoolIds.join(',')})` : '';
+    let mirWhere = schoolIds.length > 0 ? `WHERE school_id IN (${schoolIds.join(',')})` : '';
+
+    const [[{ count: lectures }]] = await db.query(`SELECT COUNT(*) as count FROM marked_lectures ${lectureWhere}`);
+    const [[{ count: weekly_reports }]] = await db.query(`SELECT COUNT(*) as count FROM coach_lesson_tracking ${weeklyWhere}`);
+    const [[{ count: mir_reports }]] = await db.query(`SELECT COUNT(*) as count FROM mir_reports ${mirWhere}`);
+
     let staffCount = 0;
     let hqStaffCount = 0;
 
@@ -4170,7 +4352,10 @@ app.get('/api/dashboard/stats', async (req, res) => {
       data: {
         students,
         schools,
-        staff: staffCount
+        staff: staffCount,
+        lectures,
+        weekly_reports,
+        mir_reports
       }
     });
   } catch (err) {
@@ -4279,14 +4464,14 @@ app.delete('/api/dashboard/manage-content/:id', async (req, res) => {
 // 🎫 SUBMIT SUPPORT TICKET (COMPLAINT)
 app.post('/api/support/ticket', async (req, res) => {
   try {
-    const { subject, message, name, email } = req.body;
+    const { subject, message, name, email, user_id } = req.body;
     if (!subject || !message) {
       return res.status(400).json({ success: false, message: 'Subject and message are required' });
     }
 
     await db.query(
-      "INSERT INTO complaints (name, email, subject, message, status) VALUES (?, ?, ?, ?, 'Pending')",
-      [name || 'Anonymous', email || 'N/A', subject, message]
+      "INSERT INTO complaints (name, email, subject, message, status, user_id) VALUES (?, ?, ?, ?, 'pending', ?)",
+      [name || 'Anonymous', email || 'N/A', subject, message, user_id || null]
     );
 
     res.json({ success: true, message: 'Ticket raised successfully' });
@@ -4372,10 +4557,121 @@ app.post('/api/dashboard/events', async (req, res) => {
   }
 });
 
+app.post('/api/ptm-date', async (req, res) => {
+  try {
+    const { userId, ptmDate } = req.body;
+    if (!userId || !ptmDate) {
+      return res.status(400).json({ success: false, message: 'User ID and PTM Date are required' });
+    }
+    
+    // Append -01 if it's YYYY-MM format
+    const formattedDate = ptmDate.length === 7 ? `${ptmDate}-01` : ptmDate;
+
+    // We store the PTM date in the dashboard_events table
+    await db.query(
+      "INSERT INTO dashboard_events (title, description, event_date, category, is_featured) VALUES (?, ?, ?, ?, ?)",
+      ['PTM', 'Parent-Teacher Meeting', formattedDate, 'Event', 1]
+    );
+    
+    res.json({ success: true, message: 'PTM Date stored successfully' });
+  } catch (err) {
+    console.error('POST PTM DATE ERROR:', err);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+app.get('/api/latest-ptm-date', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT id, event_date FROM dashboard_events WHERE title = 'PTM' ORDER BY created_at DESC LIMIT 1"
+    );
+    if (rows.length > 0) {
+      res.json({ success: true, ptmDate: rows[0].event_date, ptmEventId: rows[0].id });
+    } else {
+      res.json({ success: true, ptmDate: null, ptmEventId: null });
+    }
+  } catch (err) {
+    console.error('GET LATEST PTM ERROR:', err);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+// Check if a specific user is unlocked for current PTM period
+app.get('/api/ptm-unlock/check', async (req, res) => {
+  try {
+    const { user_id } = req.query;
+    if (!user_id) return res.status(400).json({ success: false });
+    const [rows] = await db.query('SELECT id FROM ptm_user_unlocks WHERE user_id = ?', [user_id]);
+    res.json({ success: true, isUnlocked: rows.length > 0 });
+  } catch (err) {
+    console.error('PTM UNLOCK CHECK ERROR:', err);
+    res.status(500).json({ success: false });
+  }
+});
+
+// Get all users with their PTM lock status
+app.get('/api/ptm-locks', async (req, res) => {
+  try {
+    const [users] = await db.query(`
+      SELECT u.id, u.name, u.email, u.role_id,
+        CASE WHEN puu.id IS NOT NULL THEN 1 ELSE 0 END AS is_unlocked,
+        puu.unlocked_at
+      FROM users u
+      LEFT JOIN ptm_user_unlocks puu ON u.id = puu.user_id
+      WHERE u.is_active = 1
+      ORDER BY is_unlocked ASC, u.name ASC
+    `);
+    res.json({ success: true, data: users });
+  } catch (err) {
+    console.error('GET PTM LOCKS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+// Unlock a user
+app.post('/api/ptm-unlock', async (req, res) => {
+  try {
+    const { user_id, unlocked_by } = req.body;
+    if (!user_id || !unlocked_by) return res.status(400).json({ success: false, message: 'Missing fields' });
+    await db.query(
+      'INSERT INTO ptm_user_unlocks (user_id, unlocked_by) VALUES (?, ?) ON DUPLICATE KEY UPDATE unlocked_by = ?, unlocked_at = NOW()',
+      [user_id, unlocked_by, unlocked_by]
+    );
+    res.json({ success: true, message: 'User unlocked successfully' });
+  } catch (err) {
+    console.error('PTM UNLOCK ERROR:', err);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+// Re-lock a user
+app.post('/api/ptm-relock', async (req, res) => {
+  try {
+    const { user_id } = req.body;
+    if (!user_id) return res.status(400).json({ success: false, message: 'Missing user_id' });
+    await db.query('DELETE FROM ptm_user_unlocks WHERE user_id = ?', [user_id]);
+    res.json({ success: true, message: 'User re-locked successfully' });
+  } catch (err) {
+    console.error('PTM RELOCK ERROR:', err);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
 // 🌟 DASHBOARD HIGHLIGHTS (SWIPER)
 app.get('/api/dashboard/highlights', async (req, res) => {
   try {
-    const [rows] = await db.query("SELECT * FROM dashboard_highlights ORDER BY id DESC");
+    const { school_id } = req.query;
+    let sql = "SELECT h.*, s.name as school_name FROM dashboard_highlights h LEFT JOIN schools s ON h.school_id = s.id";
+    const params = [];
+
+    if (school_id) {
+      sql += " WHERE h.school_id = ? OR h.school_id IS NULL";
+      params.push(school_id);
+    }
+
+    sql += " ORDER BY h.id DESC";
+    
+    const [rows] = await db.query(sql, params);
     res.json({ success: true, data: rows });
   } catch (err) {
     console.error('GET HIGHLIGHTS ERROR:', err);
@@ -4385,7 +4681,7 @@ app.get('/api/dashboard/highlights', async (req, res) => {
 
 app.post('/api/dashboard/highlights', upload.single('image'), async (req, res) => {
   try {
-    const { tagline, title, subtitle, category, reel_url } = req.body;
+    const { tagline, title, subtitle, category, reel_url, school_id } = req.body;
     const file = req.file;
 
     if (!file && !reel_url) {
@@ -4395,8 +4691,8 @@ app.post('/api/dashboard/highlights', upload.single('image'), async (req, res) =
     const imagePath = file ? file.filename : null;
 
     await db.query(
-      "INSERT INTO dashboard_highlights (tagline, title, subtitle, image_path, category, reel_url) VALUES (?, ?, ?, ?, ?, ?)",
-      [tagline || '', title, subtitle || '', imagePath, category || 'Event', reel_url || null]
+      "INSERT INTO dashboard_highlights (tagline, title, subtitle, image_path, category, reel_url, school_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      [tagline || '', title, subtitle || '', imagePath, category || 'Event', reel_url || null, school_id || null]
     );
     res.json({ success: true, message: 'Highlight added successfully' });
   } catch (err) {
@@ -4620,19 +4916,21 @@ app.get('/api/curriculum/report-filters/:schoolId', async (req, res) => {
   try {
     const { schoolId } = req.params;
     const { publishedOnly } = req.query;
+    console.log('[DEBUG] Report Filters:', { schoolId, publishedOnly });
     
     const sql = `
       SELECT DISTINCT 
          CASE WHEN week LIKE 'Week %' THEN week ELSE CONCAT('Week ', week) END as week_no, 
          REPLACE(REPLACE(month_year, '-', ', '), ', ', ',') as month_year
-      FROM year_lp_master_new
+      FROM coach_lesson_tracking
       WHERE school_id = ? 
         AND week IS NOT NULL 
         AND month_year IS NOT NULL
-        ${publishedOnly === 'true' ? ' AND school_able_to_visibale_status = 1' : ''}
+        ${publishedOnly === 'true' ? 'AND school_able_to_visibale_status = 1' : ''}
       ORDER BY month_year DESC, week_no ASC
     `;
     const [rows] = await db.query(sql, [schoolId]);
+    console.log('[DEBUG] Filters Found:', rows.length);
     
     // Group by month_year for the frontend dropdowns
     const filters = {};
@@ -4654,54 +4952,48 @@ app.get('/api/curriculum/report-filters/:schoolId', async (req, res) => {
 app.get('/api/curriculum/report-data', async (req, res) => {
   try {
     const { school_id, month_year, week_no, publishedOnly } = req.query;
-
+    console.log('[DEBUG] Report Data Request:', { school_id, month_year, week_no, publishedOnly });
     const sql = `
        SELECT 
-        u.*,
+        clt.unique_id, clt.lp_no, clt.grade, clt.sport, clt.skill, clt.sub_skill, clt.objective,
+        clt.teaching_aids, clt.warm_up, clt.skill_implementation, clt.cool_down,
+        clt.summarization, clt.life_skill, clt.picture, clt.evidence_photo,
+        clt.school_id, 
+        CASE WHEN clt.week LIKE 'Week %' THEN clt.week ELSE CONCAT('Week ', clt.week) END as week_no,
+        REPLACE(REPLACE(clt.month_year, '-', ', '), ', ', ',') as month_year,
+        clt.divisions,
+        clt.status AS lp_status, clt.remark AS lp_remark, clt.created_at AS done_date, clt.user_id as tracked_user_id,
         sch.name as school_name,
         usr.name as coach_name,
         usr.profile_pic as coach_avatar
-      FROM (
-        -- 1. All from Schedule (Plan)
-        SELECT 
-          yn.unique_id, yn.lp_no, yn.grade, yn.sport, yn.skill, yn.sub_skill, yn.objective,
-          yn.teaching_aids, yn.warm_up, yn.skill_implementation, yn.cool_down,
-          yn.summarization, yn.life_skill, yn.picture,
-          yn.school_id, 
-          CASE WHEN yn.week LIKE 'Week %' THEN yn.week ELSE CONCAT('Week ', yn.week) END as week_no,
-          REPLACE(REPLACE(yn.month_year, '-', ', '), ', ', ',') as month_year,
-          yn.divisions,
-          clt.status AS lp_status, clt.remark AS lp_remark, clt.submitted_at AS done_date, clt.user_id as tracked_user_id,
-          yn.school_able_to_visibale_status
-        FROM year_lp_master_new yn
-        LEFT JOIN coach_lesson_tracking clt ON clt.unique_id = yn.unique_id
-        
-        UNION ALL
-        
-        -- 2. Ad-hoc Entries (In Tracking but NOT in Schedule)
-        SELECT 
-          clt.unique_id, clt.lp_no, clt.grade, clt.sport, clt.skill, clt.sub_skill, clt.objective,
-          clt.teaching_aids, clt.warm_up, clt.skill_implementation, clt.cool_down,
-          clt.summarization, clt.life_skill, clt.picture,
-          clt.school_id, 
-          CASE WHEN clt.week LIKE 'Week %' THEN clt.week ELSE CONCAT('Week ', clt.week) END as week_no,
-          REPLACE(REPLACE(clt.month_year, '-', ', '), ', ', ',') as month_year,
-          clt.divisions,
-          clt.status AS lp_status, clt.remark AS lp_remark, clt.submitted_at AS done_date, clt.user_id as tracked_user_id,
-          1 as school_able_to_visibale_status 
-        FROM coach_lesson_tracking clt
-        WHERE clt.unique_id NOT IN (SELECT unique_id FROM year_lp_master_new WHERE unique_id IS NOT NULL)
-      ) u
-      LEFT JOIN schools sch ON u.school_id = sch.id
-      LEFT JOIN users usr ON u.tracked_user_id = usr.id
-      WHERE u.school_id = ? 
-        AND u.week_no = ? 
-        AND u.month_year = ?
-        ${publishedOnly === 'true' ? ' AND u.school_able_to_visibale_status = 1' : ''}
+      FROM coach_lesson_tracking clt
+      LEFT JOIN schools sch ON clt.school_id = sch.id
+      LEFT JOIN users usr ON clt.user_id = usr.id
+      WHERE clt.school_id = ? 
+        AND (
+          TRIM(clt.week) = TRIM(?) 
+          OR TRIM(clt.week) = TRIM(REPLACE(?, 'Week ', ''))
+          OR REPLACE(TRIM(clt.week), 'Week ', '') = TRIM(REPLACE(?, 'Week ', ''))
+        )
+        AND (
+          TRIM(clt.month_year) = TRIM(?) 
+          OR REPLACE(TRIM(clt.month_year), '-', ',') = TRIM(?)
+          OR REPLACE(TRIM(clt.month_year), '-', '') = REPLACE(TRIM(?), ',', '')
+        )
+        ${publishedOnly === 'true' ? 'AND clt.school_able_to_visibale_status = 1' : ''}
       ORDER BY sport, lp_no ASC
     `;
 
-    const [rows] = await db.query(sql, [school_id, week_no, month_year]);
+    const [rows] = await db.query(sql, [
+      school_id, 
+      week_no, 
+      week_no,
+      week_no,
+      month_year,
+      month_year,
+      month_year
+    ]);
+    console.log('[DEBUG] Report Data Rows Found:', rows.length);
 
     if (rows.length === 0) {
       return res.json({ success: true, report: null });
@@ -4730,7 +5022,11 @@ app.get('/api/curriculum/report-data', async (req, res) => {
         // Handle pictures
         if (row.picture) {
            const pics = String(row.picture).split(',').map(p => p.trim()).filter(p => p);
-           sportsData[sportName].gallery = pics.map(p => '/uploads/' + p);
+           sportsData[sportName].gallery = [...sportsData[sportName].gallery, ...pics.map(p => p.startsWith('/uploads/') ? p : '/uploads/' + p)];
+        }
+        if (row.evidence_photo) {
+           const pics = String(row.evidence_photo).split(',').map(p => p.trim()).filter(p => p);
+           sportsData[sportName].gallery = [...new Set([...sportsData[sportName].gallery, ...pics.map(p => p.startsWith('/uploads/') ? p : '/uploads/' + p)])];
         }
       }
 
@@ -4757,6 +5053,15 @@ app.get('/api/curriculum/report-data', async (req, res) => {
           }
         });
       }
+      if (row.evidence_photo) {
+        const pics = String(row.evidence_photo).split(',').map(p => p.trim()).filter(p => p);
+        pics.forEach(p => {
+          const url = p.startsWith('/uploads/') ? p : '/uploads/' + p;
+          if (!sportsData[sportName].gallery.includes(url)) {
+            sportsData[sportName].gallery.push(url);
+          }
+        });
+      }
 
       // Add key areas from the lesson plan objective/remark
       sportsData[sportName].key_areas.push({
@@ -4767,6 +5072,10 @@ app.get('/api/curriculum/report-data', async (req, res) => {
         status: row.lp_status,
         done_date: row.done_date,
         observations: [row.objective].filter(v => v),
+        photos: [
+          ...(row.picture ? String(row.picture).split(',').map(p => p.trim()).filter(p => p).map(p => p.startsWith('/uploads/') ? p : '/uploads/' + p) : []),
+          ...(row.evidence_photo ? String(row.evidence_photo).split(',').map(p => p.trim()).filter(p => p).map(p => p.startsWith('/uploads/') ? p : '/uploads/' + p) : [])
+        ],
         rating: row.lp_status === 'Done' || row.lp_status === 'Complete' ? 'EXCELLENT' : 'IMPROVING'
       });
     });
@@ -4796,7 +5105,7 @@ app.post('/api/curriculum/publish-report', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required parameters' });
     }
 
-    const sql = `
+    const sql1 = `
       UPDATE year_lp_master_new 
       SET school_able_to_visibale_status = 1 
       WHERE school_id = ? 
@@ -4804,12 +5113,21 @@ app.post('/api/curriculum/publish-report', async (req, res) => {
         AND REPLACE(REPLACE(month_year, '-', ', '), ', ', ',') = ?
     `;
 
-    const [result] = await db.query(sql, [school_id, week_no, month_year]);
+    const sql2 = `
+      UPDATE coach_lesson_tracking 
+      SET school_able_to_visibale_status = 1 
+      WHERE school_id = ? 
+        AND CASE WHEN week LIKE 'Week %' THEN week ELSE CONCAT('Week ', week) END = ? 
+        AND REPLACE(REPLACE(month_year, '-', ', '), ', ', ',') = ?
+    `;
+
+    const [result1] = await db.query(sql1, [school_id, week_no, month_year]);
+    const [result2] = await db.query(sql2, [school_id, week_no, month_year]);
 
     res.json({
       success: true,
-      message: `Report published successfully! ${result.changedRows} records updated.`,
-      updatedRows: result.changedRows
+      message: `Report published successfully! ${result2.changedRows} tracking records updated.`,
+      updatedRows: result2.changedRows
     });
   } catch (err) {
     console.error('PUBLISH REPORT ERROR:', err);
@@ -5207,39 +5525,10 @@ app.post('/api/tickets/rules', async (req, res) => {
   }
 });
 
-// Create a new Support Ticket (Maps to Tier 1)
-app.post('/api/support/ticket', async (req, res) => {
-  try {
-    const { subject, name, email, message } = req.body;
-
-    // Default to Tier 1
-    const [tier1] = await db.query('SELECT * FROM ticket_escalation_rules WHERE tier_level = 1');
-    const assigned_role_id = tier1.length > 0 ? tier1[0].assigned_role_id : null;
-    const assigned_user_id = tier1.length > 0 ? tier1[0].assigned_user_id : null;
-
-    await db.query(
-      `INSERT INTO hierarchical_tickets (subject, name, email, message, current_tier, assigned_role_id, assigned_user_id, status, last_escalated_at) 
-       VALUES (?, ?, ?, ?, 1, ?, ?, 'pending', NOW())`,
-      [subject, name, email, message, assigned_role_id, assigned_user_id]
-    );
-
-    res.json({ success: true, message: 'Ticket registered successfully.' });
-  } catch (err) {
-    console.error('RAISE TICKET ERROR:', err);
-    res.status(500).json({ success: false, message: 'Error raising ticket' });
-  }
-});
-
-// Get all Support Tickets (Helpdesk list)
+// Get all Support Tickets (Complaints list)
 app.get('/api/tickets/all', async (req, res) => {
   try {
-    const [rows] = await db.query(`
-      SELECT t.*, r.name as role_name, u.name as user_name 
-      FROM hierarchical_tickets t
-      LEFT JOIN roles r ON t.assigned_role_id = r.id
-      LEFT JOIN users u ON t.assigned_user_id = u.id
-      ORDER BY t.created_at DESC
-    `);
+    const [rows] = await db.query('SELECT * FROM complaints ORDER BY id DESC');
     res.json({ success: true, tickets: rows });
   } catch (err) {
     console.error('FETCH TICKETS ERROR:', err);
@@ -5251,12 +5540,24 @@ app.get('/api/tickets/all', async (req, res) => {
 app.put('/api/tickets/:id/action', async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body; // e.g. 'resolved', 'closed'
-    await db.query('UPDATE hierarchical_tickets SET status = ? WHERE id = ?', [status, id]);
-    res.json({ success: true, message: 'Ticket marked as ' + status + '.' });
+    const { status } = req.body; // 'solved'
+    await db.query('UPDATE complaints SET status = ? WHERE id = ?', [status, id]);
+    res.json({ success: true, message: 'Complaint marked as ' + status + '.' });
   } catch (err) {
-    console.error('UPDATE TICKET ERROR:', err);
-    res.status(500).json({ success: false, message: 'Error updating ticket' });
+    console.error('UPDATE COMPLAINT ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error updating complaint' });
+  }
+});
+
+// Dedicated Complaint Status Update API
+app.post('/api/complaints/update-status', async (req, res) => {
+  const { id, status } = req.body;
+  try {
+    await db.query('UPDATE complaints SET status = ? WHERE id = ?', [status, id]);
+    res.json({ success: true, message: 'Status updated successfully' });
+  } catch (err) {
+    console.error('Update Status Error:', err);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 
@@ -5421,21 +5722,30 @@ app.post('/api/management/lectures', async (req, res) => {
   }
 
   try {
-    const [result] = await db.query(`
-      INSERT INTO marked_lectures (school_id, coach_id, sport, lecture_date, start_time, end_time, grades, division)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      school_id, 
-      coach_id, 
-      sport, 
-      lecture_date, 
-      start_time, 
-      end_time, 
-      Array.isArray(grades) ? grades.join(',') : grades, 
-      division
-    ]);
+    const gradeList = Array.isArray(grades) ? grades : (typeof grades === 'string' ? grades.split(',') : [grades]);
+    const divisionList = Array.isArray(division) ? division : (typeof division === 'string' ? division.split(',') : [division]);
+
+    const results = [];
+    for (const g of gradeList) {
+      for (const d of divisionList) {
+        const [result] = await db.query(`
+          INSERT INTO marked_lectures (school_id, coach_id, sport, lecture_date, start_time, end_time, grades, division)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          school_id, 
+          coach_id, 
+          sport, 
+          lecture_date, 
+          start_time, 
+          end_time, 
+          g, 
+          d
+        ]);
+        results.push(result.insertId);
+      }
+    }
     
-    res.json({ success: true, lectureId: result.insertId });
+    res.json({ success: true, lectureIds: results });
   } catch (err) {
     console.error('CREATE LECTURE ERROR:', err);
     res.status(500).json({ success: false, message: err.message });
@@ -5551,6 +5861,36 @@ app.get('/api/curriculum/aop-stats', async (req, res) => {
   } catch (err) {
     console.error('AOP STATS ERROR:', err);
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// 🎫 SUBMIT FEEDBACK (DASHBOARD)
+app.post('/api/support/feedback', async (req, res) => {
+  try {
+    const { subject, message, name, email, user_id } = req.body;
+    if (!subject || !message) {
+      return res.status(400).json({ success: false, message: 'Subject and message are required' });
+    }
+
+    await db.query(
+      "INSERT INTO feed_back_user (user_id, name, email, subject, message) VALUES (?, ?, ?, ?, ?)",
+      [user_id || null, name || 'Anonymous', email || 'N/A', subject, message]
+    );
+
+    res.json({ success: true, message: 'Feedback submitted successfully' });
+  } catch (err) {
+    console.error('SUBMIT FEEDBACK ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error submitting feedback' });
+  }
+});
+
+app.get('/api/support/feedback', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT * FROM feed_back_user ORDER BY id DESC');
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('GET FEEDBACK ERROR:', err);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 

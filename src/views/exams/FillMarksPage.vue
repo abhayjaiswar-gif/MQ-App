@@ -37,6 +37,46 @@ const bulkUploadInput = ref(null);
 // ─────────────────────────────
 // FETCH FILTERS
 // ─────────────────────────────
+const ptmDateStr = ref(null);
+const isLocked = ref(false);
+
+const formatMonth = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleString('default', { month: 'long', year: 'numeric' });
+};
+
+const fetchPtmDate = async () => {
+    try {
+        const userId = sessionStorage.getItem('id') || '';
+        const [ptmRes, unlockRes] = await Promise.all([
+            fetch('/api/latest-ptm-date'),
+            fetch(`/api/ptm-unlock/check?user_id=${userId}`)
+        ]);
+        const ptmData = await ptmRes.json();
+        const unlockData = await unlockRes.json();
+
+        if (ptmData.success && ptmData.ptmDate) {
+            ptmDateStr.value = ptmData.ptmDate;
+            const ptm = new Date(ptmData.ptmDate);
+
+            // Lock start date is 1 month before PTM date
+            const lockStart = new Date(ptm.getFullYear(), ptm.getMonth() - 1, 1);
+            const lockEnd = new Date(ptm.getFullYear(), ptm.getMonth() + 1, 1);
+            const now = new Date();
+
+            const withinLockWindow = now >= lockStart && now < lockEnd;
+            const manuallyUnlocked = unlockData.success && unlockData.isUnlocked;
+
+            if (withinLockWindow && !manuallyUnlocked) {
+                isLocked.value = true;
+            }
+        }
+    } catch (e) {
+        console.error(e);
+    }
+};
+
 const fetchFilters = async (schoolId = null) => {
     try {
         const formatRes = await fetch('/api/exam-formats');
@@ -450,10 +490,38 @@ watch(selectedSchoolId, async (val) => {
 watch([selectedStandard, selectedDivision, selectedTerm], fetchStudentsWithMarks);
 
 // ─────────────────────────────
-onMounted(fetchFilters);
+onMounted(() => {
+    fetchFilters();
+    fetchPtmDate();
+});
 </script>
 <template>
     <div class="bg-surface text-on-surface antialiased flex min-h-screen overflow-hidden font-inter text-sm relative">
+        
+        <!-- 🔒 PTM Lock Overlay -->
+        <div v-if="isLocked" class="fixed inset-0 z-[99999] flex items-center justify-center"
+            style="background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(16px);">
+            <div class="text-center max-w-md px-8 py-12 rounded-3xl" 
+                style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);">
+                <div class="w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-8"
+                    style="background: linear-gradient(135deg, #4f46e5, #6366f1);">
+                    <span class="material-symbols-outlined text-white text-5xl" style="font-variation-settings: 'FILL' 1;">lock</span>
+                </div>
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-indigo-400 mb-3">Access Restricted</p>
+                <h2 class="text-4xl font-black text-white mb-4" style="letter-spacing: -0.04em; line-height: 1;">
+                    Page<br>Locked
+                </h2>
+                <p class="text-slate-400 font-medium leading-relaxed mb-6">
+                    This page is locked from <strong class="text-white">1 month before the PTM</strong> until the end of PTM month.
+                </p>
+                <div class="inline-flex items-center gap-2 px-5 py-3 rounded-full"
+                    style="background: rgba(79,70,229,0.15); border: 1px solid rgba(79,70,229,0.3);">
+                    <span class="material-symbols-outlined text-indigo-400 text-[18px]">calendar_month</span>
+                    <span class="text-sm font-bold text-indigo-300">PTM: {{ formatMonth(ptmDateStr) }}</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Custom Toast Notification -->
         <div v-if="toastMessage"
             class="fixed bottom-8 right-8 z-[9999] px-6 py-4 rounded-2xl shadow-xl border font-manrope font-extrabold flex items-center gap-3 transition-all duration-300 animate-in slide-in-from-bottom-8 fade-in"

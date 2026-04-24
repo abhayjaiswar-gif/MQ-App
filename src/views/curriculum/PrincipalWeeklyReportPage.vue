@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen bg-slate-50 py-10 px-4 font-sans print:p-0 print:bg-white">
-    <!-- NO SCHOOL SELECTED (Loading or Grid for Multi-school) -->
+    <!-- STEP 1: SCHOOL SELECTION (Loading or Grid for Multi-school) -->
     <div v-if="!selectedSchool" class="max-w-7xl mx-auto">
       <div v-if="loadingSchools" class="text-center py-20">
         <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
@@ -32,7 +32,7 @@
       </div>
     </div>
 
-    <!-- STEP 2: WEEK SELECTION (Restricted to status=1) -->
+    <!-- STEP 2: WEEK SELECTION -->
     <div v-else-if="!selectedWeek" class="max-w-6xl mx-auto">
        <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div class="flex items-center gap-4">
@@ -106,8 +106,9 @@
       </div>
     </div>
 
-    <!-- STEP 3: FULL REPORT VIEW (Restricted) -->
-    <div v-else class="report-container relative overflow-hidden min-h-screen">
+    <!-- STEP 3: FULL REPORT VIEW -->
+    <div v-else class="report-container relative overflow-hidden min-h-screen bg-white">
+      <!-- Background Sports Pattern (Digital Only) -->
       <div class="sports-pattern-bg print:hidden"></div>
 
       <!-- Header Actions -->
@@ -115,121 +116,211 @@
         <div class="flex items-center gap-3">
           <button @click="selectedWeek = null"
             class="flex items-center gap-2 px-4 py-2.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded-lg font-bold transition-all text-sm group">
-            <span class="material-symbols-outlined text-sm group-hover:-translate-x-1 transition-transform rotate-180">arrow_forward</span>
-            Back to Timeline
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 group-hover:-translate-x-1 transition-transform"
+              fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            All Weeks
           </button>
           <div class="h-5 w-px bg-slate-200"></div>
-          <div class="flex items-center gap-2 text-sm font-bold text-slate-400 uppercase tracking-widest text-[11px]">
-             {{ selectedMonthYear }} • {{ selectedWeek }}
+          <div class="flex items-center gap-2 text-sm">
+            <span class="px-3 py-1 bg-primary/10 text-primary font-bold rounded-full text-xs shrink-0">{{
+              selectedMonthYear }}</span>
+            <span class="px-3 py-1 bg-slate-100 text-slate-600 font-bold rounded-full text-xs shrink-0">{{ selectedWeek
+            }}</span>
           </div>
-        </div>
-        <div class="flex items-center gap-3">
-          <button @click="printReport"
-            class="flex items-center gap-2 px-6 py-2.5 bg-slate-800 text-white rounded-lg font-bold shadow-lg shadow-slate-200 hover:bg-black transition-all active:scale-95 text-sm shrink-0">
-            <span class="material-symbols-outlined text-[18px]">print</span>
-            Download PDF
-          </button>
         </div>
       </div>
 
-      <!-- PAGE 1: PREMIUM COVER -->
-      <section class="report-cover relative h-[700px] mb-12 rounded-[32px] overflow-hidden shadow-2xl flex flex-col justify-between p-12 text-slate-800 page-break-after mx-auto">
+      <!-- PAGE 1: PREMIUM COVER Experience -->
+      <section
+        class="report-cover relative h-[700px] mb-12 rounded-[32px] overflow-hidden shadow-2xl flex flex-col justify-between p-12 text-slate-800 page-break-after mx-auto">
+        <!-- Hero Visual Background -->
         <div class="absolute inset-0 z-0 bg-white">
-          <img src="@/assets/report-cover.png" class="w-full h-full object-contain opacity-40 transform hover:scale-105 transition-transform duration-[10s]" />
+          <img src="@/assets/report-cover.png"
+            class="w-full h-full object-contain opacity-40 transform hover:scale-105 transition-transform duration-[10s]" />
           <div class="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-white/60"></div>
         </div>
 
+        <!-- Top Layer: Dual Branding -->
         <div class="relative z-10 flex justify-between items-start">
-          <div class="w-24 h-24 bg-white rounded-2xl p-4 border border-slate-200 flex items-center justify-center shadow-lg">
-            <img v-if="selectedSchool.school_logo" :src="`/uploads/${encodeURIComponent(selectedSchool.school_logo)}`" class="w-full h-full object-contain" />
+          <!-- Left: School Branding Box -->
+          <div
+            class="w-24 h-24 bg-white rounded-2xl p-4 border border-slate-200 flex items-center justify-center shadow-lg">
+            <img v-if="selectedSchool.school_logo" :src="`/uploads/${encodeURIComponent(selectedSchool.school_logo)}`"
+              @error="handleImageError" class="w-full h-full object-contain" />
             <span v-else class="text-3xl font-black text-slate-800">S</span>
           </div>
+
+          <!-- Right: Company Branding Box -->
           <div class="flex flex-col items-end">
-            <div class="w-24 h-24 bg-white rounded-2xl p-4 border border-slate-200 flex items-center justify-center shadow-lg">
+            <div
+              class="w-24 h-24 bg-white rounded-2xl p-4 border border-slate-200 flex items-center justify-center shadow-lg">
               <img :src="companyLogo" alt="ESA Logo" class="w-full h-full object-contain" />
             </div>
+            <p class="text-[10px] font-black tracking-[0.3em] text-slate-400 uppercase mt-3">Advanced Curriculum System
+            </p>
           </div>
         </div>
 
-        <div class="relative z-10 max-w-2xl mx-auto text-center py-10 px-8 bg-white/40 backdrop-blur-xl border border-slate-200 rounded-[40px] shadow-2xl mt-auto mb-12">
-          <p class="text-xs font-black uppercase tracking-[0.5em] mb-4 text-primary">Institutional Record</p>
-          <h1 class="text-5xl font-black tracking-tighter mb-4 leading-none text-slate-800 uppercase">Weekly Performance</h1>
+        <!-- Center Content Block: Identity -->
+        <div
+          class="relative z-10 max-w-2xl mx-auto text-center py-10 px-8 bg-white/40 backdrop-blur-xl border border-slate-200 rounded-[40px] shadow-2xl mt-auto mb-12 transform hover:-translate-y-1 transition-all duration-500">
+          <p class="text-xs font-black uppercase tracking-[0.5em] mb-4 text-primary">Academic Year 2024-25</p>
+          <h1 class="text-5xl font-black tracking-tighter mb-4 leading-none text-slate-800 uppercase">Weekly Performance Report
+          </h1>
           <div class="flex items-center justify-center gap-4 mb-4">
             <span class="h-px w-8 bg-slate-200"></span>
             <span class="text-lg font-bold text-slate-600">{{ selectedMonthYear }} • {{ selectedWeek }}</span>
             <span class="h-px w-8 bg-slate-200"></span>
           </div>
           <p class="text-3xl font-bold tracking-tight text-slate-800 mb-2">{{ selectedSchool.name }}</p>
+          <p class="text-base font-medium text-slate-400 italic">“Building Discipline. Inspiring Excellence.”</p>
         </div>
 
-        <div class="relative z-10 flex justify-between items-end border-t border-slate-100 pt-6 font-bold text-[10px] text-slate-400 uppercase tracking-widest">
-          <p>Official Institution Record</p>
-          <p>© 2026 Elite Sports Academy</p>
+        <!-- Bottom Footer Branding -->
+        <div class="relative z-10 flex justify-between items-end border-t border-slate-100 pt-6">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-slate-400 text-sm">school</span>
+            <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">Official Institution Record</p>
+          </div>
+          <p class="text-[10px] font-black tracking-widest text-slate-400 uppercase">© 2026 Elite Sports Academy</p>
         </div>
       </section>
 
+
+      <!-- Loading state -->
+      <div v-if="loadingReport"
+        class="max-w-[1100px] mx-auto bg-white rounded-3xl p-12 shadow-sm border border-slate-100">
+        <div class="animate-pulse space-y-6">
+          <div class="h-8 bg-slate-100 w-1/3 rounded-full"></div>
+          <div class="h-4 bg-slate-100 w-1/2 rounded-full"></div>
+          <div class="h-4 bg-slate-100 w-1/4 rounded-full"></div>
+          <div class="h-32 bg-slate-100 rounded-2xl mt-8"></div>
+        </div>
+      </div>
+
       <!-- Main Report Content Section -->
       <main v-if="reportData" class="report-page shadow-2xl relative">
-        <div class="sports-pattern-bg"></div>
-        
+        <!-- Sports Sections -->
         <div v-if="reportData.sports_reports && reportData.sports_reports.length">
-          <section v-for="(report, index) in reportData.sports_reports" :key="index" class="sport-card-v2 bg-white rounded-[32px] overflow-hidden border border-slate-100 mb-12 relative z-10">
-            <div class="h-1.5 w-full bg-slate-800"></div>
-            
+          <section v-for="(report, index) in reportData.sports_reports" :key="index" class="sport-card-v2">
+            <!-- Accent bar -->
+            <div class="sport-accent-bar"
+              :style="{ background: report.accentColor || 'linear-gradient(90deg, #10b981, #34d399)' }" />
+
             <!-- Sport header -->
-            <div class="flex items-center justify-between px-8 pt-8 pb-4">
-              <div class="flex items-center gap-3">
-                <span class="text-3xl">{{ report.sport_emoji || '⚽' }}</span>
-                <h2 class="text-2xl font-black text-slate-800 tracking-tight">{{ report.sport }}</h2>
+            <div class="flex items-center justify-between px-5 pt-4 pb-0">
+              <div class="flex items-center gap-2">
+                <span class="text-2xl">{{ report.sport_emoji || '⚽' }}</span>
+                <h2 class="text-xl font-bold text-slate-800">{{ report.sport }}</h2>
               </div>
+              <span
+                class="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 shadow-sm">
+                {{ report.sessions_count || 1 }} sessions this week
+              </span>
             </div>
 
-            <!-- Coach and Overview -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 p-8 bg-slate-50/50">
-              <div class="flex items-center gap-4">
-                <img :src="report.coach_avatar" class="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow-md" @error="handleImageError" />
-                <div>
-                  <h3 class="text-base font-extrabold text-slate-800 leading-tight">{{ report.coach_name }}</h3>
-                  <p class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">{{ report.sport }} Head Coach</p>
+            <div class="section-divider mt-3"></div>
+
+            <!-- Coach Profile Section -->
+            <div class="flex items-center gap-4 p-5">
+              <div class="relative group">
+                <img :src="report.coach_avatar" :alt="report.coach_name" @error="handleImageError"
+                  class="coach-avatar w-16 h-16" />
+              </div>
+              <div class="flex flex-col gap-1">
+                <h3 class="text-lg font-bold text-slate-800 leading-tight">{{ report.coach_name }}</h3>
+                <p class="text-sm text-slate-500 font-medium">
+                  {{ report.coach_role || (report.sport + ' Coach') }} · {{ report.coach_experience || '5+ Years' }}
+                </p>
+                <div class="badge-certified w-fit mt-0.5">
+                  <span class="material-symbols-outlined text-xs">verified_user</span>
+                  Certified Trainer
                 </div>
               </div>
-              <div class="md:col-span-2">
-                <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Performance Summary</h4>
-                <p class="text-[13px] leading-relaxed text-slate-600 font-medium italic border-l-4 border-slate-200 pl-4">{{ report.overview }}</p>
-              </div>
             </div>
 
-            <!-- Detailed Performance Table -->
-            <div class="p-8 pt-0" v-if="report.key_areas && report.key_areas.length">
-              <div class="overflow-x-auto rounded-2xl border border-slate-100 bg-white shadow-sm font-bold">
+            <div class="section-divider"></div>
+
+            <!-- Performance Overview -->
+            <div class="px-5 py-4">
+              <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Performance Overview</h4>
+              <p class="text-[0.9375rem] leading-relaxed text-slate-700 italic font-medium">{{ report.overview }}</p>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Detailed Performance -->
+            <div class="px-5 py-4" v-if="report.key_areas && report.key_areas.length">
+              <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Detailed Performance</h4>
+              <div class="overflow-x-auto rounded-xl border border-slate-200/60 bg-white">
                 <table class="w-full text-sm">
                   <thead>
-                    <tr class="bg-slate-50/80 border-b border-slate-100 uppercase tracking-widest text-[9px] text-slate-400">
-                      <th class="text-left px-6 py-4">Learning Area</th>
-                      <th class="text-left px-6 py-4">Standard</th>
-                      <th class="text-left px-6 py-4">Divisions</th>
-                      <th class="text-left px-6 py-4 text-right">Completion</th>
+                    <tr class="bg-slate-50/60 border-b border-slate-100">
+                      <th class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">Key Area</th>
+                      <th class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">Standard</th>
+                      <th class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">Divisions</th>
+                      <th class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">Date Done</th>
+                      <th class="text-right px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">Status</th>
+                      <th class="text-center px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">Evidence</th>
+                      <th class="text-right px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">Remark</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="(area, i) in report.key_areas" :key="i" class="border-t border-slate-50">
-                      <td class="px-6 py-4 font-black text-slate-800">{{ area.name }}</td>
-                      <td class="px-6 py-4 text-slate-500 text-xs">{{ area.grade }}</td>
-                      <td class="px-6 py-4 text-slate-500 text-xs">{{ area.divisions }}</td>
-                      <td class="px-6 py-4 text-right">
-                         <span v-if="area.status?.toLowerCase() === 'done' || area.status?.toLowerCase() === 'complete'" class="bg-emerald-50 text-emerald-600 text-[10px] px-2.5 py-1 rounded-full uppercase">Verified</span>
-                         <span v-else class="bg-slate-100 text-slate-400 text-[10px] px-2.5 py-1 rounded-full uppercase italic">In Progress</span>
+                    <tr v-for="(area, i) in report.key_areas" :key="i" class="border-t border-slate-50 first:border-t-0">
+                      <td class="px-4 py-3 font-bold text-slate-800">{{ area.name }}</td>
+                      <td class="px-4 py-3 text-slate-800 font-bold text-[13px]">{{ area.grade || 'N/A' }}</td>
+                      <td class="px-4 py-3 text-slate-500 font-medium text-[13px]">{{ area.divisions || 'N/A' }}</td>
+                      <td class="px-4 py-3 text-slate-500 font-bold text-[12px]">{{ formatDate(area.done_date) }}</td>
+                      <td class="px-4 py-3 text-right">
+                        <span v-if="area.status?.toLowerCase() === 'complete' || area.status?.toLowerCase() === 'done'"
+                          class="status-complete inline-flex items-center gap-1">
+                          <span class="material-symbols-outlined text-[14px]">check_circle</span> Complete
+                        </span>
+                        <span v-else class="status-in-progress inline-flex items-center gap-1">
+                          <span class="material-symbols-outlined text-[14px]">schedule</span> In Progress
+                        </span>
                       </td>
+                      <td class="px-4 py-3 text-center">
+                        <div v-if="area.photos && area.photos.length" class="flex items-center justify-center gap-1">
+                          <img v-for="(photo, pi) in area.photos.slice(0, 2)" :key="pi" :src="photo" 
+                            class="w-8 h-8 rounded-lg object-cover border border-slate-200 shadow-sm"
+                            @click="openPhoto(photo)" />
+                          <span v-if="area.photos.length > 2" class="text-[10px] font-bold text-slate-400">+{{ area.photos.length - 2 }}</span>
+                        </div>
+                        <span v-else class="text-[10px] text-slate-300">No Photo</span>
+                      </td>
+                      <td class="px-4 py-3 text-right text-slate-500 italic text-[12px] truncate max-w-[120px]">{{ area.remark || 'N/A' }}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
+
+            <!-- Activity Gallery -->
+            <div class="px-5 py-6" v-if="report.gallery && report.gallery.length">
+              <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">photo_library</span>
+                Activity & Evidence Gallery
+              </h4>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div v-for="(img, idx) in report.gallery" :key="idx" 
+                  class="group relative aspect-square rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 shadow-sm transition-all hover:shadow-md">
+                  <img :src="img" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                  <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span class="material-symbols-outlined text-white text-xl">zoom_in</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
 
-        <footer class="mt-20 text-center pb-10">
-          <p class="text-[10px] text-slate-300 font-bold uppercase tracking-[0.3em]">Institutional Grade Documentation • Elite Sports Academy System</p>
+        <footer class="mt-16 pt-10 border-t border-slate-100 text-center">
+          <p class="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">
+            © 2026 Elite Sports Academy • Official Institution Record • System Generated
+          </p>
         </footer>
       </main>
 
@@ -237,7 +328,7 @@
       <div v-else class="max-w-[1100px] mx-auto bg-white rounded-3xl p-16 text-center border border-slate-100">
         <span class="material-symbols-outlined text-4xl text-slate-200 mb-4">search_off</span>
         <h3 class="text-xl font-bold text-slate-700">Unable to load report</h3>
-        <button @click="selectedWeek = null" class="mt-4 px-6 py-2 bg-slate-800 text-white rounded-xl font-bold">Return to Timeline</button>
+        <button @click="selectedWeek = null" class="mt-4 px-6 py-2 bg-primary text-white rounded-xl font-bold">Return to Timeline</button>
       </div>
     </div>
   </div>
@@ -280,7 +371,6 @@ onMounted(async () => {
         const data = await res.json();
         if (data.success) {
             schoolsList.value = data.schools;
-            // AUTO-SELECT: If principal is assigned to exactly one school, jump to Step 2
             if (schoolsList.value.length === 1) {
                 selectSchool(schoolsList.value[0]);
             }
@@ -296,7 +386,6 @@ const selectSchool = async (school: any) => {
     selectedSchool.value = school;
     loadingFilters.value = true;
     try {
-        // CALL FILTER API WITH publishedOnly=true
         const res = await fetch(`/api/curriculum/report-filters/${school.id}?publishedOnly=true`);
         const data = await res.json();
         if (data.success) {
@@ -323,7 +412,7 @@ const fetchReportData = async () => {
             school_id: selectedSchool.value.id,
             month_year: selectedMonthYear.value,
             week_no: selectedWeek.value,
-            publishedOnly: 'true' // RESTRICT TO PUBLISHED DATA
+            publishedOnly: 'true' 
         });
         const res = await fetch(`/api/curriculum/report-data?${params}`);
         const data = await res.json();
@@ -337,7 +426,9 @@ const fetchReportData = async () => {
     }
 };
 
-const printReport = () => window.print();
+const openPhoto = (url: string) => {
+  window.open(url, '_blank');
+};
 </script>
 
 <style scoped>
@@ -375,8 +466,71 @@ const printReport = () => window.print();
 
 .week-card:hover { transform: translateY(-4px); }
 
+/* ========== SPORT CARD V2 ========== */
+.sport-card-v2 {
+  background: white;
+  border-radius: 24px;
+  margin-bottom: 3rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  border: 1px solid #e2e8f0;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sport-accent-bar {
+  height: 6px;
+  width: 100%;
+}
+
+.section-divider {
+  height: 1px;
+  background-color: #f1f5f9;
+  width: calc(100% - 2.5rem);
+  margin-left: 1.25rem;
+}
+
+.coach-avatar {
+  border-radius: 12px;
+  object-fit: cover;
+  border: 2px solid white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.badge-certified {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.125rem 0.5rem;
+  background-color: #fffbeb;
+  color: #b45309;
+  border-radius: 6px;
+  border: 1px solid #fef3c7;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.status-complete {
+  color: #059669;
+  background-color: #ecfdf5;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.status-in-progress {
+  color: #d97706;
+  background-color: #fffbeb;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 11px;
+}
+
 @media print {
-  .print\\:hidden { display: none !important; }
+  .print\:hidden { display: none !important; }
   .report-page { padding: 0; border-radius: 0; box-shadow: none; margin: 0; max-width: 100%; width: 100%; }
 }
 </style>

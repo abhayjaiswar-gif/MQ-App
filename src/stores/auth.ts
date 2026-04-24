@@ -40,6 +40,7 @@ export const useAuthStore = defineStore({
         sessionStorage.setItem('id', data.user.id);
         sessionStorage.setItem('name', data.user.name || '');
         sessionStorage.setItem('role_id', data.user.role_id || '');
+        sessionStorage.setItem('school_id', data.user.school_id || '');
 
         // ✅ Redirect
         router.push(this.returnUrl || '/dashboard');
@@ -78,6 +79,7 @@ export const useAuthStore = defineStore({
       sessionStorage.removeItem('id');
       sessionStorage.removeItem('name');
       sessionStorage.removeItem('role_id');
+      sessionStorage.removeItem('school_id');
       router.push('/login1');
     }
   }

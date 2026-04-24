@@ -7,6 +7,11 @@ const MainRoutes = {
   component: () => import('@/layouts/dashboard/DashboardLayout.vue'),
   children: [
     {
+      name: 'UserFeedback',
+      path: '/helpdesk/feedback',
+      component: () => import('../views/helpdesk/UserFeedback.vue')
+    },
+    {
       name: 'LandingPage',
       path: '/',
       component: () => import('@/views/dashboard/DefaultDashboard.vue')
@@ -252,6 +257,21 @@ const MainRoutes = {
       name: 'TeamManagement',
       path: '/management/teams',
       component: () => import('@/views/management/TeamManagementPage.vue')
+    },
+    {
+      name: 'UserHierarchy',
+      path: '/management/hierarchy',
+      component: () => import('@/views/management/UserHierarchyPage.vue')
+    },
+    {
+      name: 'SubordinateActivity',
+      path: '/management/subordinate-activity',
+      component: () => import('@/views/management/SubordinateActivityPage.vue')
+    },
+    {
+      name: 'PTMLockManagement',
+      path: '/management/ptm-locks',
+      component: () => import('@/views/management/PTMLockManagementPage.vue')
     },
     {
       name: 'AddTeam',

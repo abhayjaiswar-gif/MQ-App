@@ -1,144 +1,125 @@
+<template>
+  <v-container fluid class="pa-6 bg-slate-50 min-h-screen">
+    <!-- Header -->
+    <div class="mb-8 flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-black text-slate-800 tracking-tight">Support Tickets (Complaints)</h1>
+        <p class="text-slate-500 text-sm mt-1">Manage and resolve complaints from the Help & Support Chat.</p>
+      </div>
+      <v-btn icon variant="text" @click="fetchTickets" :loading="loading">
+        <span class="material-symbols-outlined">refresh</span>
+      </v-btn>
+    </div>
+
+    <!-- Tickets List -->
+    <div class="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
+      <v-table>
+        <thead class="bg-slate-50">
+          <tr>
+            <th class="text-left py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Details</th>
+            <th class="text-left py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Requester</th>
+            <th class="text-center py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
+            <th class="text-right py-4 px-6 text-xs font-bold text-slate-400 uppercase tracking-widest">Action</th>
+          </tr>
+        </thead>
+        
+        <tbody v-if="loading">
+          <tr>
+            <td colspan="4" class="text-center py-20">
+              <v-progress-circular indeterminate color="primary"></v-progress-circular>
+            </td>
+          </tr>
+        </tbody>
+
+        <tbody v-else-if="tickets.length === 0">
+          <tr>
+            <td colspan="4" class="text-center py-32 text-slate-400">
+              <span class="material-symbols-outlined text-5xl mb-4 opacity-20">confirmation_number</span>
+              <p class="text-sm font-bold uppercase tracking-widest opacity-30">No complaints found</p>
+            </td>
+          </tr>
+        </tbody>
+
+        <tbody v-else>
+          <tr v-for="ticket in tickets" :key="ticket.id" class="hover:bg-slate-50/50 transition-colors border-b border-slate-50">
+            <td class="py-5 px-6">
+              <div class="font-bold text-slate-800 text-sm mb-0.5">{{ ticket.subject || 'Complaint' }}</div>
+              <p class="text-xs text-slate-500 max-w-sm line-clamp-1">{{ ticket.message }}</p>
+              <div class="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">{{ formatDate(ticket.created_at) }}</div>
+            </td>
+            <td class="py-5 px-6">
+              <div class="text-sm font-bold text-slate-700">{{ ticket.name }}</div>
+              <div class="text-[10px] text-slate-400 font-medium">{{ ticket.email }}</div>
+            </td>
+            <td class="py-5 px-6 text-center">
+              <span :class="['px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border', 
+                ticket.status === 'pending' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100']">
+                {{ ticket.status }}
+              </span>
+            </td>
+            <td class="py-5 px-6 text-right">
+              <v-btn v-if="ticket.status === 'pending' && ticket.user_id == currentUserId" size="small" variant="flat" color="emerald-darken-1" class="rounded-xl px-4 font-black text-[10px] uppercase tracking-widest" @click="markSolved(ticket.id)">
+                Mark Solved
+              </v-btn>
+              <span v-else-if="ticket.status === 'solved'" class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Completed</span>
+            </td>
+          </tr>
+        </tbody>
+      </v-table>
+    </div>
+  </v-container>
+</template>
+
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 
 const tickets = ref<any[]>([]);
 const loading = ref(true);
+const currentUserId = ref(sessionStorage.getItem('id'));
 
 const fetchTickets = async () => {
-    loading.value = true;
-    try {
-        const res = await fetch('/api/tickets/all');
-        const data = await res.json();
-        if (data.success) {
-            tickets.value = data.tickets;
-        }
-    } catch (e) {
-        console.error(e);
-    } finally {
-        loading.value = false;
+  loading.value = true;
+  try {
+    const res = await fetch('/api/tickets/all');
+    const data = await res.json();
+    if (data.success) {
+      tickets.value = data.tickets;
     }
+  } catch (e) {
+    console.error(e);
+  } finally {
+    loading.value = false;
+  }
 };
 
-onMounted(fetchTickets);
-
-const updateStatus = async (ticketId: number, status: string) => {
-    try {
-        const res = await fetch(`/api/tickets/${ticketId}/action`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status })
-        });
-        const data = await res.json();
-        if (data.success) {
-            const ticket = tickets.value.find(t => t.id === ticketId);
-            if (ticket) ticket.status = status;
-        }
-    } catch (e) {
-        console.error(e);
+const markSolved = async (id: number) => {
+  try {
+    const res = await fetch('/api/complaints/update-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: 'solved' })
+    });
+    const data = await res.json();
+    if (data.success) {
+      const ticket = tickets.value.find(t => t.id === id);
+      if (ticket) ticket.status = 'solved';
     }
+  } catch (e) {
+    console.error(e);
+  }
 };
 
 const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
 };
+
+onMounted(fetchTickets);
 </script>
 
-<template>
-    <div class="px-0 py-2 min-h-screen bg-slate-50 font-inter">
-        <div class="max-w-7xl mx-auto w-full px-4 sm:px-6">
-            <div class="space-y-8">
-                <div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                    <div>
-                        <h1 class="text-3xl font-extrabold text-[#1a1c1c] tracking-tight font-manrope">Helpdesk Tickets
-                        </h1>
-                        <p class="text-slate-500 mt-2 font-inter max-w-xl text-sm">Review, mark actions, and track hierarchical escalations for raised complaints.</p>
-                    </div>
-                </div>
-
-                <div class="bg-white rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-slate-100 overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left border-collapse min-w-[1000px]">
-                            <thead>
-                                <tr class="bg-slate-50/50">
-                                    <th class="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-manrope">Ticket Details</th>
-                                    <th class="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-manrope">Requester</th>
-                                    <th class="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-manrope text-center">Status</th>
-                                    <th class="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-manrope">Current Assignment</th>
-                                    <th class="px-8 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest font-manrope text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-slate-100">
-                                <tr v-if="loading">
-                                    <td colspan="5" class="px-8 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">
-                                        Loading tickets...
-                                    </td>
-                                </tr>
-                                <tr v-else-if="tickets.length === 0">
-                                    <td colspan="5" class="px-8 py-12 text-center text-slate-400 font-bold uppercase tracking-widest text-xs">
-                                        No tickets found
-                                    </td>
-                                </tr>
-                                <tr v-for="ticket in tickets" :key="ticket.id" class="hover:bg-slate-50/50 transition-colors group">
-                                    <td class="px-8 py-5">
-                                        <p class="font-bold text-primary text-sm font-manrope tracking-tight">{{ ticket.subject || 'No Subject' }}</p>
-                                        <p class="text-xs text-slate-500 max-w-xs truncate font-medium mt-0.5" :title="ticket.message">{{ ticket.message }}</p>
-                                        <p class="text-[10px] text-slate-400 mt-1 font-bold">{{ formatDate(ticket.created_at) }}</p>
-                                    </td>
-                                    <td class="px-8 py-5">
-                                        <span class="text-sm font-bold text-slate-700">{{ ticket.name }}</span>
-                                        <p class="text-[11px] text-slate-500">{{ ticket.email }}</p>
-                                    </td>
-                                    <td class="px-8 py-5 text-center">
-                                        <span :class="['inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider font-manrope', 
-                                            ticket.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                                            ticket.status === 'resolved' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                                            ticket.status === 'closed' ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-rose-50 text-rose-700 border-rose-200']">
-                                            {{ ticket.status }}
-                                        </span>
-                                    </td>
-                                    <td class="px-8 py-5">
-                                        <div class="flex items-center gap-2">
-                                            <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 font-black flex items-center justify-center text-xs shrink-0 border border-indigo-100">
-                                                T{{ ticket.current_tier }}
-                                            </div>
-                                            <div>
-                                                <p class="text-xs font-bold text-slate-700">{{ ticket.role_name || ticket.user_name || 'Unassigned' }}</p>
-                                                <p class="text-[10px] text-slate-400 font-medium">Escalated: {{ formatDate(ticket.last_escalated_at) }}</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-8 py-5 text-right">
-                                        <div class="relative inline-block text-left group/dropdown">
-                                            <button class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-xs hover:bg-slate-50 transition-colors flex items-center gap-2 font-manrope">
-                                                Mark Action
-                                                <span class="material-symbols-outlined text-[16px]">expand_more</span>
-                                            </button>
-                                            <div class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-slate-100 z-50 opacity-0 invisible group-hover/dropdown:opacity-100 group-hover/dropdown:visible transition-all">
-                                                <div class="p-2 space-y-1">
-                                                    <button @click="updateStatus(ticket.id, 'resolved')" class="w-full text-left px-3 py-2 text-xs font-bold font-manrope text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors flex items-center gap-2">
-                                                        <span class="material-symbols-outlined text-[16px]">check_circle</span> Mark as Resolved
-                                                    </button>
-                                                    <button @click="updateStatus(ticket.id, 'closed')" class="w-full text-left px-3 py-2 text-xs font-bold font-manrope text-slate-600 hover:bg-slate-50 rounded-lg transition-colors flex items-center gap-2">
-                                                        <span class="material-symbols-outlined text-[16px]">cancel</span> Mark as Closed
-                                                    </button>
-                                                    <button @click="updateStatus(ticket.id, 'pending')" class="w-full text-left px-3 py-2 text-xs font-bold font-manrope text-amber-600 hover:bg-amber-50 rounded-lg transition-colors flex items-center gap-2">
-                                                        <span class="material-symbols-outlined text-[16px]">schedule</span> Revert to Pending
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</template>
-
 <style scoped>
-.font-manrope { font-family: 'Manrope', sans-serif; }
-.font-inter { font-family: 'Inter', sans-serif; }
+:deep(.v-table) { background: transparent !important; }
+:deep(th) { border-bottom: 1px solid #f1f5f9 !important; }
+:deep(td) { border-bottom: 1px solid #f8fafc !important; }
+.line-clamp-1 { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
 </style>

@@ -38,15 +38,20 @@ const sidebarItem: menu[] = [
     icon: DashboardOutlined,
     to: '/dashboard'
   },
+  { header: 'Create View' },
   {
-    title: 'Manage Social Hub',
+    title: 'Create View',
     icon: PictureOutlined,
-    to: '/dashboard/manage-social'
-  },
-  {
-    title: 'Manage Highlights',
-    icon: PictureOutlined,
-    to: '/manage-highlights'
+    children: [
+      {
+        title: 'Manage Social Hub',
+        to: '/dashboard/manage-social'
+      },
+      {
+        title: 'Manage Highlights',
+        to: '/manage-highlights'
+      }
+    ]
   },
   
   { header: 'Administration' },
@@ -89,6 +94,18 @@ const sidebarItem: menu[] = [
       {
         title: 'User Permissions',
         to: '/management/access'
+      },
+      {
+        title: 'User Assignments',
+        to: '/management/hierarchy'
+      },
+      {
+        title: 'Subordinate Activity',
+        to: '/management/subordinate-activity'
+      },
+      {
+        title: 'PTM Lock Manager',
+        to: '/management/ptm-locks'
       },
       {
         title: 'Staff Hierarchy',
@@ -143,19 +160,28 @@ const sidebarItem: menu[] = [
       {
         title: 'Principal Report',
         to: '/curriculum/principal-report'
-      },
-      {
-        title: 'AOP Tracking',
-        to: '/management/aop-tracking'
       }
     ]
   },
   
   { header: 'Session Management' },
   {
-    title: 'Mark Lecture',
+    title: 'Session Management',
     icon: CheckCircleOutlined,
-    to: '/management/lectures/mark'
+    children: [
+      {
+        title: 'Mark Lecture',
+        to: '/management/lectures/mark'
+      },
+      {
+        title: 'AOP Tracking',
+        to: '/management/aop-tracking'
+      },
+      {
+        title: 'Schedule Lesson',
+        to: '/curriculum/schedule'
+      }
+    ]
   },
   
   { header: 'Operations' },
@@ -208,6 +234,10 @@ const sidebarItem: menu[] = [
       {
         title: 'Escalation Rules',
         to: '/helpdesk/rules'
+      },
+      {
+        title: 'User Feedback',
+        to: '/helpdesk/feedback'
       }
     ]
   }

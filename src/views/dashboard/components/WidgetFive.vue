@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 
 // icons
 import { 
@@ -9,7 +10,9 @@ import {
   BankOutlined, 
   TeamOutlined, 
   DashboardOutlined,
-  SolutionOutlined
+  SolutionOutlined,
+  CheckCircleOutlined,
+  FilePdfOutlined
 } from '@ant-design/icons-vue';
 
 const router = useRouter();
@@ -17,7 +20,10 @@ const router = useRouter();
 const stats = ref({
   students: 0,
   schools: 0,
-  staff: 0
+  staff: 0,
+  lectures: 0,
+  weekly_reports: 0,
+  mir_reports: 0
 });
 
 const loading = ref(true);
@@ -41,45 +47,97 @@ onMounted(() => {
   fetchStats();
 });
 
-const fivecards = computed(() => [
-  {
-    name: 'Total Students',
-    earn: '0',
-    key: 'students',
-    percent: 'Live',
-    color: 'primary',
-    icon: UserOutlined,
-    text: 'Active Students'
-  },
-  {
-    name: 'Total Schools',
-    earn: '0',
-    key: 'schools',
-    percent: 'Active',
-    color: 'success',
-    icon: BankOutlined,
-    text: 'Partner Schools'
-  },
-  {
-    name: 'Team Staff',
-    earn: '0',
-    key: 'staff',
-    percent: 'Team',
-    color: 'warning',
-    icon: TeamOutlined,
-    text: 'Ground & HQ Support',
-    link: '/staff/hierarchy'
-  },
-  {
-    name: 'System Activity',
-    earn: '98%',
-    key: 'uptime',
-    percent: 'Optimal',
-    color: 'error',
-    icon: DashboardOutlined,
-    text: 'System Health'
+const fivecards = computed(() => {
+  const authStore = useAuthStore();
+  const roleId = sessionStorage.getItem('role_id') || authStore.user?.role_id?.toString();
+  
+  // Principal View (role_id 8)
+  if (roleId === '8') {
+    return [
+      {
+        name: 'Total Mark Lecture',
+        earn: stats.value.lectures || '0',
+        key: 'lectures',
+        percent: 'Manage',
+        color: 'primary',
+        icon: CheckCircleOutlined,
+        text: 'Session Tracking',
+        link: '/management/lectures/mark'
+      },
+      {
+        name: 'Weekly Report',
+        earn: stats.value.weekly_reports || '0',
+        key: 'weekly_reports',
+        percent: 'Reports',
+        color: 'success',
+        icon: FilePdfOutlined,
+        text: 'Academic Progress',
+        link: '/curriculum/principal-report'
+      },
+      {
+        name: 'Total Staff',
+        earn: stats.value.staff || '0',
+        key: 'staff',
+        percent: 'Team',
+        color: 'warning',
+        icon: TeamOutlined,
+        text: 'Ground & HQ Support',
+        link: '/staff/hierarchy'
+      },
+      {
+        name: 'MRM Report',
+        earn: stats.value.mir_reports || '0',
+        key: 'mir_reports',
+        percent: 'Monthly',
+        color: 'error',
+        icon: SolutionOutlined,
+        text: 'Monthly Review',
+        link: '/reports/mir'
+      }
+    ];
   }
-]);
+
+  // Default View (Other Users)
+  return [
+    {
+      name: 'Total Students',
+      earn: '0',
+      key: 'students',
+      percent: 'Live',
+      color: 'primary',
+      icon: UserOutlined,
+      text: 'Active Students'
+    },
+    {
+      name: 'Total Schools',
+      earn: '0',
+      key: 'schools',
+      percent: 'Active',
+      color: 'success',
+      icon: BankOutlined,
+      text: 'Partner Schools'
+    },
+    {
+      name: 'Team Staff',
+      earn: '0',
+      key: 'staff',
+      percent: 'Team',
+      color: 'warning',
+      icon: TeamOutlined,
+      text: 'Ground & HQ Support',
+      link: '/staff/hierarchy'
+    },
+    {
+      name: 'System Activity',
+      earn: '98%',
+      key: 'uptime',
+      percent: 'Optimal',
+      color: 'error',
+      icon: DashboardOutlined,
+      text: 'System Health'
+    }
+  ];
+});
 
 const navigateTo = (link?: string) => {
   if (link) router.push(link);

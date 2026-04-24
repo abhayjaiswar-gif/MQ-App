@@ -75,10 +75,11 @@ const submitTicket = async () => {
   submitting.value = true;
   successMsg.value = '';
   try {
+    const userId = sessionStorage.getItem('id');
     const res = await fetch('/api/support/ticket', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form.value)
+      body: JSON.stringify({ ...form.value, user_id: userId })
     });
     const data = await res.json();
     if (data.success) {

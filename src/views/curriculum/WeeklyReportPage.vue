@@ -148,7 +148,7 @@
     <!-- ============================== -->
     <!-- STEP 3: FULL REPORT VIEW       -->
     <!-- ============================== -->
-    <div v-else class="report-container relative overflow-hidden min-h-screen">
+    <div v-else ref="reportContent" class="report-container relative overflow-hidden min-h-screen bg-white">
       <!-- Background Sports Pattern (Digital Only) -->
       <div class="sports-pattern-bg print:hidden"></div>
 
@@ -177,11 +177,7 @@
             <span class="material-symbols-outlined text-[18px]">publish</span>
             Publish to Principal
           </button>
-          <button @click="printReport"
-            class="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg font-bold shadow-lg shadow-blue-200 hover:bg-blue-600 transition-all active:scale-95 text-sm shrink-0">
-            <span class="material-symbols-outlined text-[18px]">picture_as_pdf</span>
-            Print / Export PDF
-          </button>
+
         </div>
       </div>
 
@@ -342,6 +338,8 @@
                         Date Done</th>
                       <th class="text-right px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
                         Status</th>
+                      <th class="text-center px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
+                        Evidence</th>
                       <th class="text-right px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
                         Remark</th>
                     </tr>
@@ -364,11 +362,36 @@
                           <span class="material-symbols-outlined text-[14px]">schedule</span> In Progress
                         </span>
                       </td>
+                      <td class="px-4 py-3 text-center">
+                        <div v-if="area.photos && area.photos.length" class="flex items-center justify-center gap-1">
+                          <img v-for="(photo, pi) in area.photos.slice(0, 2)" :key="pi" :src="photo" 
+                            class="w-8 h-8 rounded-lg object-cover border border-slate-200 shadow-sm"
+                            @click="openPhoto(photo)" />
+                          <span v-if="area.photos.length > 2" class="text-[10px] font-bold text-slate-400">+{{ area.photos.length - 2 }}</span>
+                        </div>
+                        <span v-else class="text-[10px] text-slate-300">No Photo</span>
+                      </td>
                       <td class="px-4 py-3 text-right text-slate-500 italic text-[12px] truncate max-w-[120px]">{{
                         area.remark || 'N/A' }}</td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
+            </div>
+            <!-- Activity Gallery -->
+            <div class="px-5 py-6" v-if="report.gallery && report.gallery.length">
+              <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">photo_library</span>
+                Activity & Evidence Gallery
+              </h4>
+              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                <div v-for="(img, idx) in report.gallery" :key="idx" 
+                  class="group relative aspect-square rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 shadow-sm transition-all hover:shadow-md">
+                  <img :src="img" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                  <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <span class="material-symbols-outlined text-white text-xl">zoom_in</span>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -578,8 +601,26 @@ const fetchReportData = async () => {
   }
 };
 
+const reportContent = ref<HTMLElement | null>(null);
+
 const printReport = () => {
-  window.print();
+  if (!reportContent.value) return;
+  
+  const element = reportContent.value;
+  const opt = {
+    margin: 10,
+    filename: `Weekly_Report_${selectedSchool.value?.name || 'School'}_${selectedWeek.value}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true, logging: false },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  // @ts-ignore
+  html2pdf().set(opt).from(element).save();
+};
+
+const openPhoto = (url: string) => {
+  window.open(url, '_blank');
 };
 </script>
 

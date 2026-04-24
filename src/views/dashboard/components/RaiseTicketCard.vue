@@ -40,7 +40,7 @@ const showModal = ref(false);
         <v-btn color="primary" block variant="flat" size="large"
           class="rounded-xl font-black text-[12px] uppercase tracking-widest h-[52px]" @click="showModal = true">
           <span class="material-symbols-outlined mr-2">confirmation_number</span>
-          Add Complaint
+          Message Success Team
         </v-btn>
       </div>
     </v-card-text>

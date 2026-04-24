@@ -31,7 +31,7 @@ const form = reactive({
 const grades = ref<string[]>([]);
 const selectedGrades = ref<string[]>([]);
 const divisions = ref<string[]>([]);
-const selectedDivision = ref('');
+const selectedDivision = ref<string[]>([]);
 
 const fetchMetadata = async () => {
   try {
@@ -86,9 +86,7 @@ const fetchSchoolMetadata = async (schoolId: string | number) => {
 
       // Auto-select first division if available
       if (divisions.value.length > 0) {
-        selectedDivision.value = divisions.value[0];
-      } else {
-        selectedDivision.value = '';
+        selectedDivision.value = [];
       }
     }
   } catch (err) {
@@ -122,6 +120,7 @@ watch(selectedSchoolId, (newVal) => {
   fetchLectures();
   form.coachId = ''; // Reset coach when school changes
   selectedGrades.value = []; // Reset grades
+  selectedDivision.value = []; // Reset divisions
 });
 
 const toggleGrade = (grade: string) => {
@@ -129,6 +128,14 @@ const toggleGrade = (grade: string) => {
     selectedGrades.value = selectedGrades.value.filter(g => g !== grade);
   } else {
     selectedGrades.value.push(grade);
+  }
+};
+
+const toggleDivision = (div: string) => {
+  if (selectedDivision.value.includes(div)) {
+    selectedDivision.value = selectedDivision.value.filter(d => d !== div);
+  } else {
+    selectedDivision.value.push(div);
   }
 };
 
@@ -179,6 +186,7 @@ const createLecture = async () => {
       // Reset form
       form.sport = '';
       selectedGrades.value = [];
+      selectedDivision.value = [];
       await fetchLectures();
     } else {
       alert('Error: ' + res.data.message);
@@ -494,14 +502,14 @@ onMounted(() => {
                 <div v-else-if="divisions.length === 0" class="text-xs text-slate-400 italic px-1">No divisions
                   found for this school.</div>
                 <div v-else class="flex flex-wrap gap-2 md:gap-3">
-                  <div v-for="div in divisions" :key="div" @click="selectedDivision = div" :class="[
+                  <div v-for="div in divisions" :key="div" @click="toggleDivision(div)" :class="[
                     'flex-1 min-w-[60px] flex items-center justify-center py-3 rounded-lg cursor-pointer border-2 transition-all',
-                    selectedDivision === div
+                    selectedDivision.includes(div)
                       ? 'bg-blue-50 text-blue-700 border-blue-600 shadow-sm'
                       : 'bg-slate-50 border-transparent hover:border-slate-200'
                   ]">
                     <span class="text-sm font-bold"
-                      :class="selectedDivision === div ? 'text-blue-700' : 'text-slate-600'">{{ div }}</span>
+                      :class="selectedDivision.includes(div) ? 'text-blue-700' : 'text-slate-600'">{{ div }}</span>
                   </div>
                 </div>
               </div>

@@ -17,19 +17,25 @@
       </div>
 
       <!-- 🏆 Jumbo Highlights Swiper -->
-      <div ref="scrollContainer" class="flex overflow-x-auto gap-8 no-scrollbar pb-10 scroll-smooth px-1">
+      <div v-if="loading" class="flex items-center justify-center h-64 bg-slate-50 rounded-[3rem]">
+         <v-progress-circular indeterminate color="primary"></v-progress-circular>
+      </div>
+
+      <div v-else-if="highlights.length === 0" class="flex flex-col items-center justify-center h-64 bg-slate-50 rounded-[3rem] border border-dashed border-slate-200">
+         <span class="material-symbols-outlined text-4xl text-slate-300 mb-2">imagesmode</span>
+         <p class="text-slate-400 font-bold uppercase tracking-widest text-xs">No Highlights Found</p>
+      </div>
+
+      <div v-else ref="scrollContainer" class="flex overflow-x-auto gap-8 no-scrollbar pb-10 scroll-smooth px-1">
         <div v-for="item in highlights" :key="item.id" 
-             @click="openUrl(item.url)"
+             @click="openUrl(item.reel_url)"
              class="relative w-full min-w-full md:min-w-0 aspect-[16/9] rounded-[3rem] overflow-hidden group cursor-pointer shadow-2xl transition-all duration-700 hover:-translate-y-2 flex-shrink-0">
           
-          <!-- Background Image (Base Path Fix) -->
-          <v-img :src="'/Mantis-Vue' + item.image" cover class="absolute inset-0 w-full h-full transition-transform duration-1000 group-hover:scale-105">
-            <template v-slot:placeholder>
-              <div class="flex items-center justify-center h-full bg-slate-100 animate-pulse">
-                <span class="material-symbols-outlined text-slate-200 text-6xl">image</span>
-              </div>
-            </template>
-          </v-img>
+          <!-- Background Image -->
+          <img v-if="item.image_path" :src="`http://localhost:3000/uploads/${item.image_path}`" class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
+          <div v-else class="absolute inset-0 w-full h-full bg-slate-200 flex items-center justify-center">
+             <span class="material-symbols-outlined text-slate-400 text-6xl">play_circle</span>
+          </div>
 
           <!-- Deep Cinematic Overlays -->
           <div class="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
@@ -38,25 +44,25 @@
           <div class="absolute inset-x-0 bottom-0 p-8 md:p-12">
             <div class="translate-y-6 group-hover:translate-y-0 transition-all duration-700">
               <v-chip size="small" class="mb-4 px-4 rounded-xl font-black bg-amber-400 text-white border-none uppercase tracking-widest text-[10px]">
-                {{ item.badge }}
+                {{ item.category }}
               </v-chip>
               <h4 class="text-2xl md:text-4xl font-black text-white leading-tight mb-2 drop-shadow-2xl">
-                {{ item.name }}
+                {{ item.title }}
               </h4>
               <p class="text-white/80 text-sm md:text-lg font-medium leading-relaxed max-w-[90%] line-clamp-2 drop-shadow-xl">
-                {{ item.achievement }}
+                {{ item.tagline }} {{ item.subtitle ? '• ' + item.subtitle : '' }}
               </p>
             </div>
 
             <div class="mt-6 flex items-center justify-space-between pt-6 border-t border-white/10 opacity-0 group-hover:opacity-100 transition-all duration-500 delay-200">
               <div class="flex items-center gap-3">
-                <v-avatar size="28" class="border-2 border-white/20">
-                   <v-img :src="item.avatar"></v-img>
+                <v-avatar size="28" class="border-2 border-white/20 bg-white/10">
+                   <span class="material-symbols-outlined text-white text-xs">school</span>
                 </v-avatar>
-                <span class="text-[9px] font-black text-white/60 uppercase tracking-widest tracking-tighter">{{ item.school }}</span>
+                <span class="text-[9px] font-black text-white/60 uppercase tracking-widest tracking-tighter">{{ item.school_name || 'Global Academy' }}</span>
               </div>
               <div class="flex items-center gap-2 text-white/50 group-hover:text-amber-400 transition-colors">
-                 <span class="text-[9px] font-black uppercase tracking-widest">Detail View</span>
+                 <span class="text-[9px] font-black uppercase tracking-widest">{{ item.reel_url ? 'Watch Reel' : 'View Detail' }}</span>
                  <span class="material-symbols-outlined text-lg">trending_flat</span>
               </div>
             </div>
@@ -68,9 +74,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 
 const scrollContainer = ref<HTMLElement | null>(null);
+const highlights = ref<any[]>([]);
+const loading = ref(true);
 
 const scroll = (direction: 'left' | 'right') => {
   if (!scrollContainer.value) return;
@@ -85,38 +93,24 @@ const openUrl = (url: string) => {
   if (url) window.open(url, '_blank');
 };
 
-const highlights = ref([
-  {
-    id: 1,
-    name: 'Aaryan Sharma',
-    image: '/student_h1.png',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aaryan',
-    badge: 'Regional Champion',
-    achievement: 'Represented state in U-14 National Basketball championship, scoring 22 points in final.',
-    school: 'Greenwood International',
-    url: '#'
-  },
-  {
-    id: 2,
-    name: 'Sarah Joseph',
-    image: '/student_h2.png',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
-    badge: 'Rising Star',
-    achievement: 'Achieved first place in Inter-School 100m sprint with a record time of 12.8 seconds.',
-    school: 'Mount St. Mary',
-    url: '#'
-  },
-  {
-    id: 3,
-    name: 'Kabir Verma',
-    image: '/student_h3.png',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Kabir',
-    badge: 'Versatile Athlete',
-    achievement: 'Won the "Best All-Rounder" award across Football and Cricket during the annual sports meet.',
-    school: 'Oakridge Academy',
-    url: '#'
+const fetchData = async () => {
+  loading.value = true;
+  try {
+    const schoolId = sessionStorage.getItem('school_id');
+    const url = schoolId ? `/api/dashboard/highlights?school_id=${schoolId}` : '/api/dashboard/highlights';
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.success) {
+      highlights.value = data.data;
+    }
+  } catch (err) {
+    console.error(err);
+  } finally {
+    loading.value = false;
   }
-]);
+};
+
+onMounted(fetchData);
 </script>
 
 <style scoped>

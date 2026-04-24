@@ -5,7 +5,7 @@
       <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-2">
           <div class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"></div>
-          <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Academy Timeline</h3>
+          <h3 class="text-sm font-black text-slate-800 uppercase tracking-widest">Academy Year</h3>
         </div>
         <v-btn icon size="x-small" color="primary" variant="tonal" class="rounded-lg" @click="showAddModal = true">
           <span class="material-symbols-outlined text-xs">add</span>
@@ -13,7 +13,7 @@
       </div>
 
       <!-- 🗓️ Mini Grid -->
-      <div class="bg-slate-50/50 rounded-3xl p-4 mb-6">
+      <div class="bg-white rounded-3xl p-4 mb-6 border border-slate-50 shadow-sm">
         <div class="flex items-center justify-between mb-4 px-2">
            <span class="text-[11px] font-black text-slate-900 uppercase tracking-tight">{{ currentMonthName }} {{ currentYear }}</span>
            <div class="flex gap-1">
@@ -67,7 +67,7 @@
                </div>
             </div>
          </div>
-         <div v-else class="text-center py-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+         <div v-else class="text-center py-4 bg-white rounded-2xl border border-dashed border-slate-200">
             <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">No Events Found</span>
          </div>
       </div>
@@ -137,7 +137,10 @@ const mergedEvents = computed(() => [...events.value, ...holidays.value]);
 
 const upcomingEvents = computed(() => {
   return mergedEvents.value
-    .filter(e => new Date(e.event_date) >= new Date())
+    .filter(e => {
+      const eDate = new Date(e.event_date);
+      return eDate.getFullYear() === currentYear.value && eDate.getMonth() === currentMonth.value;
+    })
     .sort((a,b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
 });
 

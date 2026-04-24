@@ -19,20 +19,21 @@
             <tr>
               <th class="text-left text-xs font-bold text-slate-400 uppercase tracking-widest pl-6">Preview</th>
               <th class="text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Details</th>
+              <th class="text-left text-xs font-bold text-slate-400 uppercase tracking-widest">School</th>
               <th class="text-left text-xs font-bold text-slate-400 uppercase tracking-widest">Category</th>
               <th class="text-right text-xs font-bold text-slate-400 uppercase tracking-widest pr-6">Actions</th>
             </tr>
           </thead>
           <tbody v-if="loading">
              <tr>
-                <td colspan="4" class="text-center py-10">
+                <td colspan="5" class="text-center py-10">
                    <v-progress-circular indeterminate color="primary"></v-progress-circular>
                 </td>
              </tr>
           </tbody>
           <tbody v-else-if="highlights.length === 0">
              <tr>
-                <td colspan="4" class="text-center py-16">
+                <td colspan="5" class="text-center py-16">
                    <div class="flex flex-col items-center">
                       <span class="material-symbols-outlined text-4xl text-slate-200 mb-3">imagesmode</span>
                       <p class="text-slate-400 font-bold uppercase tracking-widest text-xs">No highlights available</p>
@@ -44,12 +45,18 @@
             <tr v-for="item in highlights" :key="item.id" class="hover:bg-slate-50/50 transition-colors">
               <td class="pl-6 py-4 w-32">
                  <div class="w-24 h-16 rounded-xl overflow-hidden border border-slate-200">
-                    <img :src="`http://localhost:3000/uploads/${item.image_path}`" class="w-full h-full object-cover" />
+                    <img v-if="item.image_path" :src="`http://localhost:3000/uploads/${item.image_path}`" class="w-full h-full object-cover" />
+                    <div v-else class="w-full h-full bg-slate-100 flex items-center justify-center">
+                       <span class="material-symbols-outlined text-slate-300">play_circle</span>
+                    </div>
                  </div>
               </td>
               <td class="py-4">
                  <h4 class="font-bold text-slate-800">{{ item.title }}</h4>
                  <p class="text-xs text-slate-500">{{ item.tagline }} <span v-if="item.subtitle">• {{ item.subtitle }}</span></p>
+              </td>
+              <td class="py-4">
+                 <span class="text-xs font-bold text-slate-600">{{ item.school_name || 'All Schools' }}</span>
               </td>
               <td class="py-4">
                  <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest"
@@ -81,6 +88,7 @@
           </v-btn>
         </v-card-title>
         <v-form @submit.prevent="saveItem" class="space-y-4">
+          <v-select v-model="form.school_id" :items="schools" item-title="name" item-value="id" label="Assign to School (Optional)" variant="outlined" density="comfortable" class="rounded-xl custom-field" clearable></v-select>
           <v-select v-model="form.category" :items="['Event', 'Coach Achievement']" label="Category" variant="outlined" density="comfortable" class="rounded-xl custom-field"></v-select>
           <v-text-field v-model="form.tagline" label="Tagline (e.g. Next Major Match)" variant="outlined" density="comfortable" class="rounded-xl custom-field"></v-text-field>
           <v-text-field v-model="form.title" label="Main Title" variant="outlined" density="comfortable" required class="rounded-xl custom-field"></v-text-field>
@@ -101,6 +109,7 @@
 import { ref, onMounted } from 'vue';
 
 const highlights = ref<any[]>([]);
+const schools = ref<any[]>([]);
 const showModal = ref(false);
 const loading = ref(true);
 const isSaving = ref(false);
@@ -110,17 +119,29 @@ const form = ref({
   tagline: '',
   title: '',
   subtitle: '',
-  reel_url: ''
+  reel_url: '',
+  school_id: null
 });
 const fileInput = ref<File | null>(null);
 
 const fetchData = async () => {
   loading.value = true;
   try {
-    const res = await fetch('/api/dashboard/highlights');
-    const data = await res.json();
-    if (data.success) {
-      highlights.value = data.data;
+    const [hRes, sRes] = await Promise.all([
+        fetch('/api/dashboard/highlights'),
+        fetch('/api/schools')
+    ]);
+    const hData = await hRes.json();
+    const sData = await sRes.json();
+    
+    if (hData.success) {
+      highlights.value = hData.data;
+    }
+    if (sData.success) {
+      schools.value = [
+        { id: null, name: 'Global / All Schools' },
+        ...sData.schools
+      ];
     }
   } catch (err) {
     console.error(err);
@@ -134,12 +155,13 @@ const saveItem = async () => {
   isSaving.value = true;
   try {
     const formData = new FormData();
-    if (fileInput.value) formData.append('image', fileInput.value);
+    if (fileInput.value) formData.append('image', fileInput.value as any);
     formData.append('category', form.value.category);
     formData.append('tagline', form.value.tagline);
     formData.append('title', form.value.title);
     formData.append('subtitle', form.value.subtitle);
     if (form.value.reel_url) formData.append('reel_url', form.value.reel_url);
+    if (form.value.school_id) formData.append('school_id', form.value.school_id as any);
 
     const res = await fetch('/api/dashboard/highlights', {
       method: 'POST',
@@ -150,7 +172,7 @@ const saveItem = async () => {
       showModal.value = false;
       
       // reset form
-      form.value = { category: 'Event', tagline: '', title: '', subtitle: '', reel_url: '' };
+      form.value = { category: 'Event', tagline: '', title: '', subtitle: '', reel_url: '', school_id: null };
       fileInput.value = null;
       
       fetchData();
