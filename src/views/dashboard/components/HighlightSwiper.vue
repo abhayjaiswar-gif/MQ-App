@@ -33,7 +33,7 @@
           <v-carousel-item v-for="(item, i) in highlights" :key="i">
             <div class="relative w-full h-full group cursor-pointer" @click="openUrl(item.reel_url)">
               <!-- Background Image / Thumbnail -->
-              <img :src="`http://localhost:3000/uploads/${item.image_path}`"
+              <img :src="`/uploads/${item.image_path}`"
                 class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 :alt="item.title" />
 
@@ -72,7 +72,9 @@ const loading = ref(true);
 const fetchHighlights = async () => {
   loading.value = true;
   try {
-    const res = await fetch('/api/dashboard/highlights');
+    const userId = sessionStorage.getItem('id') || '';
+    const roleId = sessionStorage.getItem('role_id') || '';
+    const res = await fetch(`/api/dashboard/highlights?user_id=${userId}&role_id=${roleId}`);
     const data = await res.json();
     if (data.success) {
       highlights.value = data.data;

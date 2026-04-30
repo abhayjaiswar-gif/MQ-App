@@ -674,9 +674,23 @@ const foundationGradesList = [
 
 const programTypeName = computed(() => programTypes.find(p => p.id === programType.value)?.name || 'Curriculum');
 
-const getSportName = (id: string | null) => sportsList.find(s => s.id === id)?.name || id || 'Custom Curriculum';
-const getSportTagline = (id: string | null) => sportsList.find(s => s.id === id)?.tagline || 'Athletic Mastery';
-const getSportImage = (id: string | null) => sportsList.find(s => s.id === id)?.image || 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=2069&auto=format&fit=crop';
+const getSportName = (id: string | null) => sportsList.find(s => s.id.toLowerCase() === id?.toLowerCase() || s.name.toLowerCase() === id?.toLowerCase())?.name || id || 'Custom Curriculum';
+const getSportTagline = (id: string | null) => sportsList.find(s => s.id.toLowerCase() === id?.toLowerCase() || s.name.toLowerCase() === id?.toLowerCase())?.tagline || 'Athletic Mastery';
+
+const getSportImage = (name: string | null) => {
+  if (!name) return 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?q=80&w=2069&auto=format&fit=crop';
+  const lowerName = name.toLowerCase();
+  const found = sportsList.find(s => s.id.toLowerCase() === lowerName || s.name.toLowerCase() === lowerName);
+  if (found) return found.image;
+  
+  // Dynamic fallbacks
+  if (lowerName.includes('cricket')) return 'https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=2069&auto=format&fit=crop';
+  if (lowerName.includes('athletic')) return 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=2069&auto=format&fit=crop';
+  if (lowerName.includes('badminton')) return 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=2069&auto=format&fit=crop';
+  if (lowerName.includes('volleyball')) return 'https://images.unsplash.com/photo-1612872087720-bb876e2e67d1?q=80&w=2069&auto=format&fit=crop';
+
+  return 'https://images.unsplash.com/photo-1483721310020-03333e577078?q=80&w=2069&auto=format&fit=crop'; // General sports field image as fallback instead of gym lady
+};
 
 const getSportIcon = (sportName: string) => {
   const s = String(sportName).toLowerCase();

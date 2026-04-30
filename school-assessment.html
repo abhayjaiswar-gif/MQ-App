@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WhereNext? — Marcos Quay School Assessment</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --mq-navy: #0b1f3a;
+      --mq-blue: #1356a8;
+      --mq-sky: #3aa6e8;
+      --mq-gold: #f5a623;
+      --mq-red: #e8312a;
+      --mq-white: #f8f9fb;
+      --mq-light: #dce8f5;
+      --mq-dark: #07162a;
+      --mq-mid: #193659;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Barlow', sans-serif;
+      background-color: var(--mq-navy);
+      color: var(--mq-white);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* === NOISE TEXTURE OVERLAY === */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.4;
+    }
+
+    /* === DIAGONAL STRIPE BG === */
+    .bg-stripes {
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        -55deg,
+        transparent,
+        transparent 80px,
+        rgba(19, 86, 168, 0.06) 80px,
+        rgba(19, 86, 168, 0.06) 82px
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* === HERO HEADER === */
+    header {
+      position: relative;
+      z-index: 10;
+      padding: 0;
+      background: linear-gradient(135deg, var(--mq-dark) 0%, var(--mq-navy) 40%, var(--mq-blue) 100%);
+      overflow: hidden;
+      clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%);
+      padding-bottom: 80px;
+    }
+
+    header::after {
+      content: '';
+      position: absolute;
+      right: -80px;
+      top: -80px;
+      width: 500px;
+      height: 500px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(58,166,232,0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 40px 40px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .logo-block {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .logo-tag {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--mq-sky);
+      opacity: 0.85;
+    }
+
+    .logo-name {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 2.2rem;
+      letter-spacing: 2px;
+      color: var(--mq-white);
+      line-height: 1;
+    }
+
+    .logo-name span { color: var(--mq-gold); }
+
+    .header-badge {
+      background: rgba(245,166,35,0.15);
+      border: 1.5px solid var(--mq-gold);
+      border-radius: 30px;
+      padding: 8px 22px;
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--mq-gold);
+    }
+
+    .hero-headline {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 10px 40px 0;
+    }
+
+    .hero-headline h1 {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(4rem, 10vw, 8rem);
+      line-height: 0.9;
+      letter-spacing: 2px;
+      color: var(--mq-white);
+    }
+
+    .hero-headline h1 .highlight {
+      color: var(--mq-sky);
+      -webkit-text-stroke: 1px var(--mq-sky);
+    }
+
+    .hero-headline h1 .accent {
+      color: transparent;
+      -webkit-text-stroke: 2px var(--mq-gold);
+    }
+
+    .hero-sub {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(248,249,251,0.55);
+      margin-top: 14px;
+    }
+
+    /* === MAIN CONTENT === */
+    main {
+      position: relative;
+      z-index: 5;
+      max-width: 860px;
+      margin: -30px auto 80px;
+      padding: 0 24px;
+    }
+
+    /* === STEP CARDS === */
+    .step-card {
+      background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 60px 40px;
+      margin-bottom: 20px;
+      backdrop-filter: blur(6px);
+      position: relative;
+      overflow: hidden;
+      display: none;
+      text-align: center;
+    }
+
+    .step-card.active {
+      display: block;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .step-card::before {
+      content: '';
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      width: 4px;
+      background: linear-gradient(180deg, var(--mq-sky), var(--mq-blue));
+    }
+
+    .step-card.active::before {
+      background: linear-gradient(180deg, var(--mq-gold), var(--mq-red));
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .step-number {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.1rem;
+      letter-spacing: 3px;
+      color: var(--mq-sky);
+      margin-bottom: 16px;
+    }
+
+    .step-question {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 2.8rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--mq-white);
+      margin-bottom: 30px;
+      line-height: 1.1;
+    }
+
+    .step-hint {
+      font-size: 1.1rem;
+      color: rgba(220,232,245,0.55);
+      margin-bottom: 30px;
+      letter-spacing: 0.2px;
+    }
+
+    /* === FORM GROUPS === */
+    .form-group {
+      margin-bottom: 0px;
+      max-width: 600px;
+      margin: 0 auto;
+      text-align: left;
+    }
+
+    .form-label {
+      display: none;
+    }
+
+    /* === INPUT STYLES === */
+    .mq-input {
+      width: 100%;
+      background: rgba(255,255,255,0.07);
+      border: 1.5px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      padding: 20px 24px;
+      font-family: 'Barlow', sans-serif;
+      font-size: 1.3rem;
+      color: var(--mq-white);
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+      color-scheme: dark;
+    }
+
+    .mq-input::placeholder { color: rgba(220,232,245,0.35); }
+
+    .mq-input:focus {
+      border-color: var(--mq-sky);
+      background: rgba(58,166,232,0.07);
+    }
+
+    .mq-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%233aa6e8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 24px center;
+      padding-right: 54px;
+      cursor: pointer;
+    }
+
+    .mq-select option {
+      background-color: var(--mq-navy);
+      color: var(--mq-white);
+    }
+
+    .input-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    /* === FORM NAVIGATION === */
+    .form-navigation {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    .btn-back-step {
+      padding: 16px 36px;
+      border-radius: 50px;
+      border: 1.5px solid rgba(255,255,255,0.2);
+      background: transparent;
+      color: var(--mq-white);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.2rem;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+    }
+
+    .btn-back-step:hover {
+      background: rgba(255,255,255,0.1);
+      border-color: var(--mq-white);
+    }
+
+    /* === SUBMIT SECTION === */
+    .submit-section {
+      text-align: center;
+      padding: 30px 0 20px;
+      animation: fadeUp 0.5s ease both;
+      display: none;
+    }
+
+    .btn-submit {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background: linear-gradient(135deg, var(--mq-blue) 0%, var(--mq-sky) 100%);
+      color: #fff;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.4rem;
+      letter-spacing: 3px;
+      padding: 18px 56px;
+      border-radius: 50px;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.18s, box-shadow 0.18s;
+      box-shadow: 0 8px 30px rgba(19,86,168,0.5);
+      text-transform: uppercase;
+    }
+
+    .btn-submit:hover {
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 14px 40px rgba(19,86,168,0.65);
+    }
+
+    .btn-submit:active { transform: scale(0.98); }
+
+    .btn-submit .arrow {
+      font-size: 1.2rem;
+      transition: transform 0.2s;
+    }
+
+    .btn-submit:hover .arrow { transform: translateX(5px); }
+
+    .submit-note {
+      margin-top: 14px;
+      font-size: 0.82rem;
+      color: rgba(220,232,245,0.4);
+      letter-spacing: 0.5px;
+    }
+
+    /* === PROGRESS BAR === */
+    .progress-bar-wrap {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 4px;
+      background: rgba(255,255,255,0.07);
+      z-index: 100;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--mq-blue), var(--mq-gold));
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+
+    /* === DECORATIVE SIDE LABEL === */
+    .side-label {
+      position: fixed;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%) rotate(-90deg);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 0.7rem;
+      letter-spacing: 5px;
+      color: rgba(255,255,255,0.1);
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 1;
+    }
+
+    /* === SUCCESS OVERLAY === */
+    .success-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: var(--mq-dark);
+      z-index: 999;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      text-align: center;
+      padding: 40px;
+    }
+
+    .success-overlay.show { display: flex; }
+
+    .success-trophy {
+      font-size: 5rem;
+      animation: bounce 0.6s ease;
+    }
+
+    @keyframes bounce {
+      0%   { transform: scale(0); }
+      60%  { transform: scale(1.15); }
+      100% { transform: scale(1); }
+    }
+
+    .success-title {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 3.5rem;
+      color: var(--mq-gold);
+      letter-spacing: 3px;
+    }
+
+    .success-body {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: rgba(220,232,245,0.7);
+      max-width: 460px;
+    }
+
+    .btn-back {
+      margin-top: 10px;
+      padding: 14px 40px;
+      border-radius: 50px;
+      border: 1.5px solid var(--mq-sky);
+      background: transparent;
+      color: var(--mq-sky);
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 1.1rem;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-back:hover {
+      background: var(--mq-sky);
+      color: var(--mq-navy);
+    }
+
+    /* === RESPONSIVE === */
+    @media (max-width: 600px) {
+      .header-inner { flex-direction: column; align-items: flex-start; }
+      .hero-headline { padding: 10px 24px 0; }
+      .input-grid { grid-template-columns: 1fr; }
+      .step-card { padding: 24px 20px; }
+      .btn-submit { font-size: 1.1rem; padding: 16px 36px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="bg-stripes"></div>
+<div class="side-label">MARCOS QUAY · SCHOOL SPORTS EDUCATION & MANAGEMENT</div>
+
+<!-- HEADER -->
+<header>
+  <div class="header-inner">
+    <div class="logo-block">
+      <span class="logo-tag">School Sports Education</span>
+      <div class="logo-name">Marcos <span>Quay</span></div>
+    </div>
+    <div class="header-badge">🏆 School Assessment</div>
+  </div>
+  <div class="hero-headline">
+    <h1>Where <span class="highlight">Next</span><span class="accent">?</span></h1>
+    <p class="hero-sub">Where Next Analysis · School Assessment</p>
+  </div>
+</header>
+
+<!-- MAIN FORM -->
+<main>
+  <form id="mqForm" novalidate>
+
+    <!-- STEP 1: Phone -->
+    <div class="step-card active">
+      <div class="step-number">Step 01 / 18 — Contact</div>
+      <div class="step-question">What is your phone number?</div>
+      <div class="form-group">
+        <input class="mq-input" type="tel" placeholder="Phone Number" required />
+      </div>
+    </div>
+
+
+
+    <!-- STEP 5 -->
+    <div class="step-card">
+      <div class="step-number">Step 02 / 18 — PE & Vision</div>
+      <div class="step-question">Who currently owns Physical Education in your school?</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>Qualified PE professionals</option>
+          <option>General teachers</option>
+          <option>Visiting coaches</option>
+          <option>No clear ownership</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 6 -->
+    <div class="step-card">
+      <div class="step-number">Step 03 / 18 — PE & Vision</div>
+      <div class="step-question">When was the last structured training conducted for your PE teachers?</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>Not aware</option>
+          <option>Last 12 months</option>
+          <option>2–3 years ago</option>
+          <option>5+ years ago</option>
+          <option>Never conducted</option>
+          <option>Other</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 7 -->
+    <div class="step-card">
+      <div class="step-number">Step 04 / 18 — PE & Vision</div>
+      <div class="step-question">How clearly defined is your school’s long-term sports vision?</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>No defined vision</option>
+          <option>Only annual activity planning</option>
+          <option>Informal goals, not documented</option>
+          <option>3-year vision exists but not implemented</option>
+          <option>Clear and actively tracked vision</option>
+          <option>Other</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 8 -->
+    <div class="step-card">
+      <div class="step-number">Step 05 / 18 — PE & Vision</div>
+      <div class="step-question">What is the biggest gap in your current sports ecosystem?</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>Lack of structured curriculum</option>
+          <option>Limited trained coaches</option>
+          <option>Low student participation</option>
+          <option>No performance tracking</option>
+          <option>Infrastructure underutilized</option>
+          <option>No long-term sports roadmap</option>
+          <option>Other</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 9 -->
+    <div class="step-card">
+      <div class="step-number">Step 06 / 18 — Participation & Opportunities</div>
+      <div class="step-question">What percentage of students actively participate in structured sports programs?</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>Less than 20%</option>
+          <option>20%–40%</option>
+          <option>40%–60%</option>
+          <option>60%–80%</option>
+          <option>More than 80%</option>
+          <option>Not measured</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 10 -->
+    <div class="step-card">
+      <div class="step-number">Step 07 / 18 — Participation & Opportunities</div>
+      <div class="step-question">How inclusive is your current sports structure?</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>Only selected team players get exposure</option>
+          <option>Few students participate actively</option>
+          <option>Moderate participation across grades</option>
+          <option>Most students engaged regularly</option>
+          <option>Participation data not available</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 11 -->
+    <div class="step-card">
+      <div class="step-number">Step 08 / 18 — Participation & Opportunities</div>
+      <div class="step-question">How much competitive exposure do your students currently receive?</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>Inter-house competitions only</option>
+          <option>1–2 inter-school events annually</option>
+          <option>Regular inter-school participation</option>
+          <option>Multiple teams across age groups</option>
+          <option>No structured competition exposure</option>
+          <option>Not tracked</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 12 -->
+    <div class="step-card">
+      <div class="step-number">Step 09 / 18 — Participation & Opportunities</div>
+      <div class="step-question">What opportunities exist for students who are NOT part of school teams?</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>Only regular PE periods</option>
+          <option>Occasional workshops / camps</option>
+          <option>Recreational intra-school activities</option>
+          <option>Multiple team opportunities across levels</option>
+          <option>Skill development pathways for all students</option>
+          <option>No structured opportunities</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 13 -->
+    <div class="step-card">
+      <div class="step-number">Step 10 / 18 — Tracking & Engagement</div>
+      <div class="step-question">How are you currently tracking student fitness and sports development outcomes?</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>Not tracking</option>
+          <option>Basic attendance only</option>
+          <option>Informal observation by teachers</option>
+          <option>Periodic assessments (once a year)</option>
+          <option>Structured measurable framework</option>
+          <option>Other</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 14 -->
+    <div class="step-card">
+      <div class="step-number">Step 11 / 18 — Tracking & Engagement</div>
+      <div class="step-question">How often does your school conduct structured sports or engagement events for parents?</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>Regular parent leagues / sports events</option>
+          <option>Annual sports day only</option>
+          <option>Occasional fitness / awareness workshops</option>
+          <option>Only academic PTMs, no sports engagement</option>
+          <option>Never conducted parent sports events</option>
+          <option>Planning but not implemented</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 15 -->
+    <div class="step-card">
+      <div class="step-number">Step 12 / 18 — Tracking & Engagement</div>
+      <div class="step-question">How involved are teachers in promoting sports and physical development?</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>Teachers actively participate in sports initiatives</option>
+          <option>Teachers support but are not actively involved</option>
+          <option>Limited involvement due to academic priorities</option>
+          <option>Only PE teachers involved</option>
+          <option>No structured teacher engagement in sports</option>
+          <option>Not defined</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 16 -->
+    <div class="step-card">
+      <div class="step-number">Step 13 / 18 — Challenges & Feedback</div>
+      <div class="step-question">In the last 12–18 months, has your school faced:</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>Drop in student retention</option>
+          <option>Increase in parent complaints</option>
+          <option>Pressure to justify fees</option>
+          <option>More competition from activity-focused schools</option>
+          <option>Slower new admissions</option>
+          <option>None of the above</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 17 -->
+    <div class="step-card">
+      <div class="step-number">Step 14 / 18 — Challenges & Feedback</div>
+      <div class="step-question">Parents mostly complain about:</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>Child’s screen addiction</option>
+          <option>Low confidence or motivation</option>
+          <option>Poor physical health</option>
+          <option>Stress / anxiety</option>
+          <option>School not focusing on overall development</option>
+          <option>Rarely receive complaints</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 18 -->
+    <div class="step-card">
+      <div class="step-number">Step 15 / 18 — Challenges & Feedback</div>
+      <div class="step-question">During admissions, parents ask more about:</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>Academics</option>
+          <option>Sports & activities</option>
+          <option>Child wellbeing</option>
+          <option>Confidence & life skills</option>
+          <option>All equally</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 19 -->
+    <div class="step-card">
+      <div class="step-number">Step 16 / 18 — Challenges & Feedback</div>
+      <div class="step-question">When introducing a new sports or development program, parent response is usually:</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>Highly supportive and engaged</option>
+          <option>Supportive but cost-sensitive</option>
+          <option>Neutral / wait and watch</option>
+          <option>Questions around academic balance</option>
+          <option>Resistance to additional programs</option>
+          <option>Depends on communication</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 20 -->
+    <div class="step-card">
+      <div class="step-number">Step 17 / 18 — Challenges & Feedback</div>
+      <div class="step-question">Reality Check – What applies to your school?</div>
+      <div class="form-group">
+        <select class="mq-input mq-select" required>
+          <option value="" disabled selected>Select an option...</option>
+          <option>We want retention but struggle with daily engagement</option>
+          <option>We want happy parents but root causes remain</option>
+          <option>We want admissions growth</option>
+          <option>We want outcomes but do not measure them</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- STEP 21 -->
+    <div class="step-card">
+      <div class="step-number">Step 18 / 18 — Let's Connect</div>
+      <div class="step-question">Preferred Meeting Availability</div>
+      <div class="step-hint">Please share 3 convenient time slots for a 60-minute "Where Next Analysis" discussion.</div>
+      
+      <div class="meeting-slots form-group" style="display: flex; flex-direction: column; gap: 20px;">
+        <div class="slot">
+          <label class="form-label visible-label" style="display: block; color: var(--mq-sky); margin-bottom: 10px;">Slot 1</label>
+          <div class="input-grid">
+            <input class="mq-input" type="date" required />
+            <select class="mq-input mq-select" required>
+              <option value="" disabled selected>Time</option>
+              <option>9:00 – 10:00 AM</option>
+              <option>10:00 – 11:00 AM</option>
+              <option>11:00 – 12:00 PM</option>
+              <option>12:00 – 1:00 PM</option>
+              <option>2:00 – 3:00 PM</option>
+              <option>3:00 – 4:00 PM</option>
+              <option>4:00 – 5:00 PM</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="slot">
+          <label class="form-label visible-label" style="display: block; color: var(--mq-sky); margin-bottom: 10px;">Slot 2</label>
+          <div class="input-grid">
+            <input class="mq-input" type="date" />
+            <select class="mq-input mq-select">
+              <option value="" disabled selected>Time</option>
+              <option>9:00 – 10:00 AM</option>
+              <option>10:00 – 11:00 AM</option>
+              <option>11:00 – 12:00 PM</option>
+              <option>12:00 – 1:00 PM</option>
+              <option>2:00 – 3:00 PM</option>
+              <option>3:00 – 4:00 PM</option>
+              <option>4:00 – 5:00 PM</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="slot">
+          <label class="form-label visible-label" style="display: block; color: var(--mq-sky); margin-bottom: 10px;">Slot 3</label>
+          <div class="input-grid">
+            <input class="mq-input" type="date" />
+            <select class="mq-input mq-select">
+              <option value="" disabled selected>Time</option>
+              <option>9:00 – 10:00 AM</option>
+              <option>10:00 – 11:00 AM</option>
+              <option>11:00 – 12:00 PM</option>
+              <option>12:00 – 1:00 PM</option>
+              <option>2:00 – 3:00 PM</option>
+              <option>3:00 – 4:00 PM</option>
+              <option>4:00 – 5:00 PM</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FORM NAVIGATION -->
+    <div class="form-navigation" id="formNavigation">
+      <button type="button" class="btn-back-step" id="prevBtn">← Previous</button>
+      <button type="button" class="btn-submit" id="nextBtn" style="padding: 16px 40px; font-size: 1.2rem;">Next <span class="arrow">→</span></button>
+    </div>
+
+    <!-- SUBMIT -->
+    <div class="submit-section" id="submitSection">
+      <button type="submit" class="btn-submit">
+        Launch Assessment <span class="arrow">→</span>
+      </button>
+      <div class="submit-note">Your information is confidential and used only to personalise your Marcos Quay experience.</div>
+    </div>
+
+  </form>
+</main>
+
+<!-- SUCCESS OVERLAY -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-trophy">🏆</div>
+  <div class="success-title">Analysis Requested!</div>
+  <div class="success-body">Thanks for connecting with Marcos Quay. A member of our team will reach out within 48 hours to confirm your meeting slot.</div>
+  <button class="btn-back" onclick="resetForm()">← Submit Another Response</button>
+</div>
+
+<!-- PROGRESS BAR -->
+<div class="progress-bar-wrap">
+  <div class="progress-bar-fill" id="progressBar"></div>
+</div>
+
+<script>
+  // === FORM NAVIGATION LOGIC ===
+  let currentStep = 0;
+  const steps = document.querySelectorAll('.step-card');
+  const nextBtn = document.getElementById('nextBtn');
+  const prevBtn = document.getElementById('prevBtn');
+  const submitSection = document.getElementById('submitSection');
+  const progressBarFill = document.getElementById('progressBar');
+  const formNavigation = document.getElementById('formNavigation');
+
+  function showStep(stepIndex) {
+    steps.forEach((step, index) => {
+      if (index === stepIndex) {
+        step.classList.add('active');
+      } else {
+        step.classList.remove('active');
+      }
+    });
+
+    if (stepIndex === 0) {
+      prevBtn.style.visibility = 'hidden';
+    } else {
+      prevBtn.style.visibility = 'visible';
+    }
+
+    if (stepIndex === steps.length - 1) {
+      formNavigation.style.display = 'none';
+      submitSection.style.display = 'block';
+    } else {
+      formNavigation.style.display = 'flex';
+      submitSection.style.display = 'none';
+    }
+
+    // Update Progress Bar
+    const progressPct = ((stepIndex + 1) / steps.length) * 100;
+    progressBarFill.style.width = progressPct + '%';
+  }
+
+  nextBtn.addEventListener('click', () => {
+    const inputs = steps[currentStep].querySelectorAll('input, select');
+    let allValid = true;
+    for (let i = 0; i < inputs.length; i++) {
+      if (!inputs[i].checkValidity()) {
+        inputs[i].reportValidity();
+        allValid = false;
+        break;
+      }
+    }
+
+    if (allValid) {
+      currentStep++;
+      showStep(currentStep);
+      window.scrollTo({ top: document.querySelector('main').offsetTop - 20, behavior: 'smooth' });
+    }
+  });
+
+  prevBtn.addEventListener('click', () => {
+    currentStep--;
+    showStep(currentStep);
+    window.scrollTo({ top: document.querySelector('main').offsetTop - 20, behavior: 'smooth' });
+  });
+
+  // Initialize
+  showStep(currentStep);
+
+  // === FORM SUBMIT ===
+  document.getElementById('mqForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    document.getElementById('successOverlay').classList.add('show');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+
+  function resetForm() {
+    document.getElementById('successOverlay').classList.remove('show');
+    document.getElementById('mqForm').reset();
+    currentStep = 0;
+    showStep(currentStep);
+  }
+</script>
+</body>
+</html>

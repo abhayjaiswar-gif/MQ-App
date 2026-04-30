@@ -4,7 +4,11 @@
       <div class="d-flex justify-space-between align-center mb-10">
         <div>
           <v-card-title class="text-h4 font-black text-slate-900 mb-0">Students Highlight</v-card-title>
-          <span class="text-caption text-slate-400 font-bold uppercase tracking-widest">Champions of Marcos Quay Academy</span>
+          <div class="d-flex align-center gap-2 mt-1">
+            <span class="text-caption text-slate-400 font-bold uppercase tracking-widest">Champions of Marcos Quay Academy</span>
+            <v-chip v-if="isAdmin" size="x-small" color="primary" variant="tonal" class="font-black text-[9px] uppercase">All Schools</v-chip>
+            <v-chip v-else-if="schoolId" size="x-small" color="success" variant="tonal" class="font-black text-[9px] uppercase">Assigned School</v-chip>
+          </div>
         </div>
         <div class="flex gap-3">
            <v-btn icon variant="tonal" size="small" class="rounded-xl bg-slate-50 text-slate-400 border border-slate-100" @click="scroll('left')">
@@ -16,69 +20,84 @@
         </div>
       </div>
 
+      <!-- 🔒 No School Assigned -->
+      <div v-if="!hasSchoolAccess && !loading" class="flex flex-col items-center justify-center h-64 bg-slate-50 rounded-[3rem] border border-dashed border-slate-200">
+         <span class="material-symbols-outlined text-4xl text-slate-300 mb-2">lock</span>
+         <p class="text-slate-400 font-bold uppercase tracking-widest text-xs">No School Assigned</p>
+         <p class="text-slate-300 text-[10px] mt-1">Contact admin to get school access</p>
+      </div>
+
       <!-- 🏆 Jumbo Highlights Swiper -->
-      <div v-if="loading" class="flex items-center justify-center h-64 bg-slate-50 rounded-[3rem]">
-         <v-progress-circular indeterminate color="primary"></v-progress-circular>
-      </div>
+      <template v-else>
+        <div v-if="loading" class="flex items-center justify-center h-64 bg-slate-50 rounded-[3rem]">
+           <v-progress-circular indeterminate color="primary"></v-progress-circular>
+        </div>
 
-      <div v-else-if="highlights.length === 0" class="flex flex-col items-center justify-center h-64 bg-slate-50 rounded-[3rem] border border-dashed border-slate-200">
-         <span class="material-symbols-outlined text-4xl text-slate-300 mb-2">imagesmode</span>
-         <p class="text-slate-400 font-bold uppercase tracking-widest text-xs">No Highlights Found</p>
-      </div>
+        <div v-else-if="highlights.length === 0" class="flex flex-col items-center justify-center h-64 bg-slate-50 rounded-[3rem] border border-dashed border-slate-200">
+           <span class="material-symbols-outlined text-4xl text-slate-300 mb-2">imagesmode</span>
+           <p class="text-slate-400 font-bold uppercase tracking-widest text-xs">No Highlights Found</p>
+        </div>
 
-      <div v-else ref="scrollContainer" class="flex overflow-x-auto gap-8 no-scrollbar pb-10 scroll-smooth px-1">
-        <div v-for="item in highlights" :key="item.id" 
-             @click="openUrl(item.reel_url)"
-             class="relative w-full min-w-full md:min-w-0 aspect-[16/9] rounded-[3rem] overflow-hidden group cursor-pointer shadow-2xl transition-all duration-700 hover:-translate-y-2 flex-shrink-0">
-          
-          <!-- Background Image -->
-          <img v-if="item.image_path" :src="`http://localhost:3000/uploads/${item.image_path}`" class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
-          <div v-else class="absolute inset-0 w-full h-full bg-slate-200 flex items-center justify-center">
-             <span class="material-symbols-outlined text-slate-400 text-6xl">play_circle</span>
-          </div>
-
-          <!-- Deep Cinematic Overlays -->
-          <div class="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
-          
-          <!-- Content Stuck to Bottom -->
-          <div class="absolute inset-x-0 bottom-0 p-8 md:p-12">
-            <div class="translate-y-6 group-hover:translate-y-0 transition-all duration-700">
-              <v-chip size="small" class="mb-4 px-4 rounded-xl font-black bg-amber-400 text-white border-none uppercase tracking-widest text-[10px]">
-                {{ item.category }}
-              </v-chip>
-              <h4 class="text-2xl md:text-4xl font-black text-white leading-tight mb-2 drop-shadow-2xl">
-                {{ item.title }}
-              </h4>
-              <p class="text-white/80 text-sm md:text-lg font-medium leading-relaxed max-w-[90%] line-clamp-2 drop-shadow-xl">
-                {{ item.tagline }} {{ item.subtitle ? '• ' + item.subtitle : '' }}
-              </p>
+        <div v-else ref="scrollContainer" class="flex overflow-x-auto gap-8 no-scrollbar pb-10 scroll-smooth px-1">
+          <div v-for="item in highlights" :key="item.id" 
+               @click="openUrl(item.reel_url)"
+               class="relative w-full min-w-full md:min-w-0 aspect-[16/9] rounded-[3rem] overflow-hidden group cursor-pointer shadow-2xl transition-all duration-700 hover:-translate-y-2 flex-shrink-0">
+            
+            <!-- Background Image -->
+            <img v-if="item.image_path" :src="`/uploads/${item.image_path}`" class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
+            <div v-else class="absolute inset-0 w-full h-full bg-slate-200 flex items-center justify-center">
+               <span class="material-symbols-outlined text-slate-400 text-6xl">play_circle</span>
             </div>
 
-            <div class="mt-6 flex items-center justify-space-between pt-6 border-t border-white/10 opacity-0 group-hover:opacity-100 transition-all duration-500 delay-200">
-              <div class="flex items-center gap-3">
-                <v-avatar size="28" class="border-2 border-white/20 bg-white/10">
-                   <span class="material-symbols-outlined text-white text-xs">school</span>
-                </v-avatar>
-                <span class="text-[9px] font-black text-white/60 uppercase tracking-widest tracking-tighter">{{ item.school_name || 'Global Academy' }}</span>
+            <!-- Deep Cinematic Overlays -->
+            <div class="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent opacity-80 group-hover:opacity-90 transition-opacity"></div>
+            
+            <!-- Content Stuck to Bottom -->
+            <div class="absolute inset-x-0 bottom-0 p-8 md:p-12">
+              <div class="translate-y-6 group-hover:translate-y-0 transition-all duration-700">
+                <v-chip size="small" class="mb-4 px-4 rounded-xl font-black bg-amber-400 text-white border-none uppercase tracking-widest text-[10px]">
+                  {{ item.category }}
+                </v-chip>
+                <h4 class="text-2xl md:text-4xl font-black text-white leading-tight mb-2 drop-shadow-2xl">
+                  {{ item.title }}
+                </h4>
+                <p class="text-white/80 text-sm md:text-lg font-medium leading-relaxed max-w-[90%] line-clamp-2 drop-shadow-xl">
+                  {{ item.tagline }} {{ item.subtitle ? '• ' + item.subtitle : '' }}
+                </p>
               </div>
-              <div class="flex items-center gap-2 text-white/50 group-hover:text-amber-400 transition-colors">
-                 <span class="text-[9px] font-black uppercase tracking-widest">{{ item.reel_url ? 'Watch Reel' : 'View Detail' }}</span>
-                 <span class="material-symbols-outlined text-lg">trending_flat</span>
+
+              <div class="mt-6 flex items-center justify-space-between pt-6 border-t border-white/10 opacity-0 group-hover:opacity-100 transition-all duration-500 delay-200">
+                <div class="flex items-center gap-3">
+                  <v-avatar size="28" class="border-2 border-white/20 bg-white/10">
+                     <span class="material-symbols-outlined text-white text-xs">school</span>
+                  </v-avatar>
+                  <span class="text-[9px] font-black text-white/60 uppercase tracking-widest tracking-tighter">{{ item.school_name || 'Global Academy' }}</span>
+                </div>
+                <div class="flex items-center gap-2 text-white/50 group-hover:text-amber-400 transition-colors">
+                   <span class="text-[9px] font-black uppercase tracking-widest">{{ item.reel_url ? 'Watch Reel' : 'View Detail' }}</span>
+                   <span class="material-symbols-outlined text-lg">trending_flat</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      </template>
     </v-card-item>
   </v-card>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 
 const scrollContainer = ref<HTMLElement | null>(null);
 const highlights = ref<any[]>([]);
 const loading = ref(true);
+const hasSchoolAccess = ref(true);
+
+const userId = sessionStorage.getItem('id') || '';
+const roleId = sessionStorage.getItem('role_id') || '';
+const isAdmin = computed(() => roleId === '1');
+const schoolId = sessionStorage.getItem('school_id') || '';
 
 const scroll = (direction: 'left' | 'right') => {
   if (!scrollContainer.value) return;
@@ -96,12 +115,16 @@ const openUrl = (url: string) => {
 const fetchData = async () => {
   loading.value = true;
   try {
-    const schoolId = sessionStorage.getItem('school_id');
-    const url = schoolId ? `/api/dashboard/highlights?school_id=${schoolId}` : '/api/dashboard/highlights';
-    const res = await fetch(url);
+    const params = new URLSearchParams();
+    if (userId) params.append('user_id', userId);
+    if (roleId) params.append('role_id', roleId);
+
+    const res = await fetch(`/api/dashboard/highlights?${params.toString()}`);
     const data = await res.json();
     if (data.success) {
       highlights.value = data.data;
+      // Global highlights are always allowed
+      hasSchoolAccess.value = true;
     }
   } catch (err) {
     console.error(err);

@@ -64,6 +64,11 @@ const MainRoutes = {
       component: () => import('@/views/stock/ApproveStockDetail.vue')
     },
     {
+      name: 'AdminStockApproval',
+      path: '/stock/admin-approve',
+      component: () => import('@/views/stock/AdminStockApproval.vue')
+    },
+    {
       name: 'StudentsList',
       path: '/student',
       component: () => import('@/views/student/StudentsListPage.vue')
@@ -287,8 +292,19 @@ const MainRoutes = {
       name: 'AOPDashboard',
       path: '/management/aop-tracking',
       component: () => import('../views/management/AOPDashboard.vue')
+    },
+    {
+      name: 'SSGMChecklist',
+      path: '/management/ssgm-checklist',
+      component: () => import('../views/management/SSGMChecklistPage.vue')
+    },
+    {
+      name: 'BirthdayManagement',
+      path: '/management/birthdays',
+      component: () => import('@/views/management/BirthdayManagementPage.vue')
     }
   ]
 };
+
 
 export default MainRoutes;

@@ -45,7 +45,7 @@
             <tr v-for="item in highlights" :key="item.id" class="hover:bg-slate-50/50 transition-colors">
               <td class="pl-6 py-4 w-32">
                  <div class="w-24 h-16 rounded-xl overflow-hidden border border-slate-200">
-                    <img v-if="item.image_path" :src="`http://localhost:3000/uploads/${item.image_path}`" class="w-full h-full object-cover" />
+                    <img v-if="item.image_path" :src="`/uploads/${item.image_path}`" class="w-full h-full object-cover" />
                     <div v-else class="w-full h-full bg-slate-100 flex items-center justify-center">
                        <span class="material-symbols-outlined text-slate-300">play_circle</span>
                     </div>
@@ -127,8 +127,11 @@ const fileInput = ref<File | null>(null);
 const fetchData = async () => {
   loading.value = true;
   try {
+    const userId = sessionStorage.getItem('id') || '';
+    const roleId = sessionStorage.getItem('role_id') || '';
+    
     const [hRes, sRes] = await Promise.all([
-        fetch('/api/dashboard/highlights'),
+        fetch(`/api/dashboard/highlights?user_id=${userId}&role_id=${roleId}`),
         fetch('/api/schools')
     ]);
     const hData = await hRes.json();
@@ -155,13 +158,20 @@ const saveItem = async () => {
   isSaving.value = true;
   try {
     const formData = new FormData();
-    if (fileInput.value) formData.append('image', fileInput.value as any);
+    
+    // Handle Vuetify 3 file input which returns an array
+    const file = Array.isArray(fileInput.value) ? fileInput.value[0] : fileInput.value;
+    if (file) {
+      formData.append('image', file);
+    }
+
     formData.append('category', form.value.category);
-    formData.append('tagline', form.value.tagline);
+    formData.append('tagline', form.value.tagline || '');
     formData.append('title', form.value.title);
-    formData.append('subtitle', form.value.subtitle);
+    formData.append('subtitle', form.value.subtitle || '');
+    
     if (form.value.reel_url) formData.append('reel_url', form.value.reel_url);
-    if (form.value.school_id) formData.append('school_id', form.value.school_id as any);
+    if (form.value.school_id) formData.append('school_id', String(form.value.school_id));
 
     const res = await fetch('/api/dashboard/highlights', {
       method: 'POST',
@@ -181,6 +191,7 @@ const saveItem = async () => {
     }
   } catch (err) {
     console.error(err);
+    alert('Failed to upload highlight. Please check connection.');
   } finally {
     isSaving.value = false;
   }

@@ -6,8 +6,23 @@ function getAuthHeaders() {
     'Authorization': token ? `Bearer ${token}` : ''
   };
 }
+
+function getUserInfo() {
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      return JSON.parse(userStr);
+    } catch (e) {}
+  }
+  return { id: null, role_id: 0 };
+}
 export async function getSchools() {
-  const response = await fetch(`${API_BASE_URL}/schools`, {
+  const user = getUserInfo();
+  const params = new URLSearchParams();
+  if (user.id) params.append('user_id', String(user.id));
+  if (user.role_id) params.append('role_id', String(user.role_id));
+
+  const response = await fetch(`${API_BASE_URL}/schools?${params.toString()}`, {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to fetch schools');
@@ -52,7 +67,12 @@ export async function autosaveStock(data: any) {
 
 // 📦 GET EQUIPMENT ORDERS
 export async function getEquipmentOrders() {
-  const response = await fetch(`${API_BASE_URL}/equipment-orders`, {
+  const user = getUserInfo();
+  const params = new URLSearchParams();
+  if (user.id) params.append('user_id', String(user.id));
+  if (user.role_id) params.append('role_id', String(user.role_id));
+
+  const response = await fetch(`${API_BASE_URL}/equipment-orders?${params.toString()}`, {
     headers: getAuthHeaders()
   });
   if (!response.ok) throw new Error('Failed to fetch equipment orders');
@@ -62,9 +82,11 @@ export async function getEquipmentOrders() {
 // 📦 ADD EQUIPMENT ORDER
 export async function addEquipmentOrder(data: { school_id: string | number, items: any[], image?: File | null }) {
   const token = localStorage.getItem('token');
+  const user = getUserInfo();
   const formData = new FormData();
   formData.append('school_id', String(data.school_id));
   formData.append('items', JSON.stringify(data.items));
+  if (user.id) formData.append('user_id', String(user.id));
   if (data.image) formData.append('image', data.image);
 
   const response = await fetch(`${API_BASE_URL}/equipment-orders`, {
@@ -77,11 +99,12 @@ export async function addEquipmentOrder(data: { school_id: string | number, item
 }
 
 // 📦 UPDATE EQUIPMENT ORDER STATUS
-export async function updateEquipmentOrderStatus(id: number, status: string) {
+export async function updateEquipmentOrderStatus(id: number, status: string, delivery_date?: string) {
+  const user = getUserInfo();
   const response = await fetch(`${API_BASE_URL}/equipment-orders/${id}/status`, {
     method: 'PUT',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ status })
+    body: JSON.stringify({ status, role_id: user.role_id, delivery_date })
   });
   if (!response.ok) throw new Error('Failed to update order status');
   return await response.json();
@@ -89,9 +112,12 @@ export async function updateEquipmentOrderStatus(id: number, status: string) {
 
 // 📄 GET STOCK REPORTSappr
 export async function getStockReports(month?: string | number, date?: string) {
+  const user = getUserInfo();
   const params = new URLSearchParams();
   if (month) params.append('month', String(month));
   if (date) params.append('date', date);
+  if (user.id) params.append('user_id', String(user.id));
+  if (user.role_id) params.append('role_id', String(user.role_id));
 
   const response = await fetch(`${API_BASE_URL}/stock-reports?${params.toString()}`, {
     headers: getAuthHeaders()
@@ -103,10 +129,12 @@ export async function getStockReports(month?: string | number, date?: string) {
 // 📄 ADD STOCK REPORT
 export async function addStockReport(data: { school_id: string | number, report_date: string, file_main: File }) {
   const token = localStorage.getItem('token');
+  const user = getUserInfo();
   const formData = new FormData();
   formData.append('school_id', String(data.school_id));
   formData.append('report_date', data.report_date);
   formData.append('file_main', data.file_main);
+  if (user.role_id) formData.append('role_id', String(user.role_id));
 
   const response = await fetch(`${API_BASE_URL}/stock-reports`, {
     method: 'POST',

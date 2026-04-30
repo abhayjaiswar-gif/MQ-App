@@ -53,7 +53,7 @@ const sidebarItem: menu[] = [
       }
     ]
   },
-  
+
   { header: 'Administration' },
   {
     title: 'School Management',
@@ -110,10 +110,14 @@ const sidebarItem: menu[] = [
       {
         title: 'Staff Hierarchy',
         to: '/staff/hierarchy'
+      },
+      {
+        title: 'Birthday Calendar',
+        to: '/management/birthdays'
       }
     ]
   },
-  
+
   { header: 'Admissions' },
   {
     title: 'Student Hub',
@@ -125,7 +129,7 @@ const sidebarItem: menu[] = [
       }
     ]
   },
-  
+
   { header: 'Academics' },
   {
     title: 'Exams',
@@ -150,7 +154,7 @@ const sidebarItem: menu[] = [
         to: '/curriculum/add'
       },
       {
-        title: 'Curriculum Builder',
+        title: 'MQ Curriculum',
         to: '/curriculum/builder'
       },
       {
@@ -163,7 +167,7 @@ const sidebarItem: menu[] = [
       }
     ]
   },
-  
+
   { header: 'Session Management' },
   {
     title: 'Session Management',
@@ -178,12 +182,16 @@ const sidebarItem: menu[] = [
         to: '/management/aop-tracking'
       },
       {
+        title: 'SSGM check list',
+        to: '/management/ssgm-checklist'
+      },
+      {
         title: 'Schedule Lesson',
         to: '/curriculum/schedule'
       }
     ]
   },
-  
+
   { header: 'Operations' },
   {
     title: 'Inventory',
@@ -196,6 +204,10 @@ const sidebarItem: menu[] = [
       {
         title: 'Approve Orders',
         to: '/stock/approve'
+      },
+      {
+        title: 'Admin Stock Approval',
+        to: '/stock/admin-approve'
       }
     ]
   },

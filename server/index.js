@@ -392,7 +392,115 @@ const initMIRReportsTable = async () => {
 };
 initMIRReportsTable();
 
+// 📄 INITIALIZE SSGM CHECKLIST TABLE
+const initSSGMChecklistTable = async () => {
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS sggm_school_check_list (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        school_id INT,
+        user_id INT,
+        school_name VARCHAR(255),
+        conducted_at DATETIME,
+        auditor_name VARCHAR(255),
+        auditor_role VARCHAR(255),
+        location VARCHAR(255),
+        
+        -- Section A: Professional Standards
+        arrive_on_time BOOLEAN,
+        arrive_on_time_why TEXT,
+        actively_engaged BOOLEAN,
+        actively_engaged_why TEXT,
+        professional_behavior BOOLEAN,
+        professional_behavior_why TEXT,
+        
+        uniform_tshirt_type VARCHAR(50),
+        uniform_pants_type VARCHAR(50),
+        uniform_shoes_type VARCHAR(50),
+        uniform_whistle_wearing VARCHAR(50),
+        grooming_type VARCHAR(50),
+        
+        equipment_safe BOOLEAN,
+        proper_setup BOOLEAN,
+        students_engaged_obs BOOLEAN,
+        discipline_effective BOOLEAN,
+        observations_pos TEXT,
+        observations_neg TEXT,
+        
+        -- Section B: Well-being & Logistics
+        wellbeing_issues TEXT, -- JSON array
+        fail_standards BOOLEAN,
+        concern_types TEXT, -- JSON array
+        disciplinary_recommendations TEXT,
+        
+        -- Section C: Stakeholders
+        stakeholder_types TEXT, -- JSON array
+        stakeholder_name VARCHAR(255),
+        stakeholder_designation VARCHAR(255),
+        stakeholder_points TEXT,
+        stakeholder_pos_feedback TEXT,
+        stakeholder_concerns TEXT,
+        
+        -- Section D: Relationship
+        satisfaction_rating VARCHAR(50),
+        new_initiatives TEXT,
+        urgent_complaints TEXT,
+        
+        -- Section E: Sentiment
+        engagement_level VARCHAR(50),
+        safety_measures_taken BOOLEAN,
+        parent_testimonies TEXT,
+        student_requests TEXT,
+        
+        -- Section F: Plans & Growth
+        upcoming_event_name VARCHAR(255),
+        upcoming_event_date DATE,
+        mq_support_expected TEXT,
+        growth_potential VARCHAR(50),
+        infra_support_needed BOOLEAN,
+        infra_requirements TEXT,
+        
+        -- Section G: Warning Signs
+        warning_signs_observed BOOLEAN,
+        warning_signs_desc TEXT,
+        
+        -- Section H: Insights
+        insight_1 TEXT,
+        insight_2 TEXT,
+        insight_3 TEXT,
+        hq_immediate_action TEXT,
+        long_term_opportunity TEXT,
+        
+        -- Section I: Overall
+        overall_performance VARCHAR(50),
+        
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✅ SSGM Checklist table initialized');
+  } catch (err) {
+    console.error('INIT SSGM CHECKLIST TABLE ERROR:', err);
+  }
+};
+initSSGMChecklistTable();
 
+// ⏰ PTM AUTO-RELOCK: Delete unlocks older than 12 hours (runs every 30 minutes)
+const runPTMAutoRelock = async () => {
+  try {
+    const [result] = await db.query(
+      'DELETE FROM ptm_user_unlocks WHERE unlocked_at < NOW() - INTERVAL 12 HOUR'
+    );
+    if (result.affectedRows > 0) {
+      console.log(`🔒 PTM Auto-Relock: ${result.affectedRows} expired unlock(s) removed`);
+    }
+  } catch (err) {
+    console.error('PTM AUTO-RELOCK ERROR:', err.message);
+  }
+};
+
+// Run immediately on startup, then every 30 minutes
+runPTMAutoRelock();
+setInterval(runPTMAutoRelock, 30 * 60 * 1000);
 
 
 const app = express();
@@ -665,12 +773,14 @@ app.post('/api/user-birthday', async (req, res) => {
 
 // 🏫 GET SCHOOLS API (Filtered by Gallery existence if requested)
 app.get('/api/schools', async (req, res) => {
-  const { hasGallery, hasReports, user_id } = req.query;
+  const { hasGallery, hasReports, user_id, role_id } = req.query;
+  const rid = parseInt(role_id) || 0;
+
   try {
     // 1. Determine assigned schools for this user
     let schoolIds = [];
-    if (user_id) {
-      const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ?', [user_id]);
+    if (user_id && !(rid === 1 || rid === 7)) {
+      const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ? OR ssgm_id = ?', [user_id, user_id]);
       schoolIds = assignments.map(a => a.school_id);
     }
 
@@ -1219,9 +1329,10 @@ app.get('/api/school-assignments', async (req, res) => {
         r.id as role_id,
         GROUP_CONCAT(s.name SEPARATOR ', ') as assigned_schools,
         GROUP_CONCAT(asgn.school_id SEPARATOR ',') as school_ids,
+        MAX(asgn.ssgm_id) as ssgm_id,
         COUNT(asgn.school_id) as school_count
       FROM users u
-      JOIN roles r ON u.role_id = r.id
+      LEFT JOIN roles r ON u.role_id = r.id
       LEFT JOIN assign_school asgn ON u.id = asgn.user_id
       LEFT JOIN schools s ON asgn.school_id = s.id
       GROUP BY u.id
@@ -1328,15 +1439,15 @@ app.post('/api/roles', async (req, res) => {
 
 // 💾 SAVE SCHOOL ASSIGNMENTS
 app.post('/api/school-assignments', async (req, res) => {
-  const { user_id, school_ids } = req.body;
+  const { user_id, school_ids, ssgm_id } = req.body;
   if (!user_id || !Array.isArray(school_ids)) {
     return res.status(400).json({ success: false, message: 'Invalid data provided' });
   }
   try {
     await db.query('DELETE FROM assign_school WHERE user_id = ?', [user_id]);
     if (school_ids.length > 0) {
-      const values = school_ids.map(sId => [user_id, sId]);
-      await db.query('INSERT INTO assign_school (user_id, school_id) VALUES ?', [values]);
+      const values = school_ids.map(sId => [user_id, sId, ssgm_id || null]);
+      await db.query('INSERT INTO assign_school (user_id, school_id, ssgm_id) VALUES ?', [values]);
     }
     res.json({ success: true, message: 'Assignments updated successfully' });
   } catch (err) {
@@ -1421,11 +1532,21 @@ app.post('/api/users', async (req, res) => {
 
 app.get('/api/users/coaches', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT id, name FROM users WHERE role_id IN (4, 5) AND is_active = 1 ORDER BY name ASC');
+    const [rows] = await db.query('SELECT id, name FROM users WHERE is_active = 1 ORDER BY name ASC');
     res.json({ success: true, coaches: rows });
   } catch (err) {
-    console.error('FETCH COACHES ERROR:', err);
-    res.status(500).json({ success: false, message: 'Error fetching coaches' });
+    console.error('FETCH USERS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching staff members' });
+  }
+});
+
+app.get('/api/users/ssgms', async (req, res) => {
+  try {
+    const [rows] = await db.query('SELECT id, name FROM users WHERE role_id = 3 AND is_active = 1 ORDER BY name ASC');
+    res.json({ success: true, ssgms: rows });
+  } catch (err) {
+    console.error('FETCH SSGMS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching SSGMs' });
   }
 });
 
@@ -3386,11 +3507,17 @@ app.get('/api/equipment-orders', async (req, res) => {
     let params = [];
 
     if (role_id === 1 || role_id === 7) {
-      // Admin sees only SSGM-approved orders
-      query += ' WHERE eo.approve_ssgm = 1';
-    } else if (role_id === 3) {
-      // SSGM sees all orders
+      // Admin sees all orders
       query += ' WHERE 1=1';
+    } else if (role_id === 3) {
+      // SSGM sees only orders for their assigned schools
+      const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ? OR ssgm_id = ?', [user_id, user_id]);
+      const schoolIds = assignments.map(a => a.school_id);
+      if (schoolIds.length > 0) {
+        query += ` WHERE eo.school_id IN (${schoolIds.join(',')})`;
+      } else {
+        query += ' WHERE 1=0'; // No assigned schools, sees nothing
+      }
     } else {
       // Regular users see only their own requests
       query += ' WHERE eo.user_id = ?';
@@ -3467,7 +3594,7 @@ app.post('/api/equipment-orders', upload.single('image'), async (req, res) => {
 // 📦 UPDATE EQUIPMENT ORDER STATUS (Approve / Reject)
 app.put('/api/equipment-orders/:id/status', async (req, res) => {
   const { id } = req.params;
-  const { status, role_id } = req.body;
+  const { status, role_id, delivery_date } = req.body;
 
   try {
     let updateField = '';
@@ -3480,13 +3607,30 @@ app.put('/api/equipment-orders/:id/status', async (req, res) => {
 
     if (role_id === 3) {
       updateField = 'approve_ssgm';
+      await db.query(`UPDATE equipment_order SET ${updateField} = ? WHERE id = ?`, [value, id]);
     } else if (role_id === 1 || role_id === 7) {
       updateField = 'approve_admin';
+      
+      if (s === 'approved') {
+        let query = `UPDATE equipment_order SET ${updateField} = ?, status_delivery = 'Processing'`;
+        const params = [value];
+        
+        if (delivery_date) {
+          query += `, delivery_date = ?`;
+          params.push(delivery_date);
+        }
+        
+        query += ` WHERE id = ?`;
+        params.push(id);
+        
+        await db.query(query, params);
+      } else {
+        await db.query(`UPDATE equipment_order SET ${updateField} = ? WHERE id = ?`, [value, id]);
+      }
     } else {
       return res.status(403).json({ success: false, message: 'Unauthorized to update order status.' });
     }
 
-    await db.query(`UPDATE equipment_order SET ${updateField} = ? WHERE id = ?`, [value, id]);
     res.json({ success: true, message: 'Order status updated successfully.' });
   } catch (err) {
     console.error('UPDATE ORDER STATUS ERROR:', err);
@@ -3500,7 +3644,8 @@ app.put('/api/equipment-orders/:id/status', async (req, res) => {
 
 // 📄 GET STOCK REPORTS (with optional month/date filter)
 app.get('/api/stock-reports', async (req, res) => {
-  const { month, date } = req.query;
+  const { month, date, user_id, role_id } = req.query;
+  const rid = parseInt(role_id) || 0;
 
   try {
     let query = `
@@ -3510,6 +3655,19 @@ app.get('/api/stock-reports', async (req, res) => {
       WHERE 1=1
     `;
     const params = [];
+
+    if (rid === 1 || rid === 7) {
+      // Admin sees all
+    } else {
+      // Filter by assigned schools
+      const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ? OR ssgm_id = ?', [user_id, user_id]);
+      const schoolIds = assignments.map(a => a.school_id);
+      if (schoolIds.length > 0) {
+        query += ` AND sr.school_id IN (${schoolIds.join(',')})`;
+      } else {
+        query += ' AND 1=0';
+      }
+    }
 
     if (month) {
       query += ' AND MONTH(sr.report_date) = ?';
@@ -4385,9 +4543,39 @@ app.get('/api/dashboard/content-feed', async (req, res) => {
     const [videos] = await db.query(`SELECT * FROM dashboard_social_content WHERE content_type = 'video' AND is_active = 1 ${whereClause} ORDER BY id DESC LIMIT 20`);
     const [photos] = await db.query(`SELECT * FROM dashboard_social_content WHERE content_type = 'photo' AND is_active = 1 ${whereClause} ORDER BY id DESC LIMIT 8`);
 
+    // Merge highlights that have reel_urls or images into the feed
+    const [highlightItems] = await db.query(`SELECT * FROM dashboard_highlights h WHERE is_active = 1 ${whereClause.replace('school_id', 'h.school_id').replace('h.h.', 'h.')} ORDER BY id DESC`);
+    
+    const mergedVideos = [...videos];
+    const mergedPhotos = [...photos];
+
+    highlightItems.forEach(h => {
+      if (h.reel_url) {
+        mergedVideos.unshift({
+          id: 'h-' + h.id,
+          title: h.title,
+          video_path: null,
+          thumbnail_url: h.image_path,
+          url: h.reel_url,
+          category: h.category
+        });
+      } else if (h.image_path) {
+        mergedPhotos.unshift({
+          id: 'h-' + h.id,
+          title: h.title,
+          thumbnail_url: h.image_path,
+          url: null,
+          category: h.category
+        });
+      }
+    });
+
     res.json({
       success: true,
-      data: { videos, photos }
+      data: { 
+        videos: mergedVideos.slice(0, 20), 
+        photos: mergedPhotos.slice(0, 12) 
+      }
     });
   } catch (err) {
     console.error('CONTENT FEED ERROR:', err);
@@ -4521,20 +4709,29 @@ app.get('/api/dashboard/students', async (req, res) => {
 // 📅 DASHBOARD EVENTS (CALENDAR)
 app.get('/api/dashboard/events', async (req, res) => {
   try {
-    const { user_id } = req.query;
+    const { user_id, role_id } = req.query;
 
+    // Admin (role_id=1): show ALL events
+    if (role_id == '1') {
+      const [rows] = await db.query('SELECT * FROM dashboard_events ORDER BY event_date ASC');
+      return res.json({ success: true, data: rows });
+    }
+
+    // Non-admin: get assigned schools
     let schoolIds = [];
     if (user_id) {
       const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ?', [user_id]);
       schoolIds = assignments.map(a => a.school_id);
     }
 
-    let whereClause = '';
-    if (schoolIds.length > 0) {
-      const idList = schoolIds.join(',');
-      whereClause = `WHERE school_id IN (${idList}) OR school_id IS NULL`;
+    // No school assigned → return empty
+    if (schoolIds.length === 0) {
+      return res.json({ success: true, data: [] });
     }
 
+    // Show only this school's events (not global NULL ones)
+    const idList = schoolIds.join(',');
+    const whereClause = `WHERE school_id IN (${idList})`;
     const [rows] = await db.query(`SELECT * FROM dashboard_events ${whereClause} ORDER BY event_date ASC`);
     res.json({ success: true, data: rows });
   } catch (err) {
@@ -4545,10 +4742,10 @@ app.get('/api/dashboard/events', async (req, res) => {
 
 app.post('/api/dashboard/events', async (req, res) => {
   try {
-    const { title, description, event_date, category, is_featured } = req.body;
+    const { title, description, event_date, category, is_featured, school_id } = req.body;
     await db.query(
-      "INSERT INTO dashboard_events (title, description, event_date, category, is_featured) VALUES (?, ?, ?, ?, ?)",
-      [title, description, event_date, category || 'Event', is_featured || 0]
+      "INSERT INTO dashboard_events (title, description, event_date, category, is_featured, school_id) VALUES (?, ?, ?, ?, ?, ?)",
+      [title, description, event_date, category || 'Event', is_featured || 0, school_id || null]
     );
     res.json({ success: true, message: 'Event scheduled successfully' });
   } catch (err) {
@@ -4556,6 +4753,7 @@ app.post('/api/dashboard/events', async (req, res) => {
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
+
 
 app.post('/api/ptm-date', async (req, res) => {
   try {
@@ -4580,6 +4778,53 @@ app.post('/api/ptm-date', async (req, res) => {
   }
 });
 
+// 🎂 BIRTHDAY CHECK
+app.get('/api/check-birthday', async (req, res) => {
+  try {
+    const { user_id } = req.query;
+    if (!user_id) return res.status(400).json({ success: false, message: 'User ID is required' });
+
+    // Check if today matches month and day of birthday_date
+    const [rows] = await db.query(
+      "SELECT user_id FROM birthday_table WHERE user_id = ? AND MONTH(birthday_date) = MONTH(NOW()) AND DAY(birthday_date) = DAY(NOW())",
+      [user_id]
+    );
+
+    res.json({ success: true, isBirthday: rows.length > 0 });
+  } catch (err) {
+    console.error('BIRTHDAY CHECK ERROR:', err);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+// 📅 ALL BIRTHDAYS LIST
+app.get('/api/all-birthdays', async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        u.id as user_id, 
+        u.name as user_name, 
+        u.email,
+        bt.birthday_date,
+        CASE 
+          WHEN (MONTH(bt.birthday_date) > MONTH(NOW())) OR (MONTH(bt.birthday_date) = MONTH(NOW()) AND DAY(bt.birthday_date) >= DAY(NOW()))
+          THEN DATEDIFF(DATE_FORMAT(bt.birthday_date, CONCAT(YEAR(NOW()), '-%m-%d')), NOW())
+          ELSE DATEDIFF(DATE_FORMAT(bt.birthday_date, CONCAT(YEAR(NOW()) + 1, '-%m-%d')), NOW())
+        END as days_remaining
+      FROM users u
+      JOIN birthday_table bt ON u.id = bt.user_id
+      WHERE u.is_active = 1
+      ORDER BY days_remaining ASC
+    `);
+    res.json({ success: true, birthdays: rows });
+  } catch (err) {
+    console.error('ALL BIRTHDAYS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Internal Server Error' });
+  }
+});
+
+
+
 app.get('/api/latest-ptm-date', async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -4601,7 +4846,11 @@ app.get('/api/ptm-unlock/check', async (req, res) => {
   try {
     const { user_id } = req.query;
     if (!user_id) return res.status(400).json({ success: false });
-    const [rows] = await db.query('SELECT id FROM ptm_user_unlocks WHERE user_id = ?', [user_id]);
+    // Only consider unlocks within last 12 hours
+    const [rows] = await db.query(
+      'SELECT id, unlocked_at FROM ptm_user_unlocks WHERE user_id = ? AND unlocked_at > NOW() - INTERVAL 12 HOUR',
+      [user_id]
+    );
     res.json({ success: true, isUnlocked: rows.length > 0 });
   } catch (err) {
     console.error('PTM UNLOCK CHECK ERROR:', err);
@@ -4609,68 +4858,97 @@ app.get('/api/ptm-unlock/check', async (req, res) => {
   }
 });
 
-// Get all users with their PTM lock status
+// Get all user-school combinations with their PTM lock status (12-hour unlock window)
 app.get('/api/ptm-locks', async (req, res) => {
   try {
-    const [users] = await db.query(`
-      SELECT u.id, u.name, u.email, u.role_id,
+    const [data] = await db.query(`
+      SELECT 
+        u.id as user_id, u.name as user_name, u.email, u.role_id,
+        s.id as school_id, s.name as school_name,
         CASE WHEN puu.id IS NOT NULL THEN 1 ELSE 0 END AS is_unlocked,
-        puu.unlocked_at
+        puu.unlocked_at,
+        TIMESTAMPDIFF(MINUTE, puu.unlocked_at, NOW()) as minutes_elapsed
       FROM users u
-      LEFT JOIN ptm_user_unlocks puu ON u.id = puu.user_id
+      JOIN assign_school asch ON u.id = asch.user_id
+      JOIN schools s ON asch.school_id = s.id
+      LEFT JOIN ptm_user_unlocks puu 
+        ON u.id = puu.user_id 
+        AND s.id = puu.school_id 
+        AND puu.unlocked_at > NOW() - INTERVAL 12 HOUR
       WHERE u.is_active = 1
-      ORDER BY is_unlocked ASC, u.name ASC
+      ORDER BY is_unlocked DESC, u.name ASC, s.name ASC
     `);
-    res.json({ success: true, data: users });
+    res.json({ success: true, data });
   } catch (err) {
     console.error('GET PTM LOCKS ERROR:', err);
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 
-// Unlock a user
+// Unlock a user for a specific school
 app.post('/api/ptm-unlock', async (req, res) => {
   try {
-    const { user_id, unlocked_by } = req.body;
-    if (!user_id || !unlocked_by) return res.status(400).json({ success: false, message: 'Missing fields' });
+    const { user_id, school_id, unlocked_by } = req.body;
+    if (!user_id || !school_id) {
+      return res.status(400).json({ success: false, message: 'Missing fields (user_id, school_id)' });
+    }
+    const adminId = unlocked_by || 0;
     await db.query(
-      'INSERT INTO ptm_user_unlocks (user_id, unlocked_by) VALUES (?, ?) ON DUPLICATE KEY UPDATE unlocked_by = ?, unlocked_at = NOW()',
-      [user_id, unlocked_by, unlocked_by]
+      'INSERT INTO ptm_user_unlocks (user_id, school_id, unlocked_by) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE unlocked_by = ?, unlocked_at = NOW()',
+      [user_id, school_id, adminId, adminId]
     );
-    res.json({ success: true, message: 'User unlocked successfully' });
+    res.json({ success: true, message: 'School unlocked for user successfully' });
   } catch (err) {
     console.error('PTM UNLOCK ERROR:', err);
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 
-// Re-lock a user
+// Re-lock a user for a specific school
 app.post('/api/ptm-relock', async (req, res) => {
   try {
-    const { user_id } = req.body;
-    if (!user_id) return res.status(400).json({ success: false, message: 'Missing user_id' });
-    await db.query('DELETE FROM ptm_user_unlocks WHERE user_id = ?', [user_id]);
-    res.json({ success: true, message: 'User re-locked successfully' });
+    const { user_id, school_id } = req.body;
+    if (!user_id || !school_id) return res.status(400).json({ success: false, message: 'Missing user_id or school_id' });
+    await db.query('DELETE FROM ptm_user_unlocks WHERE user_id = ? AND school_id = ?', [user_id, school_id]);
+    res.json({ success: true, message: 'School re-locked for user successfully' });
   } catch (err) {
     console.error('PTM RELOCK ERROR:', err);
     res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 });
 
+
 // 🌟 DASHBOARD HIGHLIGHTS (SWIPER)
 app.get('/api/dashboard/highlights', async (req, res) => {
   try {
-    const { school_id } = req.query;
+    const { user_id, role_id } = req.query;
     let sql = "SELECT h.*, s.name as school_name FROM dashboard_highlights h LEFT JOIN schools s ON h.school_id = s.id";
     const params = [];
 
-    if (school_id) {
-      sql += " WHERE h.school_id = ? OR h.school_id IS NULL";
-      params.push(school_id);
+    // Admin (role_id=1): show ALL highlights
+    if (role_id == '1') {
+      sql += " ORDER BY h.id DESC";
+      const [rows] = await db.query(sql, params);
+      return res.json({ success: true, data: rows });
+    }
+
+    // Non-admin: get assigned schools
+    let schoolIds = [];
+    if (user_id) {
+      const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ?', [user_id]);
+      schoolIds = assignments.map(a => a.school_id);
+    }
+
+    // Show this school's highlights AND global highlights (school_id IS NULL)
+    if (schoolIds.length > 0) {
+      const idList = schoolIds.join(',');
+      sql += ` WHERE (h.school_id IN (${idList}) OR h.school_id IS NULL)`;
+    } else {
+      // If no school assigned, only show global highlights
+      sql += " WHERE h.school_id IS NULL";
     }
 
     sql += " ORDER BY h.id DESC";
-    
     const [rows] = await db.query(sql, params);
     res.json({ success: true, data: rows });
   } catch (err) {
@@ -4742,13 +5020,7 @@ app.get('/api/dashboard/growth-stats', async (req, res) => {
   try {
     const [[{ totalStudents }]] = await db.query('SELECT COUNT(*) as totalStudents FROM students');
 
-    // Logic: Synthesize growth for 2024, 2025 based on total
-    // 2024: ~30%, 2025: ~70%, 2026: 100%
-    const y2024 = Math.round(totalStudents * 0.32);
-    const y2025 = Math.round(totalStudents * 0.74);
-    const y2026 = totalStudents;
-
-    // Monthly distribution for 2026 (based on real report count + trend)
+    // Monthly distribution
     const [monthlyResults] = await db.query(`
       SELECT MONTH(created_at) as month, COUNT(DISTINCT student_id) as count 
       FROM student_reports 
@@ -4758,9 +5030,7 @@ app.get('/api/dashboard/growth-stats', async (req, res) => {
 
     const monthlyData = new Array(12).fill(0).map((_, i) => {
       const real = monthlyResults.find(r => r.month === (i + 1));
-      // Add fake growth trail for Jan-Dec 2026 if real data is sparse
-      const base = Math.round((y2026 - y2025) / 12);
-      return (real ? real.count : 0) + base + Math.floor(Math.random() * 50);
+      return real ? real.count : 0;
     });
 
     res.json({
@@ -4941,6 +5211,8 @@ app.get('/api/curriculum/report-filters/:schoolId', async (req, res) => {
       }
     });
 
+    
+
     res.json({ success: true, filters });
   } catch (err) {
     console.error('FETCH FILTERS ERROR:', err);
@@ -4953,6 +5225,9 @@ app.get('/api/curriculum/report-data', async (req, res) => {
   try {
     const { school_id, month_year, week_no, publishedOnly } = req.query;
     console.log('[DEBUG] Report Data Request:', { school_id, month_year, week_no, publishedOnly });
+    
+    
+
     const sql = `
        SELECT 
         clt.unique_id, clt.lp_no, clt.grade, clt.sport, clt.skill, clt.sub_skill, clt.objective,
@@ -5894,6 +6169,137 @@ app.get('/api/support/feedback', async (req, res) => {
   }
 });
 
+// 📋 SGGM CHECKLIST APIS
+app.get('/api/sggm-checklist', async (req, res) => {
+  const { school_id, user_id, assigned_user_id } = req.query;
+  try {
+    let sql = 'SELECT * FROM sggm_school_check_list';
+    const params = [];
+    
+    if (assigned_user_id) {
+      const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ?', [assigned_user_id]);
+      const schoolIds = assignments.map(a => a.school_id);
+      
+      if (schoolIds.length > 0) {
+        sql += ` WHERE school_id IN (${schoolIds.join(',')}) OR user_id = ?`;
+        params.push(assigned_user_id);
+      } else {
+        sql += ` WHERE user_id = ?`;
+        params.push(assigned_user_id);
+      }
+    } else if (school_id || user_id) {
+      sql += ' WHERE';
+      if (school_id) {
+        sql += ' school_id = ?';
+        params.push(school_id);
+      }
+      if (user_id) {
+        if (school_id) sql += ' AND';
+        sql += ' user_id = ?';
+        params.push(user_id);
+      }
+    }
+    sql += ' ORDER BY created_at DESC';
+    const [rows] = await db.query(sql, params);
+    res.json({ success: true, checklists: rows });
+  } catch (err) {
+    console.error('GET SGGM CHECKLIST ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching checklists' });
+  }
+});
+
+app.post('/api/sggm-checklist', async (req, res) => {
+  const data = req.body;
+  try {
+    const columns = [
+      'school_id', 'user_id', 'school_name', 'conducted_at', 'auditor_name', 'auditor_role', 'location',
+      'arrive_on_time', 'arrive_on_time_why', 'actively_engaged', 'actively_engaged_why', 'professional_behavior', 'professional_behavior_why',
+      'uniform_tshirt_type', 'uniform_pants_type', 'uniform_shoes_type', 'uniform_whistle_wearing', 'grooming_type',
+      'equipment_safe', 'proper_setup', 'students_engaged_obs', 'discipline_effective', 'observations_pos', 'observations_neg',
+      'wellbeing_issues', 'fail_standards', 'concern_types', 'disciplinary_recommendations',
+      'stakeholder_types', 'stakeholder_name', 'stakeholder_designation', 'stakeholder_points', 'stakeholder_pos_feedback', 'stakeholder_concerns',
+      'satisfaction_rating', 'new_initiatives', 'urgent_complaints',
+      'engagement_level', 'safety_measures_taken', 'parent_testimonies', 'student_requests',
+      'upcoming_event_name', 'upcoming_event_date', 'mq_support_expected', 'growth_potential', 'infra_support_needed', 'infra_requirements',
+      'warning_signs_observed', 'warning_signs_desc',
+      'insight_1', 'insight_2', 'insight_3', 'hq_immediate_action', 'long_term_opportunity',
+      'overall_performance'
+    ];
+
+    const placeholders = columns.map(() => '?').join(', ');
+    const sql = `INSERT INTO sggm_school_check_list (${columns.join(', ')}) VALUES (${placeholders})`;
+
+    const params = [
+      data.school_id || null, data.user_id || null, data.school_name, data.conducted_at, data.auditor_name, data.auditor_role, data.location || '',
+      data.arrive_on_time, data.arrive_on_time_why, data.actively_engaged, data.actively_engaged_why, data.professional_behavior, data.professional_behavior_why,
+      data.uniform_tshirt_type, data.uniform_pants_type, data.uniform_shoes_type, data.uniform_whistle_wearing, data.grooming_type,
+      data.equipment_safe, data.proper_setup, data.students_engaged_obs, data.discipline_effective, data.observations_pos, data.observations_neg,
+      JSON.stringify(data.wellbeing_issues || []), data.fail_standards, JSON.stringify(data.concern_types || []), data.disciplinary_recommendations,
+      JSON.stringify(data.stakeholder_types || []), data.stakeholder_name, data.stakeholder_designation, data.stakeholder_points, data.stakeholder_pos_feedback, data.stakeholder_concerns,
+      data.satisfaction_rating, data.new_initiatives, data.urgent_complaints,
+      data.engagement_level, data.safety_measures_taken, data.parent_testimonies, data.student_requests,
+      data.upcoming_event_name, data.upcoming_event_date || null, data.mq_support_expected, data.growth_potential, data.infra_support_needed, data.infra_requirements,
+      data.warning_signs_observed, data.warning_signs_desc,
+      data.insight_1, data.insight_2, data.insight_3, data.hq_immediate_action, data.long_term_opportunity,
+      data.overall_performance
+    ];
+
+    const [result] = await db.query(sql, params);
+    res.json({ success: true, message: 'Checklist submitted successfully', id: result.insertId });
+  } catch (err) {
+    console.error('SUBMIT SGGM CHECKLIST ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error submitting checklist' });
+  }
+});
+
+app.put('/api/sggm-checklist/:id', async (req, res) => {
+  const { id } = req.params;
+  const data = req.body;
+  try {
+    const columns = [
+      'school_id', 'school_name', 'conducted_at', 'auditor_name', 'auditor_role', 'location',
+      'arrive_on_time', 'arrive_on_time_why', 'actively_engaged', 'actively_engaged_why', 'professional_behavior', 'professional_behavior_why',
+      'uniform_tshirt_type', 'uniform_pants_type', 'uniform_shoes_type', 'uniform_whistle_wearing', 'grooming_type',
+      'equipment_safe', 'proper_setup', 'students_engaged_obs', 'discipline_effective', 'observations_pos', 'observations_neg',
+      'wellbeing_issues', 'fail_standards', 'concern_types', 'disciplinary_recommendations',
+      'stakeholder_types', 'stakeholder_name', 'stakeholder_designation', 'stakeholder_points', 'stakeholder_pos_feedback', 'stakeholder_concerns',
+      'satisfaction_rating', 'new_initiatives', 'urgent_complaints',
+      'engagement_level', 'safety_measures_taken', 'parent_testimonies', 'student_requests',
+      'upcoming_event_name', 'upcoming_event_date', 'mq_support_expected', 'growth_potential', 'infra_support_needed', 'infra_requirements',
+      'warning_signs_observed', 'warning_signs_desc',
+      'insight_1', 'insight_2', 'insight_3', 'hq_immediate_action', 'long_term_opportunity',
+      'overall_performance'
+    ];
+
+    const setClause = columns.map(col => `${col} = ?`).join(', ');
+    const sql = `UPDATE sggm_school_check_list SET ${setClause} WHERE id = ?`;
+
+    const params = [
+      data.school_id || null, data.school_name, data.conducted_at, data.auditor_name, data.auditor_role, data.location || '',
+      data.arrive_on_time, data.arrive_on_time_why, data.actively_engaged, data.actively_engaged_why, data.professional_behavior, data.professional_behavior_why,
+      data.uniform_tshirt_type, data.uniform_pants_type, data.uniform_shoes_type, data.uniform_whistle_wearing, data.grooming_type,
+      data.equipment_safe, data.proper_setup, data.students_engaged_obs, data.discipline_effective, data.observations_pos, data.observations_neg,
+      JSON.stringify(data.wellbeing_issues || []), data.fail_standards, JSON.stringify(data.concern_types || []), data.disciplinary_recommendations,
+      JSON.stringify(data.stakeholder_types || []), data.stakeholder_name, data.stakeholder_designation, data.stakeholder_points, data.stakeholder_pos_feedback, data.stakeholder_concerns,
+      data.satisfaction_rating, data.new_initiatives, data.urgent_complaints,
+      data.engagement_level, data.safety_measures_taken, data.parent_testimonies, data.student_requests,
+      data.upcoming_event_name, data.upcoming_event_date || null, data.mq_support_expected, data.growth_potential, data.infra_support_needed, data.infra_requirements,
+      data.warning_signs_observed, data.warning_signs_desc,
+      data.insight_1, data.insight_2, data.insight_3, data.hq_immediate_action, data.long_term_opportunity,
+      data.overall_performance,
+      id
+    ];
+
+    await db.query(sql, params);
+    res.json({ success: true, message: 'Checklist updated successfully' });
+  } catch (err) {
+    console.error('UPDATE SGGM CHECKLIST ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error updating checklist' });
+  }
+});
+
+
 app.listen(3000, () => {
   console.log('🚀 Server running on http://localhost:3000');
 });
+ 

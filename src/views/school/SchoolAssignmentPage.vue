@@ -32,10 +32,12 @@ const showAssignModal = ref(false);
 const isEdit = ref(false);
 const allUsers = ref<{ id: number, name: string }[]>([]);
 const allSchools = ref<{ id: number, name: string }[]>([]);
+const allSSGMs = ref<{ id: number, name: string }[]>([]);
 
 const assignmentForm = ref({
   user_id: '',
   school_ids: [] as number[],
+  ssgm_id: '' as string | number,
   role_id: 1,
   effective_until: ''
 });
@@ -43,10 +45,11 @@ const assignmentForm = ref({
 const fetchInitialData = async () => {
   loading.value = true;
   try {
-    const [asgnRes, schoolsRes, coachesRes] = await Promise.all([
+    const [asgnRes, schoolsRes, coachesRes, ssgmRes] = await Promise.all([
       fetch('/api/school-assignments').then(r => r.json()),
       fetch('/api/schools').then(r => r.json()), // Fetch ALL schools for assignment
-      fetch('/api/users/coaches').then(r => r.json()) // Fetch all active staff members
+      fetch('/api/users/coaches').then(r => r.json()), // Fetch all active staff members
+      fetch('/api/users/ssgms').then(r => r.json()) // Fetch all active SSGMs
     ]);
 
     if (asgnRes.success) {
@@ -58,6 +61,9 @@ const fetchInitialData = async () => {
     }
     if (coachesRes.success) {
       allUsers.value = coachesRes.coaches;
+    }
+    if (ssgmRes.success) {
+      allSSGMs.value = ssgmRes.ssgms;
     }
 
   } catch (error) {
@@ -117,7 +123,8 @@ const submitAssignment = async () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         user_id: Number(assignmentForm.value.user_id),
-        school_ids: assignmentForm.value.school_ids
+        school_ids: assignmentForm.value.school_ids,
+        ssgm_id: assignmentForm.value.ssgm_id ? Number(assignmentForm.value.ssgm_id) : null
       })
     });
     const data = await response.json();
@@ -145,6 +152,7 @@ const openAddModal = () => {
   assignmentForm.value = {
     user_id: '',
     school_ids: [],
+    ssgm_id: '',
     role_id: 1,
     effective_until: ''
   };
@@ -156,6 +164,7 @@ const editAssignment = (asgn: Assignment) => {
   assignmentForm.value = {
     user_id: String(asgn.user_id),
     school_ids: asgn.school_ids ? asgn.school_ids.split(',').map(Number) : [],
+    ssgm_id: asgn.ssgm_id || '',
     role_id: asgn.role_id,
     effective_until: '' // Not in DB yet, keeping empty
   };
@@ -317,6 +326,8 @@ const deleteAssignment = async (userId: number) => {
                   Role</th>
                 <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-manrope">
                   Assigned Schools</th>
+                <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-manrope">
+                  SSGM</th>
                 <th
                   class="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-400 font-manrope text-right">
                   Actions</th>
@@ -357,6 +368,12 @@ const deleteAssignment = async (userId: number) => {
                       </template>
                       <span v-else class="text-[11px] italic text-slate-400 font-inter">No schools assigned</span>
                     </div>
+                  </td>
+                  <td class="px-6 py-4">
+                    <span v-if="assignment.ssgm_id" class="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-1 rounded-md">
+                      {{ allSSGMs.find(s => s.id === assignment.ssgm_id)?.name || 'SSGM ' + assignment.ssgm_id }}
+                    </span>
+                    <span v-else class="text-[11px] italic text-slate-400 font-inter">Not assigned</span>
                   </td>
                   <td class="px-6 py-4 text-right">
                     <div class="flex items-center justify-end gap-1.5">
@@ -463,7 +480,7 @@ const deleteAssignment = async (userId: number) => {
 
     <!-- Modal Overlay -->
     <div v-if="showAssignModal"
-      class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+      class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
       <!-- Assign New School Modal -->
       <div
         class="bg-white w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in duration-200">
@@ -512,6 +529,20 @@ const deleteAssignment = async (userId: number) => {
                 <option value="">Type to add more schools...</option>
                 <option v-for="school in allSchools" :key="school.id" :value="school.id">{{ school.name }}</option>
               </select>
+            </div>
+          </div>
+
+          <!-- ASSIGN SSGM -->
+          <div class="space-y-2">
+            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider">Select SSGM (Supervisor)</label>
+            <div class="relative">
+              <select v-model="assignmentForm.ssgm_id"
+                class="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-primary appearance-none cursor-pointer">
+                <option value="">Choose SSGM...</option>
+                <option v-for="s in allSSGMs" :key="s.id" :value="s.id">{{ s.name }}</option>
+              </select>
+              <span
+                class="material-symbols-outlined absolute right-3 top-3 pointer-events-none text-slate-400">expand_more</span>
             </div>
           </div>
 

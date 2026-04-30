@@ -289,11 +289,11 @@ async function submitOrderForm() {
   if (!orderForm.value.school_id) { orderError.value = 'Please select a school.'; return; }
 
   const hasValidItems = orderForm.value.items.some(
-    i => i.sku_name.trim() !== '' && (i.qty ?? 0) > 0 && i.size.trim() !== ''
+    i => i.sku_name.trim() !== '' && (i.qty ?? 0) > 0
   );
 
   if (!hasValidItems && !orderForm.value.equipment_list_image) {
-    orderError.value = 'Please add equipment items or upload an image.';
+    orderError.value = 'Please add equipment items or upload a bulk list.';
     return;
   }
 
@@ -720,7 +720,7 @@ onMounted(async () => {
 
     <!-- ═══════════════════ ORDER MODAL ═══════════════════ -->
     <Teleport to="body">
-      <div v-if="isOrderModalOpen" class="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+      <div v-if="isOrderModalOpen" class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden ring-1 ring-slate-100 max-h-[90vh] flex flex-col">
           <div class="px-6 py-4 border-b border-slate-400 flex justify-between items-center bg-slate-50 shrink-0">
             <h3 class="text-lg font-semibold text-slate-800">New Equipment Order</h3>
@@ -773,7 +773,8 @@ onMounted(async () => {
             </div>
 
             <div class="mb-8">
-              <label class="block text-base font-semibold text-slate-800 mb-4">Upload Equipment List</label>
+              <label class="block text-base font-semibold text-slate-800 mb-1">Upload Bulk Stock List</label>
+              <p class="text-xs text-slate-500 mb-4">Skip the manual inputs above if you have a bulk stock list. Just upload your image or PDF here.</p>
               <div class="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
                 <input type="file" @change="onEquipmentImageChange" accept="image/*,.pdf" class="hidden" ref="equipmentImageInput" />
                 <div class="space-y-3">
@@ -781,12 +782,15 @@ onMounted(async () => {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
                   <div>
-                    <p class="text-sm text-slate-600 mb-2">Click to upload or drag and drop</p>
-                    <p class="text-xs text-slate-500">SVG, PNG, JPG or GIF (max. 800x400px)</p>
+                    <p class="text-sm text-slate-600 mb-2">Click to upload or drag and drop your Bulk List</p>
+                    <p class="text-xs text-slate-500">Image or PDF allowed (max. 800x400px)</p>
                   </div>
                   <button @click="equipmentImageInput?.click()" class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">Select File</button>
-                  <div v-if="orderForm.equipment_list_image" class="mt-3 text-sm text-slate-600">
-                    <p class="font-medium">Selected: {{ orderForm.equipment_list_image.name }}</p>
+                  <div v-if="orderForm.equipment_list_image" class="mt-3 text-sm text-green-600 bg-green-50 p-2 rounded border border-green-200 inline-block">
+                    <p class="font-bold flex items-center gap-1">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                      File Attached: {{ orderForm.equipment_list_image.name }}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -812,7 +816,7 @@ onMounted(async () => {
 
     <!-- ═══════════════════ REPORT MODAL ═══════════════════ -->
     <Teleport to="body">
-      <div v-if="isReportModalOpen" class="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+      <div v-if="isReportModalOpen" class="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden ring-1 ring-slate-100">
           <div class="px-6 py-4 border-b border-slate-400 flex justify-between items-center bg-slate-50">
             <h3 class="text-lg font-semibold text-slate-800">Add Monthly Stock Report</h3>

@@ -9,7 +9,7 @@ import AuthLogin from '../authForms/AuthLogin.vue';
     <!-- LEFT PANEL: Brand Visuals (Shown on desktop only) -->
     <div class="hidden lg:flex w-[55%] relative flex-col justify-between overflow-hidden">
       <!-- Background Image -->
-      <img src="@/assets/images/auth-bg.png" alt="EduSport Gradient" class="absolute inset-0 w-full h-full object-cover z-0" />
+      <img src="@/assets/images/sporty_login_bg.png" alt="Sporty Stadium Gradient" class="absolute inset-0 w-full h-full object-cover z-0" />
       
       <!-- Gradient Overlay for Contrast -->
       <div class="absolute inset-0 bg-gradient-to-t from-[#001c3a]/100 via-[#001c3a]/60 to-transparent z-10 w-full h-full mix-blend-multiply"></div>

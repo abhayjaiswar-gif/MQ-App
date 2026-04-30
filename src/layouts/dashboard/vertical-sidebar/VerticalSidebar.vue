@@ -18,7 +18,7 @@ onMounted(async () => {
   const roleId = sessionStorage.getItem('role_id');
   
   if (!userId) return;
-  if (roleId === '1') return; // Admin bypass
+  // Admin bypass removed to support restricted administrator roles if permissions are set.
 
   try {
     const res = await fetch(`/api/access/effective-permissions/${userId}`);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { getEquipmentOrders, updateEquipmentOrderStatus } from '@/services/api';
 
@@ -22,6 +22,8 @@ interface EquipmentOrder {
   warranty: string;
   supplier: string;
   image_path: string;
+  approve_ssgm?: number;
+  approve_admin?: number;
 }
 
 const route = useRoute();
@@ -31,6 +33,18 @@ const requests = ref<EquipmentOrder[]>([]);
 const currentRequest = ref<EquipmentOrder | null>(null);
 const loading = ref(false);
 const error = ref('');
+const deliveryDate = ref(new Date().toISOString().split('T')[0]);
+
+const isAdmin = computed(() => {
+  const userStr = localStorage.getItem('user');
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      return user.role_id === 1 || user.role_id === 7;
+    } catch (e) {}
+  }
+  return false;
+});
 
 // Load equipment orders data
 const loadOrders = async () => {
@@ -39,7 +53,7 @@ const loadOrders = async () => {
   try {
     const response = await getEquipmentOrders();
     if (response.success || response.status === 'success') {
-      requests.value = response.data.map((order: any) => ({
+      const allOrders = response.data.map((order: any) => ({
         id: order.id.toString(),
         school: order.school_name,
         itemName: order.sku_name,
@@ -57,8 +71,18 @@ const loadOrders = async () => {
         specifications: order.size || '',
         warranty: '',
         supplier: '',
-        image_path: order.image_path
+        image_path: order.image_path,
+        approve_ssgm: order.approve_ssgm,
+        approve_admin: order.approve_admin
       }));
+
+      // For Admin, only show orders that have been SSGM Verified but not yet Admin Approved
+      if (isAdmin.value) {
+        requests.value = allOrders.filter((o: any) => o.approve_ssgm === 1 && !o.approve_admin);
+      } else {
+        // For SSGM, show orders that haven't been SSGM Verified yet
+        requests.value = allOrders.filter((o: any) => !o.approve_ssgm);
+      }
 
       // Set current request based on route parameter
       const requestId = route.params.id as string;
@@ -93,7 +117,7 @@ const handleApprove = async () => {
 
   try {
     // Update backend status first
-    await updateEquipmentOrderStatus(parseInt(currentRequest.value.id), 'Approved');
+    await updateEquipmentOrderStatus(parseInt(currentRequest.value.id), 'Approved', isAdmin.value ? deliveryDate.value : undefined);
 
     // Update local state
     currentRequest.value.status = 'Approved';
@@ -277,9 +301,38 @@ onMounted(() => {
               </div>
             </div>
 
+            <!-- Attached Document -->
+            <div v-if="currentRequest?.image_path">
+              <p class="text-sm font-bold text-black mb-3 uppercase tracking-wide text-[11px] pb-1"
+                style="border-bottom: 2px solid #b8babc;">Attached Document</p>
+              <div class="mt-2">
+                <a :href="`/${currentRequest.image_path}`" target="_blank"
+                  class="inline-flex items-center gap-2 bg-[#e6f7ff] text-[#1677ff] px-4 py-2 rounded-md font-bold text-sm hover:bg-[#bae0ff] transition-colors"
+                  style="border: 1px solid #91caff;">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                  View Uploaded Bulk List
+                </a>
+              </div>
+            </div>
+
             <!-- Approval Actions -->
             <div class="pt-4 space-y-4">
               <p class="text-sm font-bold text-black uppercase tracking-wide text-[11px]">Approval Actions</p>
+              
+              <!-- Delivery Date for Admin -->
+              <div v-if="isAdmin && currentRequest?.status === 'SSGM Verified'" class="bg-blue-50 p-4 rounded-lg border border-blue-200 mb-4">
+                <label class="block text-sm font-bold text-blue-800 mb-2">Expected Delivery Date</label>
+                <input 
+                  type="date" 
+                  v-model="deliveryDate"
+                  class="w-full px-3 py-2 border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                />
+                <p class="text-[10px] text-blue-600 mt-1">* Required for Admin Approval</p>
+              </div>
+
               <div class="grid grid-cols-2 gap-3">
                 <button @click="handleApprove"
                   class="bg-[#52c41a] text-white py-2 rounded font-bold text-sm hover:opacity-90 transition-opacity">

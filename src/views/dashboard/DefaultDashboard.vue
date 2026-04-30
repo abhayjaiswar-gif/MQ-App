@@ -10,6 +10,8 @@ import FeedbackSection from './components/FeedbackSection.vue';
 import UserLoginStatusModal from '@/components/modals/UserLoginStatusModal.vue';
 import AssignedUserLoginStatusModal from '@/components/modals/AssignedUserLoginStatusModal.vue';
 import PTMDateModal from '@/components/modals/PTMDateModal.vue';
+import BirthdayCelebrationModal from './components/BirthdayCelebrationModal.vue';
+
 
 const authStore = useAuthStore();
 const showBirthdayModal = ref(false);
@@ -187,7 +189,11 @@ const saveBirthday = async () => {
   
   <!-- 📅 Principal PTM Scheduling Modal -->
   <PTMDateModal v-model="showPtmModal" @saved="triggerLoginModal" />
+
+  <!-- 🎂 Birthday Celebration Modal -->
+  <BirthdayCelebrationModal />
 </template>
+
 
 <style scoped>
 .birthday-modal-card {
