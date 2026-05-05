@@ -51,19 +51,26 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
           <label v-for="type in programTypes" :key="type.id" class="cursor-pointer group relative">
             <input v-model="programType" :value="type.id" type="radio" name="program_type" class="sr-only peer" />
-            <div class="bg-surface-container-lowest p-8 rounded-2xl transition-all duration-300 editorial-shadow hover:bg-surface-bright ring-2 ring-transparent peer-checked:ring-primary peer-checked:bg-primary/5 flex flex-col gap-6 h-full">
-              <div class="flex justify-between items-start">
-                <div :class="['w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm', type.bgClass, type.textClass]">
+            <div class="bg-surface-container-lowest p-8 rounded-3xl transition-all duration-500 editorial-shadow hover:bg-surface-bright ring-2 ring-transparent peer-checked:ring-[#2563eb]/30 peer-checked:bg-gradient-to-br peer-checked:from-[#2563eb] peer-checked:to-[#1d4ed8] peer-checked:text-white flex flex-col gap-8 h-full hover:scale-[1.02] active:scale-[0.98] relative overflow-hidden group/card">
+              
+              <!-- Background Accent Glow (Selected Only) -->
+              <div class="absolute -right-20 -top-20 w-64 h-64 bg-white/10 rounded-full blur-3xl opacity-0 peer-checked:opacity-100 transition-opacity"></div>
+              
+              <div class="flex justify-between items-start relative z-10">
+                <div :class="['w-16 h-16 rounded-2xl flex items-center justify-center shadow-md transition-all duration-500 group-hover/card:rotate-3 peer-checked:bg-white/20 peer-checked:backdrop-blur-md peer-checked:text-white', type.bgClass, type.textClass]">
                   <span class="material-symbols-outlined text-3xl" style="font-variation-settings: 'FILL' 1;">{{ type.icon }}</span>
                 </div>
-                <div class="opacity-0 peer-checked:opacity-100 transition-opacity">
-                   <span class="px-3 py-1 rounded-full bg-primary text-white text-[10px] font-black uppercase tracking-widest">Active Choice</span>
+                <div class="opacity-0 peer-checked:opacity-100 transition-all duration-500 translate-y-[-10px] peer-checked:translate-y-0">
+                   <span class="px-4 py-1.5 rounded-full bg-white text-[#2563eb] text-[10px] font-black uppercase tracking-[0.15em] shadow-sm">Selected</span>
                 </div>
               </div>
-              <div>
-                <h3 class="text-xl font-headline font-extrabold text-slate-900 group-hover:text-primary transition-colors">{{ type.name }}</h3>
-                <p class="text-sm text-slate-500 leading-relaxed mt-2 font-medium">{{ type.description }}</p>
+              <div class="relative z-10">
+                <h3 class="text-2xl font-headline font-black text-slate-900 group-hover:text-primary peer-checked:text-white transition-colors leading-tight">{{ type.name }}</h3>
+                <p class="text-sm text-slate-500 peer-checked:text-white/90 leading-relaxed mt-3 font-medium">{{ type.description }}</p>
               </div>
+
+              <!-- Bottom Indicator Line -->
+              <div class="absolute bottom-0 left-0 h-1.5 bg-white/30 w-0 peer-checked:w-full transition-all duration-700 delay-100"></div>
             </div>
           </label>
         </div>
@@ -84,19 +91,19 @@
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <label v-for="school in assignedSchools" :key="school.id" class="cursor-pointer group relative">
             <input v-model="selectedSchoolId" :value="school.id" type="radio" name="school_selection" class="sr-only peer" />
-            <div class="bg-surface-container-lowest p-5 rounded-xl transition-all duration-300 editorial-shadow hover:bg-surface-bright ring-2 ring-transparent peer-checked:ring-primary peer-checked:bg-primary/5 flex items-center gap-5">
-              <div class="w-16 h-16 rounded-xl bg-slate-50 flex items-center justify-center ring-1 ring-slate-100 group-hover:ring-primary/20 transition-all">
-                <span class="material-symbols-outlined text-3xl text-slate-300 group-hover:text-primary transition-colors">school</span>
+            <div class="bg-surface-container-lowest p-5 rounded-xl transition-all duration-300 editorial-shadow hover:bg-surface-bright ring-2 ring-transparent peer-checked:ring-[#2563eb] peer-checked:bg-[#2563eb] peer-checked:text-white flex items-center gap-5">
+              <div class="w-16 h-16 rounded-xl bg-slate-50 flex items-center justify-center ring-1 ring-slate-100 group-hover:ring-primary/20 transition-all peer-checked:bg-white/20 peer-checked:ring-white/30">
+                <span class="material-symbols-outlined text-3xl text-slate-300 group-hover:text-primary transition-colors peer-checked:text-white">school</span>
               </div>
               <div class="flex-1">
-                <h4 class="text-lg font-headline font-bold text-slate-900 leading-tight group-hover:text-primary transition-colors">{{ school.name }}</h4>
-                <div class="mt-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest bg-secondary-container text-on-secondary-container">
+                <h4 class="text-lg font-headline font-bold text-slate-900 peer-checked:text-white leading-tight group-hover:text-primary transition-colors">{{ school.name }}</h4>
+                <div class="mt-2 inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest bg-secondary-container text-on-secondary-container peer-checked:bg-white/20 peer-checked:text-white">
                     Academy Entity
                 </div>
               </div>
               <div class="flex flex-col items-center gap-1 opacity-0 peer-checked:opacity-100 transition-opacity translate-x-2 peer-checked:translate-x-0">
-                 <span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
-                 <span class="text-[8px] font-bold text-primary uppercase">Active</span>
+                 <span class="material-symbols-outlined text-primary peer-checked:text-white" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+                 <span class="text-[8px] font-bold text-primary peer-checked:text-white uppercase">Active</span>
               </div>
             </div>
           </label>
@@ -124,17 +131,17 @@
           <!-- Foundation -->
           <label v-for="grade in visibleFoundationGrades" :key="grade.id" class="cursor-pointer group">
             <input v-model="selectedGrades" :value="grade.id" name="standard_selection" class="peer sr-only" type="radio" />
-            <div class="bg-surface-container-lowest p-6 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 editorial-shadow hover:bg-surface-bright ring-2 ring-transparent peer-checked:ring-primary peer-checked:bg-primary/5">
-              <span class="text-[9px] uppercase tracking-widest font-black text-primary opacity-60 mb-2">{{ grade.group }}</span>
-              <span class="text-lg font-headline font-bold text-slate-900 peer-checked:text-primary transition-colors text-center">{{ grade.name }}</span>
+            <div class="bg-surface-container-lowest p-6 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 editorial-shadow hover:bg-surface-bright ring-2 ring-transparent peer-checked:ring-[#2563eb] peer-checked:bg-[#2563eb] peer-checked:text-white">
+              <span class="text-[9px] uppercase tracking-widest font-black text-primary peer-checked:text-white opacity-60 mb-2">{{ grade.group }}</span>
+              <span class="text-lg font-headline font-bold text-slate-900 peer-checked:text-white transition-colors text-center">{{ grade.name }}</span>
             </div>
           </label>
           <!-- Numeric -->
           <label v-for="n in visibleNumericGrades" :key="n" class="cursor-pointer group">
             <input v-model="selectedGrades" :value="n" name="standard_selection" class="peer sr-only" type="radio" />
-            <div class="bg-surface-container-lowest p-6 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 editorial-shadow hover:bg-surface-bright ring-2 ring-transparent peer-checked:ring-primary peer-checked:bg-primary/5">
-              <span class="text-[9px] uppercase tracking-widest font-black text-primary opacity-60 mb-2">Grade</span>
-              <span class="text-3xl font-headline font-black text-slate-900 peer-checked:text-primary transition-colors">{{ n }}</span>
+            <div class="bg-surface-container-lowest p-6 rounded-2xl flex flex-col items-center justify-center transition-all duration-300 editorial-shadow hover:bg-surface-bright ring-2 ring-transparent peer-checked:ring-[#2563eb] peer-checked:bg-[#2563eb] peer-checked:text-white">
+              <span class="text-[9px] uppercase tracking-widest font-black text-primary peer-checked:text-white opacity-60 mb-2">Grade</span>
+              <span class="text-3xl font-headline font-black text-slate-900 peer-checked:text-white transition-colors">{{ n }}</span>
             </div>
           </label>
         </div>
@@ -163,7 +170,7 @@
             <label v-for="divName in availableDivisions" :key="divName" class="cursor-pointer group">
               <input v-model="selectedDivisions" :value="divName" class="sr-only peer" type="checkbox" />
               <div
-                class="px-8 py-4 rounded-full border-2 border-transparent bg-surface-container-low text-on-surface-variant peer-checked:bg-primary peer-checked:text-white peer-checked:shadow-lg transition-all duration-200 font-medium flex items-center gap-3 hover:bg-surface-container-high">
+                class="px-8 py-4 rounded-full border-2 border-transparent bg-surface-container-low text-on-surface-variant peer-checked:bg-[#2563eb] peer-checked:text-white peer-checked:shadow-lg transition-all duration-200 font-medium flex items-center gap-3 hover:bg-surface-container-high">
                 <span class="material-symbols-outlined text-lg">{{ getDivisionIcon(divName) }}</span>
                 {{ divName }}
               </div>
@@ -195,7 +202,7 @@
 
           <div v-else-if="dynamicSportsList.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div v-for="sportName in dynamicSportsList" :key="sportName" @click="selectedSport = sportName"
-              :class="['group relative overflow-hidden rounded-xl border transition-all cursor-pointer', selectedSport === sportName ? 'border-primary ring-2 ring-primary/20 bg-primary/5' : 'border-transparent hover:border-primary/50 shadow-sm']">
+              :class="['group relative overflow-hidden rounded-xl border transition-all cursor-pointer', selectedSport === sportName ? 'border-primary ring-2 ring-primary/20 bg-[#2563eb] text-white' : 'border-transparent hover:border-primary/50 shadow-sm']">
               <div class="aspect-[3/4] w-full relative overflow-hidden">
                 <img :src="getSportImage(sportName)" :alt="sportName"
                   class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -242,9 +249,13 @@
                 <span class="text-primary font-semibold uppercase tracking-widest">{{ programTypeName }} • Grade {{
                   selectedGrades }} • {{ selectedSport }}</span>
               </nav>
-              <h2 class="text-3xl font-extrabold text-on-surface tracking-tight"
+              <h2 class="text-3xl font-extrabold text-on-surface tracking-tight flex items-center gap-4"
                 style="font-family: 'Manrope', sans-serif;">
                 Lesson Detail: {{ currentLesson.skill }}
+                <div v-if="isAlreadyDone" class="inline-flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-black uppercase tracking-tighter ring-1 ring-green-200">
+                  <span class="material-symbols-outlined text-[14px]">verified</span>
+                  Already Done
+                </div>
               </h2>
               <p class="text-on-surface-variant mt-1 font-medium">{{ currentLesson.sub_skill }}</p>
             </div>
@@ -258,23 +269,37 @@
               <section class="bg-surface-container-low rounded-xl p-5 shadow-sm">
                 <h3 class="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-4">Unit Curriculum
                 </h3>
-                <div class="space-y-2 max-h-[500px] overflow-y-auto no-scrollbar pr-1">
+                <div class="space-y-3 max-h-[500px] overflow-y-auto no-scrollbar pr-1">
                   <button v-for="(lesson, idx) in liveLessons" :key="idx" @click="selectedLessonIdx = idx"
-                    :class="['w-full text-left p-3 rounded-lg border-l-4 transition-all group',
-                      selectedLessonIdx === idx ? 'bg-surface-container-lowest shadow-sm border-primary' : 'hover:bg-surface-container border-transparent']">
-                    <p
-                      :class="['text-xs font-bold mb-1', selectedLessonIdx === idx ? 'text-primary' : 'text-on-surface-variant']">
-                      Lesson {{ lesson.lp_no }}</p>
-                    <p class="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors">{{
-                      lesson.skill || 'Session' }}</p>
-                    <div v-if="selectedLessonIdx === idx" class="mt-2 flex items-center gap-2">
-                      <span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-                      <span class="text-[10px] text-on-surface-variant font-bold uppercase">In Progress</span>
+                    :class="['w-full text-left p-4 rounded-2xl border transition-all group relative overflow-hidden',
+                      selectedLessonIdx === idx ? 'bg-[#2563eb] border-[#2563eb] shadow-lg shadow-blue-200' : 'bg-white border-slate-100 hover:border-blue-200 hover:bg-blue-50/30']">
+                    
+                    <div class="flex items-start justify-between mb-2">
+                      <p :class="['text-[10px] font-black uppercase tracking-widest', selectedLessonIdx === idx ? 'text-white/70' : 'text-slate-400']">
+                        Lesson {{ lesson.lp_no }}
+                      </p>
+                      <div v-if="lesson.is_done" class="flex items-center gap-1">
+                         <span class="material-symbols-outlined text-[14px] text-emerald-500 font-bold bg-emerald-50 rounded-full p-0.5" :class="selectedLessonIdx === idx ? 'bg-white/20 text-white' : ''">verified</span>
+                      </div>
                     </div>
-                    <div v-else class="mt-2 flex items-center gap-2">
-                      <span class="w-2 h-2 rounded-full bg-slate-300"></span>
-                      <span class="text-[10px] text-on-surface-variant font-bold uppercase">Locked</span>
+
+                    <p :class="['text-sm font-bold leading-tight transition-colors', selectedLessonIdx === idx ? 'text-white' : 'text-slate-700 group-hover:text-[#2563eb]']">
+                      {{ lesson.skill || 'Session' }}
+                    </p>
+
+                    <div class="mt-3 flex items-center gap-2">
+                      <template v-if="selectedLessonIdx === idx">
+                        <span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                        <span class="text-[10px] text-white/80 font-black uppercase tracking-tighter">{{ isAlreadyDone ? 'Completed' : 'Selected' }}</span>
+                      </template>
+                      <template v-else>
+                        <span :class="['w-1.5 h-1.5 rounded-full', lesson.is_done ? 'bg-emerald-400' : 'bg-slate-200']"></span>
+                        <span class="text-[10px] text-slate-400 font-black uppercase tracking-tighter">{{ lesson.is_done ? 'Finished' : 'Upcoming' }}</span>
+                      </template>
                     </div>
+
+                    <!-- Glass highlight for selected state -->
+                    <div v-if="selectedLessonIdx === idx" class="absolute -right-4 -bottom-4 w-12 h-12 bg-white/10 rounded-full blur-xl"></div>
                   </button>
                 </div>
               </section>
@@ -509,11 +534,35 @@
             <span class="material-symbols-outlined text-sm">arrow_forward</span>
           </button>
 
-          <button v-else @click="openMarkModal"
-            class="px-10 py-4 rounded-xl bg-gradient-to-br from-green-600 to-green-700 text-white text-xs font-black uppercase tracking-[0.2em] editorial-shadow hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-3 shadow-lg shadow-green-100">
-            Finalize & Mark
-            <span class="material-symbols-outlined text-sm">done_all</span>
-          </button>
+          <template v-else>
+            <!-- Detailed Status for Mixed Selections -->
+            <div v-if="completedDivisions.length > 0" class="flex flex-col items-end gap-1 mr-4">
+              <div class="flex items-center gap-2">
+                <span v-for="divName in completedDivisions" :key="divName" 
+                  class="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded border border-emerald-100 text-[9px] font-black uppercase">
+                  Div {{ divName.toUpperCase() }} Done
+                </span>
+              </div>
+              <p v-if="pendingDivisions.length > 0" class="text-[9px] text-amber-600 font-bold uppercase tracking-tighter italic">
+                Ready to mark for Div {{ pendingDivisions.join(', ').toUpperCase() }}
+              </p>
+              <p v-else class="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Repeat session for all selected</p>
+            </div>
+
+            <!-- Small Report / History Button -->
+            <button v-if="hasAnyHistory" @click="openHistoryModal"
+              class="w-12 h-12 rounded-xl bg-white border border-slate-200 text-slate-400 hover:text-primary hover:border-primary transition-all flex items-center justify-center shadow-sm"
+              title="View Previous Records">
+              <span class="material-symbols-outlined">history</span>
+            </button>
+            
+            <button @click="openMarkModal"
+              :class="['px-10 py-4 rounded-xl text-white text-xs font-black uppercase tracking-[0.2em] editorial-shadow hover:scale-[1.02] active:scale-95 transition-all flex items-center gap-3 shadow-lg', 
+                isAlreadyDone ? 'bg-gradient-to-br from-blue-600 to-blue-700 shadow-blue-100' : 'bg-gradient-to-br from-green-600 to-green-700 shadow-green-100']">
+              {{ isAlreadyDone ? 'Repeat Session' : 'Finalize & Mark' }}
+              <span class="material-symbols-outlined text-sm">{{ isAlreadyDone ? 'replay' : 'done_all' }}</span>
+            </button>
+          </template>
         </div>
       </div>
     </div>
@@ -530,7 +579,10 @@
       </div>
       <div class="p-6 space-y-5">
         <div>
-          <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Completion Status</label>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
+            Completion Status
+            <span v-if="isAlreadyDone" class="ml-2 text-green-600 font-black italic">(Lecture Repeat)</span>
+          </label>
           <select v-model="markStatus" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all">
             <option value="Complete">Complete ✅</option>
             <option value="Partially Complete">Partially Complete 🚧</option>
@@ -538,12 +590,12 @@
           </select>
         </div>
 
-        <div v-if="markStatus === 'Pending' || markStatus === 'Partially Complete'" class="animate-in fade-in slide-in-from-top-2 duration-200">
+        <div v-if="markStatus === 'Pending' || markStatus === 'Partially Complete' || isAlreadyDone" class="animate-in fade-in slide-in-from-top-2 duration-200">
            <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
-             Reason / Remarks
+             {{ isAlreadyDone ? 'Why are you repeating this?' : 'Reason / Remarks' }}
              <span class="text-error text-xs">*</span>
            </label>
-           <textarea v-model="modalRemark" rows="3" placeholder="Please provide details on why this session is incomplete..." class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all resize-none"></textarea>
+           <textarea v-model="modalRemark" rows="3" :placeholder="isAlreadyDone ? 'Please explain why this lecture is being repeated for this division...' : 'Please provide details on why this session is incomplete...'" class="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-sm font-medium focus:ring-2 focus:ring-primary focus:border-primary transition-all resize-none"></textarea>
         </div>
         
         <div v-if="markStatus === 'Complete'" class="animate-in fade-in slide-in-from-top-2 duration-200">
@@ -582,6 +634,66 @@
         </button>
       </div>
     </div>
+
+    <!-- Session History Modal (Restored for Detailed Reporting) -->
+    <div v-if="showHistoryModal" class="fixed inset-0 z-[1000] flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+        <div class="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-300">
+          <div class="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div>
+              <h3 class="text-xl font-black text-slate-800 uppercase tracking-tight flex items-center gap-3">
+                <span class="material-symbols-outlined text-primary">history</span>
+                Session Audit Trail
+              </h3>
+              <p class="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">Lesson {{ currentLesson?.lp_no }} • {{ currentLesson?.skill }}</p>
+            </div>
+            <button @click="showHistoryModal = false" class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-slate-200 transition-colors">
+              <span class="material-symbols-outlined text-slate-500">close</span>
+            </button>
+          </div>
+          
+          <div class="p-8 max-h-[60vh] overflow-y-auto no-scrollbar">
+            <div v-if="loadingHistory" class="py-12 flex flex-col items-center justify-center gap-4">
+              <div class="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+              <p class="text-sm font-bold text-slate-400">Fetching Audit Trail...</p>
+            </div>
+            
+            <div v-else-if="lessonHistory.length > 0" class="space-y-6">
+              <div v-for="(entry, i) in lessonHistory" :key="entry.id" class="relative pl-8 border-l-2 border-slate-100 last:border-l-0 pb-2">
+                <div class="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-white border-4 border-primary shadow-sm"></div>
+                
+                <div class="bg-slate-50 rounded-2xl p-5 border border-slate-100 hover:border-primary/20 transition-all group">
+                  <div class="flex items-start justify-between mb-3">
+                    <div>
+                      <p class="text-xs font-black text-primary uppercase tracking-widest">{{ i === 0 ? 'Latest Completion' : `Attempt ${lessonHistory.length - i}` }}</p>
+                      <p class="text-sm font-bold text-slate-800 mt-1">{{ formatAuditDate(entry.created_at) }}</p>
+                      <p class="text-[10px] text-slate-400 font-bold uppercase mt-1">Division: {{ entry.divisions }}</p>
+                    </div>
+                    <span :class="['px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-tighter ring-1', 
+                      entry.status === 'Complete' ? 'bg-green-50 text-green-700 ring-green-100' : 'bg-amber-50 text-amber-700 ring-amber-100']">
+                      {{ entry.status }}
+                    </span>
+                  </div>
+                  
+                  <div v-if="entry.remark" class="bg-white rounded-xl p-3 border border-slate-100 italic text-sm text-slate-600 mb-4">
+                    "{{ entry.remark }}"
+                  </div>
+                  
+                  <div v-if="entry.evidence_photo" class="flex flex-wrap gap-2">
+                    <div v-for="img in entry.evidence_photo.split(',')" :key="img" class="w-16 h-16 rounded-lg overflow-hidden border border-slate-200 shadow-sm cursor-pointer hover:scale-105 transition-transform" @click="openPhoto(img)">
+                      <img :src="img" class="w-full h-full object-cover" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div v-else class="py-12 text-center">
+              <span class="material-symbols-outlined text-4xl text-slate-200 mb-2">history_toggle_off</span>
+              <p class="text-slate-400 font-bold">No history records found.</p>
+            </div>
+          </div>
+        </div>
+      </div>
   </div>
 </template>
 
@@ -590,6 +702,14 @@ import { ref, onMounted, computed, watch } from 'vue';
 
 const currentStep = ref(1);
 const selectedLessonIdx = ref(0);
+const completedDivisions = ref<string[]>([]);
+const pendingDivisions = ref<string[]>([]);
+const hasAnyHistory = ref(false);
+const isAlreadyDone = ref(false);
+const previousCompletionRecord = ref<any>(null);
+const showHistoryModal = ref(false);
+const loadingHistory = ref(false);
+const lessonHistory = ref<any[]>([]);
 
 const assignedSchools = ref<any[]>([]);
 const selectedSchoolId = ref<number | null>(null);
@@ -708,6 +828,10 @@ const parseList = (text: string | null) => {
   return text.split(/\u2022|\n\s*-|\n\s*•|\n\s*\d+\.|\n/).map(s => s.trim().replace(/^[-•]\s*/, '')).filter(s => s.length > 0);
 };
 
+const openPhoto = (url: string) => {
+  window.open(url, '_blank');
+};
+
 const formatDate = (dateStr: string | null) => {
   if (!dateStr) return 'N/A';
   return new Date(dateStr).toLocaleDateString('en-GB', {
@@ -786,17 +910,69 @@ const fetchSportsByGrade = async () => {
   } catch (err) { console.error(err); } finally { loadingSports.value = false; }
 };
 
+const openHistoryModal = async () => {
+  if (!currentLesson.value || !selectedSchoolId.value) return;
+  
+  loadingHistory.value = true;
+  showHistoryModal.value = true;
+  try {
+    const lp_unique_id = currentLesson.value.unique_id || currentLesson.value.lp_unique_id;
+    const divisions = selectedDivisions.value.join(',');
+    const res = await fetch(`/api/curriculum/lesson-history?lp_unique_id=${lp_unique_id}&school_id=${selectedSchoolId.value}&divisions=${encodeURIComponent(divisions)}`);
+    const data = await res.json();
+    if (data.success) {
+      lessonHistory.value = data.history;
+    }
+  } catch (err) { console.error('FETCH HISTORY ERROR:', err); }
+  finally { loadingHistory.value = false; }
+};
+
+const formatAuditDate = (date: string) => {
+  return new Date(date).toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+};
+
 const fetchLiveLessons = async () => {
   if (!selectedSport.value || !selectedGrades.value) return;
   loadingFinalContent.value = true;
   try {
-    const res = await fetch(`/api/curriculum/master-list?sport=${encodeURIComponent(selectedSport.value)}&grade=${encodeURIComponent(selectedGrades.value)}`);
+    const divs = selectedDivisions.value.join(',');
+    const res = await fetch(`/api/curriculum/master-list?sport=${encodeURIComponent(selectedSport.value)}&grade=${encodeURIComponent(selectedGrades.value)}&school_id=${selectedSchoolId.value}&divisions=${encodeURIComponent(divs)}`);
     const data = await res.json();
     if (data.success) {
       liveLessons.value = data.data;
-      selectedLessonIdx.value = 0;
+      // Preserve selection if possible
+      if (selectedLessonIdx.value >= liveLessons.value.length) {
+        selectedLessonIdx.value = 0;
+      }
+      checkIfLessonDone();
     }
   } catch (err) { console.error(err); } finally { loadingFinalContent.value = false; }
+};
+
+const checkIfLessonDone = async () => {
+  if (!currentLesson.value || !selectedSchoolId.value || selectedDivisions.value.length === 0) {
+    isAlreadyDone.value = false;
+    return;
+  }
+  
+  try {
+    const lp_unique_id = currentLesson.value.unique_id || currentLesson.value.lp_unique_id;
+    const divisions = selectedDivisions.value.join(',');
+    const res = await fetch(`/api/curriculum/check-done?lp_unique_id=${lp_unique_id}&school_id=${selectedSchoolId.value}&divisions=${encodeURIComponent(divisions)}`);
+    const data = await res.json();
+    if (data.success) {
+      isAlreadyDone.value = data.isDone;
+      previousCompletionRecord.value = data.record || null;
+    }
+  } catch (err) {
+    console.error('Error checking lesson status:', err);
+  }
 };
 
 watch(selectedSchoolId, () => {
@@ -806,6 +982,8 @@ watch(selectedSchoolId, () => {
 });
 
 watch(selectedGrades, () => { fetchDivisions(); fetchSportsByGrade(); });
+watch(selectedDivisions, () => { checkIfLessonDone(); });
+watch(selectedLessonIdx, () => { checkIfLessonDone(); });
 watch(currentStep, (newStep) => { 
   const totalSteps = steps.value.length;
   if (newStep === totalSteps) fetchLiveLessons(); 
@@ -853,6 +1031,12 @@ const isStepValid = (step: number) => {
 
 const submitMarking = async () => {
   if (!currentLesson.value) return;
+  
+  if ((isAlreadyDone.value || markStatus.value !== 'Complete') && !modalRemark.value.trim()) {
+    alert('Please provide a remark/reason.');
+    return;
+  }
+
   isSubmittingMark.value = true;
   try {
     const payload = new FormData();
@@ -885,9 +1069,10 @@ const submitMarking = async () => {
     const textData = await res.text();
     try {
       const data = JSON.parse(textData);
-      if (data.success || res.ok) {
-        alert('Lesson marked successfully!');
+      if (data.success) {
         showMarkModal.value = false;
+        await fetchLiveLessons();
+        alert('Lesson status updated successfully.');
       } else {
         alert('Failed to save status.');
       }

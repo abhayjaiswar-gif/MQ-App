@@ -6,6 +6,7 @@
         <div>
           <span class="text-[10px] sm:text-xs font-bold uppercase tracking-[0.1em] text-[#777587] mb-1 block">System Monitoring</span>
           <h2 class="text-2xl sm:text-3xl font-extrabold tracking-tighter text-[#0b1c30]">Subordinate Activity</h2>
+          <p class="text-[11px] sm:text-xs font-medium text-slate-500 mt-1 max-w-sm">Check your coaches' login status and monitor if they are following curriculum activities.</p>
         </div>
         <v-btn icon variant="text" color="#0b1c30" @click="close" class="-mt-2 -mr-2">
           <span class="material-symbols-outlined">close</span>
@@ -92,18 +93,36 @@
                 <p class="text-[#777587] font-medium">All users have logged in today!</p>
               </div>
               <div v-else class="space-y-4">
-                <div v-for="user in stats.notLoggedIn" :key="user.id" class="flex items-center gap-4 sm:gap-6 p-4 sm:p-5 rounded-[1.5rem] bg-[#eff4ff]/50 border border-[#eff4ff] transition-all group grayscale opacity-80">
-                  <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-full ring-4 ring-[#d3e4fe] overflow-hidden flex-shrink-0 bg-[#f8f9ff] flex items-center justify-center">
+                <div v-for="user in stats.notLoggedIn" :key="user.id" 
+                  :class="[
+                    'flex items-center gap-4 sm:gap-6 p-4 sm:p-5 rounded-[1.5rem] border transition-all group',
+                    user.inactive_48h 
+                      ? 'bg-red-50 border-red-200' 
+                      : 'bg-[#eff4ff]/50 border-[#eff4ff] grayscale opacity-80'
+                  ]">
+                  <div :class="[
+                    'w-12 h-12 sm:w-14 sm:h-14 rounded-full ring-4 overflow-hidden flex-shrink-0 flex items-center justify-center',
+                    user.inactive_48h ? 'ring-red-100 bg-red-100' : 'ring-[#d3e4fe] bg-[#f8f9ff]'
+                  ]">
                     <img v-if="user.profile_pic" :src="'/uploads/' + user.profile_pic" class="w-full h-full object-cover" />
-                    <span v-else class="text-[#777587] font-black text-xl">{{ user.name[0] }}</span>
+                    <span v-else :class="['font-black text-xl', user.inactive_48h ? 'text-red-600' : 'text-[#777587]']">{{ user.name[0] }}</span>
                   </div>
                   <div class="flex-grow min-w-0">
-                    <h5 class="text-sm sm:text-base font-bold text-[#0b1c30] opacity-70 truncate">{{ user.name }}</h5>
-                    <p class="text-[10px] sm:text-xs text-[#464555] opacity-80 truncate">{{ user.email }}</p>
+                    <h5 :class="['text-sm sm:text-base font-bold truncate', user.inactive_48h ? 'text-red-700' : 'text-[#0b1c30] opacity-70']">{{ user.name }}</h5>
+                    <p :class="['text-[10px] sm:text-xs truncate', user.inactive_48h ? 'text-red-500 font-medium' : 'text-[#464555] opacity-80']">{{ user.email }}</p>
                   </div>
-                  <div class="flex items-center gap-2 bg-[#d3e4fe] px-3 sm:px-4 py-1.5 rounded-full whitespace-nowrap ml-auto">
-                    <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-[#777587]"></span>
-                    <span class="text-[10px] sm:text-xs font-bold text-[#464555]">Pending</span>
+                  <div class="hidden sm:block text-right mr-2" v-if="user.last_login">
+                    <p :class="['text-[10px] font-bold uppercase tracking-widest mb-1', user.inactive_48h ? 'text-red-400' : 'text-[#777587]']">Last Login</p>
+                    <p :class="['text-xs font-medium', user.inactive_48h ? 'text-red-700' : 'text-[#0b1c30]']">
+                      {{ new Date(user.last_login).toLocaleDateString('en-IN') }}
+                    </p>
+                  </div>
+                  <div :class="[
+                    'flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full whitespace-nowrap ml-auto',
+                    user.inactive_48h ? 'bg-red-100 text-red-700' : 'bg-[#d3e4fe] text-[#464555]'
+                  ]">
+                    <span :class="['w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full', user.inactive_48h ? 'bg-red-500 animate-pulse' : 'bg-[#777587]']"></span>
+                    <span class="text-[10px] sm:text-xs font-bold">{{ user.inactive_48h ? 'Inactive' : 'Pending' }}</span>
                   </div>
                 </div>
               </div>

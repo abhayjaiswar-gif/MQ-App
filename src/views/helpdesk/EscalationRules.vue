@@ -3,23 +3,28 @@ import { ref, onMounted } from 'vue';
 
 const loading = ref(true);
 const saving = ref(false);
-const rules = ref<{ tier_level: number; assigned_user_id: number | null; timeout_hours: number }[]>([]);
+const rules = ref<{ tier_level: number; assigned_user_id: number | null; assigned_role_id: number | null; timeout_hours: number }[]>([]);
 const users = ref<{ id: number; name: string; role_name: string; mq_id: string }[]>([]);
+const roles = ref<{ id: number; name: string }[]>([]);
 
 const fetchData = async () => {
     loading.value = true;
     try {
-        const [rulesRes, usersRes] = await Promise.all([
+        const [rulesRes, usersRes, rolesRes] = await Promise.all([
             fetch('/api/tickets/rules').then(r => r.json()),
-            fetch('/api/users-list').then(r => r.json())
+            fetch('/api/users-list').then(r => r.json()),
+            fetch('/api/roles').then(r => r.json())
         ]);
         if (rulesRes.success) {
             rules.value = rulesRes.rules.length > 0
                 ? rulesRes.rules
-                : [{ tier_level: 1, assigned_user_id: null, timeout_hours: 12 }];
+                : [{ tier_level: 1, assigned_user_id: null, assigned_role_id: null, timeout_hours: 12 }];
         }
         if (usersRes.success) {
             users.value = usersRes.users;
+        }
+        if (rolesRes.success) {
+            roles.value = rolesRes.roles;
         }
     } catch (e) {
         console.error(e);
@@ -35,11 +40,17 @@ const getUserById = (id: number | null) => {
     return users.value.find(u => u.id === id) || null;
 };
 
+const getRoleById = (id: number | null) => {
+    if (!id) return null;
+    return roles.value.find(r => r.id === id) || null;
+};
+
 const addTier = () => {
     rules.value.push({
         tier_level: rules.value.length + 1,
         assigned_user_id: null,
-        timeout_hours: 12
+        assigned_role_id: null,
+        timeout_hours: 2
     });
 };
 
@@ -54,8 +65,8 @@ const saveRules = async () => {
         const payload = rules.value.map(r => ({
             tier_level: r.tier_level,
             assigned_user_id: r.assigned_user_id || null,
-            assigned_role_id: null,
-            timeout_hours: r.timeout_hours || 12
+            assigned_role_id: r.assigned_role_id || null,
+            timeout_hours: 2
         }));
         const res = await fetch('/api/tickets/rules', {
             method: 'POST',
@@ -132,50 +143,74 @@ const getColor = (index: number) => tierColors[index % tierColors.length];
                             <!-- Content -->
                             <div class="flex-1 p-6">
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <!-- User Selector -->
-                                    <div class="space-y-2">
-                                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Assign To (Person)</label>
-                                        <div class="relative">
-                                            <select v-model="rule.assigned_user_id"
-                                                class="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm px-4 py-3 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer pr-10">
-                                                <option :value="null">— Select Person —</option>
-                                                <option v-for="user in users" :key="user.id" :value="user.id">
-                                                    {{ user.name }} ({{ user.role_name }})
-                                                </option>
-                                            </select>
-                                            <span class="material-symbols-outlined absolute right-3 top-3 text-slate-400 pointer-events-none">expand_more</span>
+                                    <!-- Assignment Configuration -->
+                                    <div class="space-y-4">
+                                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <!-- Role Selector -->
+                                            <div class="space-y-1">
+                                                <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Assign Role</label>
+                                                <div class="relative">
+                                                    <select v-model="rule.assigned_role_id" @change="rule.assigned_user_id = null"
+                                                        class="w-full bg-slate-50 border border-slate-200 rounded-lg text-[11px] px-3 py-2.5 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer pr-8">
+                                                        <option :value="null">— Any Role —</option>
+                                                        <option v-for="role in roles" :key="role.id" :value="role.id">
+                                                            {{ role.name }}
+                                                        </option>
+                                                    </select>
+                                                    <span class="material-symbols-outlined absolute right-2 top-2.5 text-slate-400 text-sm pointer-events-none">expand_more</span>
+                                                </div>
+                                            </div>
+                                            <!-- User Selector -->
+                                            <div class="space-y-1">
+                                                <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Specific Person</label>
+                                                <div class="relative">
+                                                    <select v-model="rule.assigned_user_id" @change="rule.assigned_role_id = null"
+                                                        class="w-full bg-slate-50 border border-slate-200 rounded-lg text-[11px] px-3 py-2.5 font-bold text-slate-700 outline-none focus:ring-2 focus:ring-primary/20 appearance-none cursor-pointer pr-8">
+                                                        <option :value="null">— Specific User —</option>
+                                                        <option v-for="user in users" :key="user.id" :value="user.id">
+                                                            {{ user.name }}
+                                                        </option>
+                                                    </select>
+                                                    <span class="material-symbols-outlined absolute right-2 top-2.5 text-slate-400 text-sm pointer-events-none">expand_more</span>
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <!-- Selected User Preview -->
-                                        <div v-if="getUserById(rule.assigned_user_id)" :class="['flex items-center gap-3 p-3 rounded-xl border', getColor(index).light, getColor(index).border]">
+                                        <!-- Selection Status -->
+                                        <div v-if="getUserById(rule.assigned_user_id) || getRoleById(rule.assigned_role_id)" 
+                                            :class="['flex items-center gap-3 p-3 rounded-xl border', getColor(index).light, getColor(index).border]">
                                             <div :class="['w-9 h-9 rounded-lg flex items-center justify-center font-black text-xs text-white shrink-0', getColor(index).badge]">
-                                                {{ getInitials(getUserById(rule.assigned_user_id)!.name) }}
+                                                <span v-if="getUserById(rule.assigned_user_id)" class="material-symbols-outlined text-[18px]">person</span>
+                                                <span v-else class="material-symbols-outlined text-[18px]">group</span>
                                             </div>
                                             <div>
-                                                <p :class="['text-sm font-bold', getColor(index).text]">{{ getUserById(rule.assigned_user_id)!.name }}</p>
-                                                <p class="text-[10px] text-slate-500 font-medium">{{ getUserById(rule.assigned_user_id)!.role_name }} · {{ getUserById(rule.assigned_user_id)!.mq_id }}</p>
+                                                <p v-if="getUserById(rule.assigned_user_id)" :class="['text-sm font-bold', getColor(index).text]">
+                                                    {{ getUserById(rule.assigned_user_id)!.name }}
+                                                </p>
+                                                <p v-else :class="['text-sm font-bold', getColor(index).text]">
+                                                    {{ getRoleById(rule.assigned_role_id)!.name }}
+                                                </p>
+                                                <p class="text-[10px] text-slate-500 font-medium">
+                                                    {{ getUserById(rule.assigned_user_id) ? 'Individual Assignment' : 'Role-based Assignment' }}
+                                                </p>
                                             </div>
-                                        </div>
-                                        <div v-else class="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center">
-                                            <p class="text-[11px] text-slate-400 font-medium">No person assigned yet</p>
                                         </div>
                                     </div>
 
-                                    <!-- Timeout Config -->
-                                    <div class="space-y-2">
-                                        <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">SLA Timeout (Hours)</label>
-                                        <div class="flex items-center gap-3">
-                                            <input v-model="rule.timeout_hours" type="number" min="1" max="72"
-                                                class="w-24 bg-slate-50 border border-slate-200 rounded-xl text-lg px-4 py-3 font-black text-slate-700 outline-none text-center focus:ring-2 focus:ring-primary/20">
-                                            <div>
-                                                <p class="text-sm font-bold text-slate-700">Hours before escalating</p>
-                                                <p class="text-[11px] text-slate-400 font-medium mt-0.5">
-                                                    <span v-if="index < rules.length - 1">
-                                                        If not resolved, goes to <span class="font-black text-slate-600">Level {{ rule.tier_level + 1 }}</span>
-                                                    </span>
-                                                    <span v-else class="text-rose-500 font-semibold">Final escalation level — ticket will close</span>
-                                                </p>
-                                            </div>
+                                    <!-- Escalation Info -->
+                                    <div class="flex items-center gap-4 bg-slate-50/50 p-4 rounded-xl border border-slate-100 self-center">
+                                        <div class="w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-sm text-primary">
+                                            <span class="material-symbols-outlined text-[20px]">schedule</span>
+                                        </div>
+                                        <div>
+                                            <p class="text-[11px] font-black text-slate-400 uppercase tracking-widest">SLA Deadline (TESTING)</p>
+                                            <p class="text-sm font-bold text-slate-700">2 Minutes before dispersing</p>
+                                            <p class="text-[10px] text-slate-400 font-medium mt-0.5">
+                                                <span v-if="index < rules.length - 1">
+                                                    Auto-moves to <span class="font-black text-slate-600">Level {{ rule.tier_level + 1 }}</span> login
+                                                </span>
+                                                <span v-else class="text-rose-500 font-semibold uppercase tracking-tighter font-black text-[9px]">Final escalation point</span>
+                                            </p>
                                         </div>
                                     </div>
                                 </div>

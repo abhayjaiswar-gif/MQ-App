@@ -114,6 +114,16 @@ const MainRoutes = {
       component: () => import('@/views/user/UserManagementPage.vue')
     },
     {
+      name: 'SSGMLoginTracker',
+      path: '/management/ssgm-logins',
+      component: () => import('@/views/user/SSGMLoginTrackerPage.vue')
+    },
+    {
+      name: 'PrincipalLoginTracker',
+      path: '/management/principal-logins',
+      component: () => import('@/views/user/PrincipalLoginTrackerPage.vue')
+    },
+    {
       name: 'StaffHierarchy',
       path: '/staff/hierarchy',
       component: () => import('@/views/staff/StaffHierarchyPage.vue')
@@ -144,9 +154,14 @@ const MainRoutes = {
       component: () => import('@/views/reports/MatchReportPage.vue')
     },
     {
-      name: 'MIRReport',
-      path: '/reports/mir',
+      name: 'MRMReport',
+      path: '/reports/mrm',
       component: () => import('@/views/reports/MIRReportPage.vue')
+    },
+    {
+      name: 'MRMStatusTracker',
+      path: '/reports/mrm-status',
+      component: () => import('@/views/reports/MRMStatusTrackerPage.vue')
     },
     {
       name: 'ParentsReport',
@@ -237,6 +252,11 @@ const MainRoutes = {
       name: 'PrincipalReport',
       path: '/curriculum/principal-report',
       component: () => import('@/views/curriculum/PrincipalWeeklyReportPage.vue')
+    },
+    {
+      name: 'ReportCardStatus',
+      path: '/curriculum/report-status',
+      component: () => import('@/views/curriculum/ReportCardStatusPage.vue')
     },
     {
       name: 'AccessManagement',

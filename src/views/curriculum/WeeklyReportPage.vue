@@ -143,17 +143,17 @@
         <p class="text-slate-500 font-bold text-lg">No report data found for this school.</p>
         <p class="text-slate-400 text-sm font-medium mt-1">Assign lesson plans to this school first.</p>
       </div>
+
+      <!-- Table removed and moved to Step 3 -->
     </div>
 
     <!-- ============================== -->
     <!-- STEP 3: FULL REPORT VIEW       -->
     <!-- ============================== -->
-    <div v-else ref="reportContent" class="report-container relative overflow-hidden min-h-screen bg-white">
-      <!-- Background Sports Pattern (Digital Only) -->
-      <div class="sports-pattern-bg print:hidden"></div>
-
+    <div v-else class="report-container relative overflow-hidden min-h-screen bg-white">
       <!-- Header Actions -->
-      <div class="max-w-[1100px] mx-auto mb-6 flex justify-between items-center print:hidden relative z-10 p-4">
+      <div class="max-w-[1100px] mx-auto mb-6 flex justify-between items-center print:hidden relative z-10 p-4"
+        data-html2canvas-ignore="true">
         <div class="flex items-center gap-3">
           <button @click="selectedWeek = null"
             class="flex items-center gap-2 px-4 py-2.5 text-slate-500 hover:text-slate-800 hover:bg-slate-200 rounded-lg font-bold transition-all text-sm group">
@@ -172,6 +172,11 @@
           </div>
         </div>
         <div class="flex items-center gap-3">
+          <button @click="printReport"
+            class="flex items-center gap-2 px-6 py-2.5 bg-white text-slate-700 rounded-lg font-bold shadow-md border border-slate-200 hover:bg-slate-50 transition-all active:scale-95 text-sm shrink-0">
+            <span class="material-symbols-outlined text-[18px]">download</span>
+            Download Report PDF
+          </button>
           <button @click="showPublishModal = true"
             class="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 text-white rounded-lg font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-all active:scale-95 text-sm shrink-0">
             <span class="material-symbols-outlined text-[18px]">publish</span>
@@ -181,238 +186,411 @@
         </div>
       </div>
 
-      <!-- PAGE 1: PREMIUM COVER Experience -->
-      <section
-        class="report-cover relative h-[700px] mb-12 rounded-[32px] overflow-hidden shadow-2xl flex flex-col justify-between p-12 text-slate-800 page-break-after mx-auto">
-        <!-- Hero Visual Background -->
-        <div class="absolute inset-0 z-0 bg-white">
-          <img src="@/assets/report-cover.png"
-            class="w-full h-full object-contain opacity-40 transform hover:scale-105 transition-transform duration-[10s]" />
-          <div class="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-white/60"></div>
-        </div>
-
-        <!-- Top Layer: Dual Branding -->
-        <div class="relative z-10 flex justify-between items-start">
-          <!-- Left: School Branding Box -->
-          <div
-            class="w-24 h-24 bg-white rounded-2xl p-4 border border-slate-200 flex items-center justify-center shadow-lg">
-            <img v-if="selectedSchool.school_logo" :src="`/uploads/${encodeURIComponent(selectedSchool.school_logo)}`"
-              @error="handleImageError" class="w-full h-full object-contain" />
-            <span v-else class="text-3xl font-black text-slate-800">S</span>
-          </div>
-
-          <!-- Right: Company Branding Box -->
-          <div class="flex flex-col items-end">
-            <div
-              class="w-24 h-24 bg-white rounded-2xl p-4 border border-slate-200 flex items-center justify-center shadow-lg">
-              <img :src="companyLogo" alt="ESA Logo" class="w-full h-full object-contain" />
-            </div>
-            <p class="text-[10px] font-black tracking-[0.3em] text-slate-400 uppercase mt-3">Advanced Curriculum System
-            </p>
-          </div>
-        </div>
-
-        <!-- Center Content Block: Identity -->
-        <div
-          class="relative z-10 max-w-2xl mx-auto text-center py-10 px-8 bg-white/40 backdrop-blur-xl border border-slate-200 rounded-[40px] shadow-2xl mt-auto mb-12 transform hover:-translate-y-1 transition-all duration-500">
-          <p class="text-xs font-black uppercase tracking-[0.5em] mb-4 text-primary">Academic Year 2024-25</p>
-          <h1 class="text-5xl font-black tracking-tighter mb-4 leading-none text-slate-800">Weekly Performance Report
-          </h1>
-          <div class="flex items-center justify-center gap-4 mb-4">
-            <span class="h-px w-8 bg-slate-200"></span>
-            <span class="text-lg font-bold text-slate-600">{{ selectedMonthYear }} • {{ selectedWeek }}</span>
-            <span class="h-px w-8 bg-slate-200"></span>
-          </div>
-          <p class="text-3xl font-bold tracking-tight text-slate-800 mb-2">{{ selectedSchool.name }}</p>
-          <p class="text-base font-medium text-slate-400 italic">“Building Discipline. Inspiring Excellence.”</p>
-        </div>
-
-        <!-- Bottom Footer Branding -->
-        <div class="relative z-10 flex justify-between items-end border-t border-slate-100 pt-6">
-          <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-slate-400 text-sm">school</span>
-            <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">Official Institution Record</p>
-          </div>
-          <p class="text-[10px] font-black tracking-widest text-slate-400 uppercase">© 2026 Elite Sports Academy</p>
-        </div>
-      </section>
-
-
-      <!-- Loading state -->
-      <div v-if="loadingReport"
-        class="max-w-[1100px] mx-auto bg-white rounded-3xl p-12 shadow-sm border border-slate-100">
-        <div class="animate-pulse space-y-6">
-          <div class="h-8 bg-slate-100 w-1/3 rounded-full"></div>
-          <div class="h-4 bg-slate-100 w-1/2 rounded-full"></div>
-          <div class="h-4 bg-slate-100 w-1/4 rounded-full"></div>
-          <div class="h-32 bg-slate-100 rounded-2xl mt-8"></div>
-        </div>
-      </div>
-
-      <!-- Main Report Content Section (Layer 2) -->
-      <main v-if="reportData" class="report-page shadow-2xl relative">
-        <!-- Subtle Background Pattern Overlay -->
-        <div class="absolute inset-0 opacity-[0.02] pointer-events-none rounded-[24px]"
-          style="background-image: url('data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M50 50 L100 0 L100 100 Z\' fill=\'%23000\' opacity=\'0.1\'/%3E%3C/svg%3E');">
-        </div>
-
-
-        <!-- Sports Sections -->
-        <div v-if="reportData.sports_reports && reportData.sports_reports.length">
-          <section v-for="(report, index) in reportData.sports_reports" :key="index" class="sport-card-v2">
-            <!-- Accent bar -->
-            <div class="sport-accent-bar"
-              :style="{ background: report.accentColor || 'linear-gradient(90deg, #10b981, #34d399)' }" />
-
-            <!-- Sport header -->
-            <div class="flex items-center justify-between px-5 pt-4 pb-0">
-              <div class="flex items-center gap-2">
-                <span class="text-2xl">{{ report.sport_emoji || '⚽' }}</span>
-                <h2 class="text-xl font-bold text-slate-800">{{ report.sport }}</h2>
-              </div>
-              <span
-                class="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 shadow-sm">
-                {{ report.sessions_count || 1 }} sessions this week
-              </span>
+      <template v-if="reportData">
+        <div ref="reportContent" class="report-print-wrapper">
+          <!-- PAGE 1: PREMIUM COVER Experience -->
+          <section
+            class="report-cover relative h-[750px] mb-8 rounded-[32px] overflow-hidden shadow-2xl flex flex-col justify-between p-12 text-slate-800 html2pdf__page-break mx-auto">
+            <!-- Hero Visual Background -->
+            <div class="absolute inset-0 z-0 bg-white">
+              <img src="@/assets/report-cover.png"
+                class="w-full h-full object-contain opacity-40 transform hover:scale-105 transition-transform duration-[10s]" />
+              <div class="absolute inset-0 bg-gradient-to-b from-white/20 via-transparent to-white/60"></div>
             </div>
 
-            <div class="section-divider mt-3"></div>
-
-            <!-- Coach Profile Section -->
-            <div class="flex items-center gap-4 p-5">
-              <div class="relative group">
-                <img :src="report.coach_avatar" :alt="report.coach_name" @error="handleImageError"
-                  class="coach-avatar w-16 h-16" />
+            <!-- Top Layer: Dual Branding -->
+            <div class="relative z-10 flex justify-between items-start">
+              <!-- Left: School Branding Box -->
+              <div
+                class="w-24 h-24 bg-white rounded-2xl p-4 border border-slate-200 flex items-center justify-center shadow-lg">
+                <img v-if="selectedSchool.school_logo"
+                  :src="`/uploads/${encodeURIComponent(selectedSchool.school_logo)}`" @error="handleImageError"
+                  class="w-full h-full object-contain" />
+                <span v-else class="text-3xl font-black text-slate-800">S</span>
               </div>
-              <div class="flex flex-col gap-1">
-                <h3 class="text-lg font-bold text-slate-800 leading-tight">{{ report.coach_name }}</h3>
-                <p class="text-sm text-slate-500 font-medium">
-                  {{ report.coach_role || (report.sport + ' Coach') }} · {{ report.coach_experience || '5+ Years' }}
-                </p>
-                <div class="badge-certified w-fit mt-0.5">
-                  <span class="material-symbols-outlined text-xs">verified_user</span>
-                  Certified Trainer
+
+              <!-- Right: Company Branding Box -->
+              <div class="flex flex-col items-end">
+                <div
+                  class="w-24 h-24 bg-white rounded-2xl p-4 border border-slate-200 flex items-center justify-center shadow-lg">
+                  <img :src="companyLogo" alt="ESA Logo" class="w-full h-full object-contain" />
                 </div>
+                <p class="text-[10px] font-black tracking-[0.3em] text-slate-400 uppercase mt-3">Advanced Curriculum
+                  System
+                </p>
               </div>
             </div>
 
-            <div class="section-divider"></div>
-
-            <!-- Skills Covered Section -->
-            <div class="px-5 py-4" v-if="report.skills && report.skills.length">
-              <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Skills Covered</h4>
-              <div class="flex flex-wrap gap-2">
-                <span v-for="skill in report.skills" :key="skill" class="skill-chip">
-                  <span>{{ report.sport_emoji || '⚽' }}</span>
-                  {{ skill }}
-                </span>
+            <!-- Center Content Block: Identity -->
+            <div
+              class="relative z-10 max-w-2xl mx-auto text-center py-10 px-8 bg-white/40 backdrop-blur-xl border border-slate-200 rounded-[40px] shadow-2xl mt-auto mb-12 transform hover:-translate-y-1 transition-all duration-500">
+              <p class="text-xs font-black uppercase tracking-[0.5em] mb-4 text-primary">Academic Year 2024-25</p>
+              <h1 class="text-5xl font-black tracking-tighter mb-4 leading-none text-slate-800">Weekly Performance
+                Report
+              </h1>
+              <div class="flex items-center justify-center gap-4 mb-4">
+                <span class="h-px w-8 bg-slate-200"></span>
+                <span class="text-lg font-bold text-slate-600">{{ selectedMonthYear }} • {{ selectedWeek }}</span>
+                <span class="h-px w-8 bg-slate-200"></span>
               </div>
+              <p class="text-3xl font-bold tracking-tight text-slate-800 mb-2">{{ selectedSchool.name }}</p>
+              <p class="text-base font-medium text-slate-400 italic">“Building Discipline. Inspiring Excellence.”</p>
             </div>
 
-            <div class="section-divider"></div>
-
-            <!-- Performance Overview -->
-            <div class="px-5 py-4">
-              <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Performance Overview</h4>
-              <p class="text-[0.9375rem] leading-relaxed text-slate-700 italic font-medium">{{ report.overview }}</p>
-            </div>
-
-            <div class="section-divider"></div>
-
-            <!-- Detailed Performance -->
-            <div class="px-5 py-4" v-if="report.key_areas && report.key_areas.length">
-              <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">Detailed Performance</h4>
-              <div class="overflow-x-auto rounded-xl border border-slate-200/60 bg-white">
-                <table class="w-full text-sm">
-                  <thead>
-                    <tr class="bg-slate-50/60 border-b border-slate-100">
-                      <th class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">Key
-                        Area</th>
-                      <th class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
-                        Objective</th>
-                      <th class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
-                        Grade</th>
-                      <th class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
-                        Divisions</th>
-                      <th class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
-                        Date Done</th>
-                      <th class="text-right px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
-                        Status</th>
-                      <th class="text-center px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
-                        Evidence</th>
-                      <th class="text-right px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
-                        Remark</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(area, i) in report.key_areas" :key="i"
-                      class="border-t border-slate-50 first:border-t-0">
-                      <td class="px-4 py-3 font-bold text-slate-800">{{ area.name }}</td>
-                      <td class="px-4 py-3 text-slate-500 font-medium text-[12px] truncate max-w-[120px]">{{
-                        area.observations[0] }}</td>
-                      <td class="px-4 py-3 text-slate-800 font-bold text-[13px]">{{ area.grade || 'N/A' }}</td>
-                      <td class="px-4 py-3 text-slate-500 font-medium text-[13px]">{{ area.divisions || 'N/A' }}</td>
-                      <td class="px-4 py-3 text-slate-500 font-bold text-[12px]">{{ formatDate(area.done_date) }}</td>
-                      <td class="px-4 py-3 text-right">
-                        <span v-if="area.status?.toLowerCase() === 'complete' || area.status?.toLowerCase() === 'done'"
-                          class="status-complete inline-flex items-center gap-1">
-                          <span class="material-symbols-outlined text-[14px]">check_circle</span> Complete
-                        </span>
-                        <span v-else class="status-in-progress inline-flex items-center gap-1">
-                          <span class="material-symbols-outlined text-[14px]">schedule</span> In Progress
-                        </span>
-                      </td>
-                      <td class="px-4 py-3 text-center">
-                        <div v-if="area.photos && area.photos.length" class="flex items-center justify-center gap-1">
-                          <img v-for="(photo, pi) in area.photos.slice(0, 2)" :key="pi" :src="photo" 
-                            class="w-8 h-8 rounded-lg object-cover border border-slate-200 shadow-sm"
-                            @click="openPhoto(photo)" />
-                          <span v-if="area.photos.length > 2" class="text-[10px] font-bold text-slate-400">+{{ area.photos.length - 2 }}</span>
-                        </div>
-                        <span v-else class="text-[10px] text-slate-300">No Photo</span>
-                      </td>
-                      <td class="px-4 py-3 text-right text-slate-500 italic text-[12px] truncate max-w-[120px]">{{
-                        area.remark || 'N/A' }}</td>
-                    </tr>
-                  </tbody>
-                </table>
+            <!-- Bottom Footer Branding -->
+            <div class="relative z-10 flex justify-between items-end border-t border-slate-100 pt-6">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-slate-400 text-sm">school</span>
+                <p class="text-[10px] font-bold tracking-wider text-slate-500 uppercase">Official Institution Record</p>
               </div>
+              <p class="text-[10px] font-black tracking-widest text-slate-400 uppercase">© 2026 Elite Sports Academy</p>
             </div>
-            <!-- Activity Gallery -->
-            <div class="px-5 py-6" v-if="report.gallery && report.gallery.length">
-              <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
-                <span class="material-symbols-outlined text-sm">photo_library</span>
-                Activity & Evidence Gallery
-              </h4>
-              <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                <div v-for="(img, idx) in report.gallery" :key="idx" 
-                  class="group relative aspect-square rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 shadow-sm transition-all hover:shadow-md">
-                  <img :src="img" class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                  <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span class="material-symbols-outlined text-white text-xl">zoom_in</span>
+          </section>
+
+
+          <!-- Loading state -->
+          <div v-if="loadingReport"
+            class="max-w-[1100px] mx-auto bg-white rounded-3xl p-12 shadow-sm border border-slate-100">
+            <div class="animate-pulse space-y-6">
+              <div class="h-8 bg-slate-100 w-1/3 rounded-full"></div>
+              <div class="h-4 bg-slate-100 w-1/2 rounded-full"></div>
+              <div class="h-4 bg-slate-100 w-1/4 rounded-full"></div>
+              <div class="h-32 bg-slate-100 rounded-2xl mt-8"></div>
+            </div>
+          </div>
+
+          <!-- Main Report Content Section (Layer 2) -->
+          <main class="report-page shadow-2xl relative">
+            <!-- Subtle Background Pattern Overlay -->
+            <div class="absolute inset-0 opacity-[0.02] pointer-events-none rounded-[24px]"
+              style="background-image: url('data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M50 50 L100 0 L100 100 Z\' fill=\'%23000\' opacity=\'0.1\'/%3E%3C/svg%3E');">
+            </div>
+
+            <!-- ============================================== -->
+            <!-- SECTION 1: MASTER DASHBOARD & ATTENDANCE       -->
+            <!-- ============================================== -->
+
+
+            <!-- ============================================== -->
+            <!-- SECTION 2: DETAILED SPORT REPORTS              -->
+            <!-- ============================================== -->
+
+            <div v-if="reportData.sports_reports && reportData.sports_reports.length">
+              <section v-for="(report, index) in reportData.sports_reports" :key="index"
+                class="sport-card-v2 avoid-break">
+                <!-- Accent bar -->
+                <div class="sport-accent-bar"
+                  :style="{ background: report.accentColor || 'linear-gradient(90deg, #10b981, #34d399)' }"></div>
+
+                <!-- Sport header -->
+                <div class="flex items-center justify-between px-5 pt-4 pb-0">
+                  <div class="flex items-center gap-2">
+                    <span class="text-2xl">{{ report.sport_emoji || '⚽' }}</span>
+                    <h2 class="text-xl font-bold text-slate-800">{{ report.sport }}</h2>
+                  </div>
+                  <span
+                    class="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200 shadow-sm">
+                    {{ report.sessions_count || 1 }} sessions this week
+                  </span>
+                </div>
+
+                <div class="section-divider mt-3"></div>
+
+                <!-- Coach Profile Section -->
+                <div class="flex items-center gap-4 p-5">
+                  <div class="relative group">
+                    <img :src="report.coach_avatar" :alt="report.coach_name" @error="handleImageError"
+                      class="coach-avatar w-16 h-16" />
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <h3 class="text-lg font-bold text-slate-800 leading-tight">{{ report.coach_name }}</h3>
+                    <p class="text-sm text-slate-500 font-medium">
+                      {{ report.coach_role || (report.sport + ' Coach') }} · {{ report.coach_experience || '5+ Years' }}
+                    </p>
+                    <div class="badge-certified w-fit mt-0.5">
+                      <span class="material-symbols-outlined text-xs">verified_user</span>
+                      Certified Trainer
+                    </div>
                   </div>
                 </div>
-              </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Skills Covered Section -->
+                <div class="px-5 py-4" v-if="report.skills && report.skills.length">
+                  <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Skills Covered</h4>
+                  <div class="flex flex-wrap gap-2">
+                    <span v-for="skill in report.skills" :key="skill" class="skill-chip">
+                      <span>{{ report.sport_emoji || '⚽' }}</span>
+                      {{ skill }}
+                    </span>
+                  </div>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Performance Overview -->
+                <div class="px-5 py-4">
+                  <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Performance Overview
+                  </h4>
+                  <p class="text-[0.9375rem] leading-relaxed text-slate-700 italic font-medium">{{ report.overview }}
+                  </p>
+                </div>
+
+                <div class="section-divider"></div>
+
+                <!-- Detailed Performance -->
+                <div class="px-5 py-4" v-if="report.key_areas && report.key_areas.length">
+                  <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">In this week we covered
+                    these skills</h4>
+                  <div class="overflow-x-auto rounded-xl border border-slate-200/60 bg-white">
+                    <table class="w-full text-sm">
+                      <thead>
+                        <tr class="bg-slate-50/60 border-b border-slate-100">
+                          <th
+                            class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
+                            Coach Name</th>
+                          <th
+                            class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
+                            Sport</th>
+                          <th
+                            class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
+                            Covered Skill</th>
+                          <th
+                            class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
+                            Objective</th>
+                          <th
+                            class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
+                            Grade/Div</th>
+                          <th
+                            class="text-left px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
+                            Total Taken</th>
+                          <th
+                            class="text-right px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
+                            Status</th>
+
+                          <th
+                            class="text-right px-4 py-3 font-black text-slate-400 uppercase tracking-widest text-[9px]">
+                            Remark</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr v-for="(area, i) in report.key_areas" :key="i"
+                          class="border-t border-slate-50 first:border-t-0">
+                          <td class="px-4 py-3">
+                            <div class="flex items-center gap-2">
+                              <div
+                                class="w-6 h-6 bg-slate-100 rounded-md flex items-center justify-center text-[10px] font-bold text-primary border border-slate-200 uppercase">
+                                {{ report.coach_name?.charAt(0) }}
+                              </div>
+                              <span class="font-bold text-slate-800">{{ report.coach_name }}</span>
+                            </div>
+                          </td>
+                          <td class="px-4 py-3 text-slate-600 font-bold text-[12px]">{{ report.sport }}</td>
+                          <td class="px-4 py-3 font-bold text-slate-800">{{ area.name }}</td>
+                          <td class="px-4 py-3 text-[11px] text-slate-500 italic">{{ area.objective || 'N/A' }}</td>
+                          <td class="px-4 py-3">
+                            <span
+                              class="text-[11px] font-black text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+                              {{ area.grade }} ({{ area.divisions }})
+                            </span>
+                          </td>
+                          <td class="px-4 py-3 font-black text-slate-800">1 Lecture</td>
+                          <td class="px-4 py-3 text-right">
+                            <span
+                              v-if="area.status?.toLowerCase() === 'complete' || area.status?.toLowerCase() === 'done'"
+                              class="status-complete inline-flex items-center gap-1">
+                              <span class="material-symbols-outlined text-[14px]">check_circle</span> Complete
+                            </span>
+                            <span v-else class="status-in-progress inline-flex items-center gap-1">
+                              <span class="material-symbols-outlined text-[14px]">schedule</span> In Progress
+                            </span>
+                          </td>
+
+                          <td
+                            class="px-4 py-3 text-right text-slate-500 italic text-[12px] whitespace-normal break-words max-w-[200px]">
+                            {{
+                              area.remark || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                <!-- Dashboard and Attendance moved outside sport loop -->
+                Activity & Evidence Gallery
+                <section class="mb-12 px-8 pt-8">
+                  <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <!-- Total Lectures Card -->
+                    <div
+                      class="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm relative overflow-hidden group">
+                      <div
+                        class="absolute top-0 right-0 w-24 h-24 bg-primary/5 rounded-bl-[100px] group-hover:bg-primary/10 transition-colors">
+                      </div>
+                      <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Total Lectures</p>
+                      <div class="flex items-end gap-3">
+                        <h2 class="text-4xl font-black text-slate-800 leading-none">{{ totalAllTimeLectures || 0 }}</h2>
+                        <span
+                          class="text-xs font-bold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full mb-1">Sessions</span>
+                      </div>
+                      <p class="text-xs text-slate-400 font-medium mt-3">Recorded across all sports to date.</p>
+                    </div>
+
+                    <!-- Active Coaches Card -->
+                    <div
+                      class="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm relative overflow-hidden group">
+                      <div
+                        class="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-bl-[100px] group-hover:bg-orange-500/10 transition-colors">
+                      </div>
+                      <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Active Coaches</p>
+                      <div class="flex items-end gap-3">
+                        <h2 class="text-4xl font-black text-slate-800 leading-none">{{ activeAllTimeCoaches || 0 }}</h2>
+                        <span
+                          class="text-xs font-bold text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full mb-1">Coaches</span>
+                      </div>
+                      <p class="text-xs text-slate-400 font-medium mt-3">Unique coaches active at this school.</p>
+                    </div>
+
+                    <!-- Sports Covered Card -->
+                    <div
+                      class="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm relative overflow-hidden group">
+                      <div
+                        class="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-bl-[100px] group-hover:bg-purple-500/10 transition-colors">
+                      </div>
+                      <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Sports Covered</p>
+                      <div class="flex items-end gap-3">
+                        <h2 class="text-4xl font-black text-slate-800 leading-none">{{ sportsAllTimeCovered || 0 }}</h2>
+                        <span
+                          class="text-xs font-bold text-purple-500 bg-purple-50 px-2 py-0.5 rounded-full mb-1">Sports</span>
+                      </div>
+                      <p class="text-xs text-slate-400 font-medium mt-3">Unique athletic programs implemented.</p>
+                    </div>
+                  </div>
+
+                  <!-- ALL-TIME COACH ATTENDANCE TABLE (Directly from marked_lectures) -->
+                  <div class="bg-white rounded-[32px] border border-slate-100 shadow-xl overflow-hidden mb-8">
+                    <div class="px-8 py-6 border-b border-slate-50 flex justify-between items-center bg-slate-50/50">
+                      <div>
+                        <h3 class="text-xl font-black text-slate-800 tracking-tight">Coach Attendance Summary</h3>
+                        <p class="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">All-Time School
+                          Attendance Record</p>
+                      </div>
+                      <div class="flex items-center gap-3">
+                        <span
+                          class="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-lg font-bold text-xs border border-emerald-100">
+                          {{ schoolAttendanceData.length }} Records
+                        </span>
+                        <div class="flex items-center gap-2">
+                          <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                          <span class="text-[10px] font-black text-slate-500 uppercase tracking-widest">Master
+                            View</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                      <table class="w-full text-left">
+                        <thead>
+                          <tr class="bg-slate-50/50 border-b border-slate-100">
+                            <th class="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Date
+                            </th>
+                            <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Coach
+                              Name</th>
+                            <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Sport
+                            </th>
+                            <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Time
+                            </th>
+                            <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                              Grade/Div</th>
+                            <th class="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                              Status</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-50">
+                          <tr v-for="session in schoolAttendanceData" :key="session.id"
+                            class="hover:bg-slate-50/80 transition-colors group">
+                            <td class="px-8 py-5 text-xs font-bold text-slate-500">{{ formatDate(session.date) }}</td>
+                            <td class="px-6 py-5">
+                              <div class="flex items-center gap-3">
+                                <div
+                                  class="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center font-bold text-primary text-xs shrink-0 uppercase border border-slate-200">
+                                  {{ session.coach?.charAt(0) }}
+                                </div>
+                                <span class="text-sm font-bold text-slate-700">{{ session.coach }}</span>
+                              </div>
+                            </td>
+                            <td class="px-6 py-5">
+                              <div class="flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 rounded-full bg-primary/40"></span>
+                                <span class="text-sm font-bold text-slate-600">{{ session.sport }}</span>
+                              </div>
+                            </td>
+                            <td class="px-6 py-5 text-xs font-medium text-slate-500">
+                              {{ session.start_time?.substring(0, 5) }} - {{ session.end_time?.substring(0, 5) }}
+                            </td>
+                            <td class="px-6 py-5">
+                              <span
+                                class="text-xs font-black text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+                                {{ session.grade }} ({{ session.divisions }})
+                              </span>
+                            </td>
+                            <td class="px-6 py-5">
+                              <div class="flex items-center gap-1.5">
+                                <div class="w-1.5 h-1.5 rounded-full bg-emerald-500"></div>
+                                <span class="text-[11px] font-black text-emerald-600 uppercase tracking-wider">{{
+                                  session.status || 'Done' }}</span>
+                              </div>
+                            </td>
+                          </tr>
+                          <tr v-if="!schoolAttendanceData.length">
+                            <td colspan="6" class="px-8 py-8 text-center text-slate-400 font-medium">No attendance
+                              records found.</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </section>
+                <!-- Activity Gallery -->
+                <div class="px-5 py-6" v-if="report.gallery && report.gallery.length">
+                  <h4
+                    class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">photo_library</span>
+                    Activity & Evidence Gallery
+                  </h4>
+                  <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <div v-for="(img, idx) in report.gallery" :key="idx" @click="openPhoto(img)"
+                      class="group relative aspect-square rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 shadow-sm transition-all hover:shadow-md cursor-zoom-in">
+                      <img :src="img"
+                        class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                      <div
+                        class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span class="material-symbols-outlined text-white text-xl">zoom_in</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+
+              </section>
+            </div>
+            <!-- No sports data -->
+            <div v-else class="text-center py-20 border-2 border-dashed border-slate-200 rounded-3xl">
+              <div
+                class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400 font-bold text-2xl">
+                ?</div>
+              <p class="text-slate-500 font-bold">No lesson data found for {{ selectedMonthYear }} • {{ selectedWeek }}
+              </p>
+              <p class="text-slate-400 text-sm font-medium mt-1">Data may not have been marked yet by the coach.</p>
             </div>
 
-
-          </section>
+            <footer class="mt-16 pt-10 border-t border-slate-100 text-center">
+              <p class="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">
+                © 2026 Elite Sports Academy • Confidential Student Record • System Generated
+              </p>
+            </footer>
+          </main>
         </div>
-        <!-- No sports data -->
-        <div v-else class="text-center py-20 border-2 border-dashed border-slate-200 rounded-3xl">
-          <div
-            class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400 font-bold text-2xl">
-            ?</div>
-          <p class="text-slate-500 font-bold">No lesson data found for {{ selectedMonthYear }} • {{ selectedWeek }}</p>
-          <p class="text-slate-400 text-sm font-medium mt-1">Data may not have been marked yet by the coach.</p>
-        </div>
-
-        <footer class="mt-16 pt-10 border-t border-slate-100 text-center">
-          <p class="text-[10px] text-slate-400 font-black uppercase tracking-[0.2em]">
-            © 2026 Elite Sports Academy • Confidential Student Record • System Generated
-          </p>
-        </footer>
-      </main>
+      </template>
 
       <!-- Report null / error state -->
       <div v-else
@@ -467,6 +645,31 @@
           <span class="material-symbols-outlined text-white text-xs">check</span>
         </div>
         <p class="text-sm font-bold tracking-tight">Report Published to School Principal Successfully!</p>
+      </div>
+    </Transition>
+
+    <!-- Image Viewer Modal -->
+    <Transition name="modal-fade">
+      <div v-if="selectedImage"
+        class="fixed inset-0 z-[10000] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 md:p-10"
+        @click="selectedImage = null">
+        <button
+          class="absolute top-6 right-6 w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition-all"
+          @click.stop="selectedImage = null">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+
+        <div class="relative max-w-5xl max-h-full" @click.stop>
+          <img :src="selectedImage"
+            class="max-w-full max-h-[85vh] rounded-3xl shadow-2xl border border-white/20 object-contain" />
+          <div class="mt-6 flex justify-center">
+            <a :href="selectedImage" download
+              class="bg-white/10 hover:bg-white/20 text-white px-8 py-3 rounded-full text-sm font-bold flex items-center gap-2 transition-all backdrop-blur-sm border border-white/10">
+              <span class="material-symbols-outlined text-sm">download</span>
+              Download Activity Photo
+            </a>
+          </div>
+        </div>
       </div>
     </Transition>
   </div>
@@ -550,13 +753,38 @@ onMounted(async () => {
   }
 });
 
+const schoolAttendanceData = ref<any[]>([]);
+const loadingSchoolAttendance = ref(false);
+
+const totalAllTimeLectures = computed(() => schoolAttendanceData.value.length);
+const activeAllTimeCoaches = computed(() => new Set(schoolAttendanceData.value.map(s => s.coach)).size);
+const sportsAllTimeCovered = computed(() => new Set(schoolAttendanceData.value.map(s => s.sport)).size);
+
+const fetchSchoolAttendance = async () => {
+  if (!selectedSchool.value) return;
+  loadingSchoolAttendance.value = true;
+  try {
+    const res = await fetch(`/api/curriculum/school-attendance/${selectedSchool.value.id}`);
+    const data = await res.json();
+    if (data.success) {
+      schoolAttendanceData.value = data.data;
+    }
+  } catch (err) {
+    console.error('Error fetching school attendance:', err);
+  } finally {
+    loadingSchoolAttendance.value = false;
+  }
+};
+
 const selectSchool = async (school: any) => {
   selectedSchool.value = school;
   selectedMonthYear.value = null;
   selectedWeek.value = null;
   availableFilters.value = {};
+  schoolAttendanceData.value = [];
 
   loadingFilters.value = true;
+  fetchSchoolAttendance(); // Fetch in parallel
   try {
     const res = await fetch(`/api/curriculum/report-filters/${school.id}`);
     const data = await res.json();
@@ -605,22 +833,31 @@ const reportContent = ref<HTMLElement | null>(null);
 
 const printReport = () => {
   if (!reportContent.value) return;
-  
+
   const element = reportContent.value;
   const opt = {
-    margin: 10,
+    margin: 0,
     filename: `Weekly_Report_${selectedSchool.value?.name || 'School'}_${selectedWeek.value}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: { scale: 2, useCORS: true, logging: false },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    image: { type: 'jpeg', quality: 1.0 },
+    html2canvas: {
+      scale: 2.5,
+      useCORS: true,
+      logging: false,
+      letterRendering: true,
+      windowWidth: 1100
+    },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
   };
 
   // @ts-ignore
   html2pdf().set(opt).from(element).save();
 };
 
+const selectedImage = ref<string | null>(null);
+
 const openPhoto = (url: string) => {
-  window.open(url, '_blank');
+  selectedImage.value = url;
 };
 </script>
 
@@ -642,6 +879,16 @@ const openPhoto = (url: string) => {
   transform: scale(0.95) translateY(10px);
 }
 
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 .slide-up-enter-active,
 .slide-up-leave-active {
   transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -651,6 +898,49 @@ const openPhoto = (url: string) => {
 .slide-up-leave-to {
   transform: translate(-50%, 20px);
   opacity: 0;
+}
+
+.report-print-wrapper {
+  padding: 0 !important;
+  margin: 0 !important;
+  background: white;
+}
+
+.avoid-break {
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
+}
+
+@media print {
+  .report-container {
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .report-page {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 10mm 0 !important;
+    /* Vertical padding only */
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  .report-cover {
+    height: 297mm !important;
+    /* Full A4 height */
+    margin: 0 !important;
+    padding: 15mm 0 !important;
+    /* Vertical padding only */
+    border-radius: 0 !important;
+    width: 100% !important;
+  }
+
+  .report-print-wrapper {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
 }
 
 /* ========== SPORT CARD V2 (Modern Segmented) ========== */

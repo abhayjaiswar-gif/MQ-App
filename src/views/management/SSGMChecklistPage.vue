@@ -8,8 +8,21 @@ const loading = ref(false);
 const submitting = ref(false);
 const schools = ref<any[]>([]);
 const checklists = ref<any[]>([]);
-const viewMode = ref<'list' | 'form'>('list');
+const moms = ref<any[]>([]);
+const viewMode = ref<'list' | 'form' | 'mom_form'>('list');
+const listTab = ref<'checklists' | 'moms'>('checklists');
 const editingId = ref<number | null>(null);
+
+const initialMomForm = {
+  school_id: null,
+  school_name: '',
+  person_met: '',
+  meeting_concerns: '',
+  coach_concerns: '',
+  consensus: '',
+  mom_summary: ''
+};
+const momForm = ref({ ...initialMomForm });
 
 const initialForm = {
   school_id: null,
@@ -125,10 +138,80 @@ const fetchChecklists = async () => {
   }
 };
 
+const fetchMoms = async () => {
+  try {
+    let url = '/api/sggm-mom';
+    const roleId = authStore.user?.role_id;
+    if (roleId !== 1 && roleId !== 7) {
+      url += `?assigned_user_id=${authStore.user?.id}`;
+    }
+    const res = await axios.get(url);
+    if (res.data.success) {
+      moms.value = res.data.moms;
+    }
+  } catch (err) {
+    console.error('Fetch MOMs Error:', err);
+  }
+};
+
 onMounted(() => {
   fetchSchools();
   fetchChecklists();
+  fetchMoms();
 });
+
+const openAddMom = () => {
+  momForm.value = { ...initialMomForm };
+  editingId.value = null;
+  viewMode.value = 'mom_form';
+};
+
+const openEditMom = (item: any) => {
+  editingId.value = item.id;
+  momForm.value = { ...item };
+  viewMode.value = 'mom_form';
+};
+
+const onMomSchoolChange = () => {
+  const school = schools.value.find(s => s.id === momForm.value.school_id);
+  if (school) {
+    momForm.value.school_name = school.name;
+  }
+};
+
+const submitMom = async () => {
+  if (!momForm.value.school_id) {
+    alert('Please select a school');
+    return;
+  }
+  
+  submitting.value = true;
+  try {
+    const payload = { ...momForm.value };
+    if (!editingId.value) {
+      payload.user_id = authStore.user?.id;
+    }
+    
+    let res;
+    if (editingId.value) {
+      res = await axios.put(`/api/sggm-mom/${editingId.value}`, payload);
+    } else {
+      res = await axios.post('/api/sggm-mom', payload);
+    }
+
+    if (res.data.success) {
+      alert(editingId.value ? 'MOM updated successfully!' : 'MOM submitted successfully!');
+      fetchMoms();
+      viewMode.value = 'list';
+      listTab.value = 'moms';
+    }
+  } catch (err) {
+    console.error('Submit MOM Error:', err);
+    alert('Failed to submit MOM');
+  } finally {
+    submitting.value = false;
+  }
+};
 
 const openAdd = () => {
   form.value = { ...initialForm };
@@ -250,15 +333,28 @@ const formatDate = (date: string) => {
               <h1 class="text-3xl font-extrabold font-['Manrope'] tracking-tight text-[#1a1c1c]">SSGM Checklists</h1>
               <p class="text-[#404753] text-sm mt-1">Manage and view all school audit reports.</p>
             </div>
-            <button @click="openAdd"
-              class="px-6 py-3 bg-[#005daa] text-white rounded-xl font-bold shadow-lg shadow-[#005daa]/20 hover:scale-95 transition-all flex items-center gap-2">
-              <span class="material-symbols-outlined">add</span>
-              Add Check List
-            </button>
+            <div class="flex gap-3">
+              <button @click="openAddMom"
+                class="px-6 py-3 bg-white text-[#005daa] border border-[#005daa] rounded-xl font-bold hover:bg-[#005daa]/5 transition-all flex items-center gap-2">
+                <span class="material-symbols-outlined">post_add</span>
+                Add MOM
+              </button>
+              <button @click="openAdd"
+                class="px-6 py-3 bg-[#005daa] text-white rounded-xl font-bold shadow-lg shadow-[#005daa]/20 hover:scale-95 transition-all flex items-center gap-2">
+                <span class="material-symbols-outlined">add</span>
+                Add Check List (Observation)
+              </button>
+            </div>
           </div>
         </header>
 
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <!-- Tabs -->
+        <div class="mb-6 flex border-b border-slate-200">
+          <button @click="listTab = 'checklists'" :class="listTab === 'checklists' ? 'border-[#005daa] text-[#005daa] font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-6 py-3 border-b-2 transition-colors font-medium">School Observations</button>
+          <button @click="listTab = 'moms'" :class="listTab === 'moms' ? 'border-[#005daa] text-[#005daa] font-bold' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-6 py-3 border-b-2 transition-colors font-medium">Minutes of Meeting</button>
+        </div>
+
+        <div v-if="listTab === 'checklists'" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <div v-if="loading" class="p-20 flex flex-col items-center justify-center gap-4">
             <span class="material-symbols-outlined animate-spin text-4xl text-[#005daa]">refresh</span>
             <p class="text-sm font-medium text-slate-400">Loading audit history...</p>
@@ -321,10 +417,53 @@ const formatDate = (date: string) => {
             </table>
           </div>
         </div>
+        
+        <!-- MOMs Table -->
+        <div v-else-if="listTab === 'moms'" class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <div v-if="loading" class="p-20 flex flex-col items-center justify-center gap-4">
+            <span class="material-symbols-outlined animate-spin text-4xl text-[#005daa]">refresh</span>
+            <p class="text-sm font-medium text-slate-400">Loading MOMs...</p>
+          </div>
+          <div v-else-if="moms.length === 0" class="p-20 flex flex-col items-center justify-center gap-4">
+            <span class="material-symbols-outlined text-6xl text-slate-200">post_add</span>
+            <p class="text-sm font-medium text-slate-400">No Minutes of Meeting found. Start by adding one!</p>
+          </div>
+          <div v-else class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-100">
+                  <th class="px-6 py-4 text-[10px] font-bold text-[#404753] uppercase tracking-wider">School Name</th>
+                  <th class="px-6 py-4 text-[10px] font-bold text-[#404753] uppercase tracking-wider">Person Met</th>
+                  <th class="px-6 py-4 text-[10px] font-bold text-[#404753] uppercase tracking-wider">Date</th>
+                  <th class="px-6 py-4 text-[10px] font-bold text-[#404753] uppercase tracking-wider text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-50">
+                <tr v-for="item in moms" :key="item.id" class="hover:bg-slate-50/50 transition-colors group">
+                  <td class="px-6 py-4">
+                    <p class="text-sm font-bold text-[#1a1c1c]">{{ item.school_name }}</p>
+                  </td>
+                  <td class="px-6 py-4">
+                    <p class="text-xs font-medium">{{ item.person_met }}</p>
+                  </td>
+                  <td class="px-6 py-4 text-xs font-medium text-slate-500">
+                    {{ formatDate(item.created_at) }}
+                  </td>
+                  <td class="px-6 py-4 text-right">
+                    <button @click="openEditMom(item)"
+                      class="p-2 hover:bg-[#005daa]/5 text-[#005daa] rounded-lg transition-all group-hover:scale-110">
+                      <span class="material-symbols-outlined text-lg">edit_square</span>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
-      <!-- Form View -->
-      <div v-else class="max-w-5xl mx-auto">
+      <!-- Checklist Form View -->
+      <div v-else-if="viewMode === 'form'" class="max-w-5xl mx-auto">
         <header class="mb-10">
           <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
@@ -964,6 +1103,95 @@ const formatDate = (date: string) => {
               class="px-16 py-6 bg-[#005daa] text-white rounded-3xl font-bold shadow-2xl shadow-[#005daa]/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-4 disabled:opacity-50">
               <span v-if="submitting" class="material-symbols-outlined animate-spin">refresh</span>
               <span class="uppercase tracking-widest text-sm">{{ submitting ? 'Saving...' : (editingId ? 'Update Audit Report' : 'Submit Final Audit') }}</span>
+              <span v-if="!submitting" class="material-symbols-outlined">send</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MOM Form View -->
+      <div v-else-if="viewMode === 'mom_form'" class="max-w-4xl mx-auto">
+        <header class="mb-10">
+          <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <nav class="flex gap-2 text-xs font-medium text-[#404753] mb-2">
+                <button @click="viewMode = 'list'; listTab = 'moms'" class="hover:text-[#005daa] transition-colors">MOMs</button>
+                <span class="material-symbols-outlined text-[10px]">arrow_forward_ios</span>
+                <span>{{ editingId ? 'Edit' : 'Add' }} MOM</span>
+              </nav>
+              <h1 class="text-3xl font-extrabold font-['Manrope'] tracking-tight text-[#1a1c1c]">
+                {{ editingId ? 'Edit Minutes of Meeting' : 'New Minutes of Meeting' }}
+              </h1>
+              <p class="text-[#404753] text-sm mt-1">
+                <span class="font-semibold text-[#005daa]" v-if="momForm.school_name">{{ momForm.school_name }}</span>
+                <span class="italic text-slate-400" v-else>Select a school below</span>
+              </p>
+            </div>
+            <div class="flex gap-3">
+              <button @click="viewMode = 'list'; listTab = 'moms'"
+                class="px-5 py-2 text-sm font-semibold rounded-lg bg-[#f3f3f3] text-[#404753] hover:bg-[#e8e8e8] transition-all">Cancel</button>
+            </div>
+          </div>
+        </header>
+
+        <div class="space-y-8 pb-20">
+          <section class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+            <h2 class="text-xl font-bold font-['Manrope'] mb-6 text-[#1a1c1c]">Meeting Details</h2>
+            <div class="grid md:grid-cols-2 gap-6">
+              <div class="space-y-2">
+                <label class="text-xs font-bold text-[#404753] uppercase tracking-widest">Select Target School *</label>
+                <div class="relative">
+                  <select v-model="momForm.school_id" @change="onMomSchoolChange"
+                    class="w-full pl-12 pr-4 py-4 bg-[#f9f9f9] border border-slate-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-[#005daa] focus:border-transparent appearance-none">
+                    <option :value="null">-- Choose a school --</option>
+                    <option v-for="s in schools" :key="s.id" :value="s.id">{{ s.name }}</option>
+                  </select>
+                  <span
+                    class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">domain</span>
+                </div>
+              </div>
+              <div class="space-y-2">
+                <label class="text-xs font-bold text-[#404753] uppercase tracking-widest">Person Met With *</label>
+                <div class="relative">
+                  <input type="text" v-model="momForm.person_met" placeholder="E.g., Principal, Sports Coordinator"
+                    class="w-full pl-12 pr-4 py-4 bg-[#f9f9f9] border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-[#005daa] focus:border-transparent" />
+                  <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">person</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="bg-white rounded-3xl p-8 shadow-sm border border-slate-100">
+            <h2 class="text-xl font-bold font-['Manrope'] mb-6 text-[#1a1c1c]">Discussion & Feedback</h2>
+            <div class="space-y-6">
+              <div class="space-y-2">
+                <label class="text-xs font-bold text-[#404753] uppercase tracking-widest">Meeting Concerns</label>
+                <textarea v-model="momForm.meeting_concerns" placeholder="Concerns raised during the meeting..."
+                  class="w-full p-4 bg-[#f9f9f9] border border-slate-200 rounded-2xl text-sm h-32 focus:ring-2 focus:ring-[#005daa] resize-none"></textarea>
+              </div>
+              <div class="space-y-2">
+                <label class="text-xs font-bold text-[#404753] uppercase tracking-widest">Coach's Concerns</label>
+                <textarea v-model="momForm.coach_concerns" placeholder="Concerns raised by the coach..."
+                  class="w-full p-4 bg-[#f9f9f9] border border-slate-200 rounded-2xl text-sm h-32 focus:ring-2 focus:ring-[#005daa] resize-none"></textarea>
+              </div>
+              <div class="space-y-2">
+                <label class="text-xs font-bold text-[#404753] uppercase tracking-widest">Consensus Reached</label>
+                <textarea v-model="momForm.consensus" placeholder="What was agreed upon..."
+                  class="w-full p-4 bg-[#f9f9f9] border border-slate-200 rounded-2xl text-sm h-32 focus:ring-2 focus:ring-[#005daa] resize-none"></textarea>
+              </div>
+              <div class="space-y-2">
+                <label class="text-xs font-bold text-[#404753] uppercase tracking-widest">MOM Summary</label>
+                <textarea v-model="momForm.mom_summary" placeholder="Summary of the minutes of meeting..."
+                  class="w-full p-4 bg-[#f9f9f9] border border-slate-200 rounded-2xl text-sm h-32 focus:ring-2 focus:ring-[#005daa] resize-none"></textarea>
+              </div>
+            </div>
+          </section>
+
+          <div class="flex items-center justify-end gap-6 pb-10">
+            <button @click="submitMom" :disabled="submitting"
+              class="px-16 py-6 bg-[#005daa] text-white rounded-3xl font-bold shadow-2xl shadow-[#005daa]/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-4 disabled:opacity-50">
+              <span v-if="submitting" class="material-symbols-outlined animate-spin">refresh</span>
+              <span class="uppercase tracking-widest text-sm">{{ submitting ? 'Saving...' : (editingId ? 'Update MOM' : 'Submit MOM') }}</span>
               <span v-if="!submitting" class="material-symbols-outlined">send</span>
             </button>
           </div>

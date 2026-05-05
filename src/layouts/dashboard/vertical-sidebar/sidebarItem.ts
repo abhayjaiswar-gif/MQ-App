@@ -104,6 +104,14 @@ const sidebarItem: menu[] = [
         to: '/management/subordinate-activity'
       },
       {
+        title: 'SSGM Login Tracker',
+        to: '/management/ssgm-logins'
+      },
+      {
+        title: 'Principal Login Tracker',
+        to: '/management/principal-logins'
+      },
+      {
         title: 'PTM Lock Manager',
         to: '/management/ptm-locks'
       },
@@ -164,6 +172,10 @@ const sidebarItem: menu[] = [
       {
         title: 'Principal Report',
         to: '/curriculum/principal-report'
+      },
+      {
+        title: 'Report Card Status',
+        to: '/curriculum/report-status'
       }
     ]
   },
@@ -220,8 +232,12 @@ const sidebarItem: menu[] = [
         to: '/reports/match'
       },
       {
-        title: 'MIR Report',
-        to: '/reports/mir'
+        title: 'MRM Report',
+        to: '/reports/mrm'
+      },
+      {
+        title: 'MRM Status Tracker',
+        to: '/reports/mrm-status'
       },
       {
         title: 'Parents Report Card',

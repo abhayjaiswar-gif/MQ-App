@@ -24,6 +24,7 @@ interface EquipmentOrder {
   image_path: string;
   approve_ssgm?: number;
   approve_admin?: number;
+  status_delivery?: number;
 }
 
 const route = useRoute();
@@ -73,7 +74,8 @@ const loadOrders = async () => {
         supplier: '',
         image_path: order.image_path,
         approve_ssgm: order.approve_ssgm,
-        approve_admin: order.approve_admin
+        approve_admin: order.approve_admin,
+        status_delivery: order.status_delivery
       }));
 
       // For Admin, only show orders that have been SSGM Verified but not yet Admin Approved

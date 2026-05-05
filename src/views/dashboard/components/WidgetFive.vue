@@ -92,7 +92,7 @@ const fivecards = computed(() => {
         color: 'error',
         icon: SolutionOutlined,
         text: 'Monthly Review',
-        link: '/reports/mir'
+        link: '/reports/mrm'
       }
     ];
   }

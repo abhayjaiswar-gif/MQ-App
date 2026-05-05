@@ -1282,6 +1282,64 @@ app.get('/api/mir-reports', async (req, res) => {
   }
 });
 
+// 📊 GET MRM STATUS BY SCHOOL AND YEAR
+app.get('/api/reports/mrm-status', async (req, res) => {
+  try {
+    const { user_id, year } = req.query;
+    
+    let schoolFilter = '';
+    const queryParams = [];
+    
+    if (user_id) {
+      const [[user]] = await db.query('SELECT role_id FROM users WHERE id = ?', [user_id]);
+      if (user && user.role_id !== 1 && user.role_id !== 7) { 
+        const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ? OR ssgm_id = ?', [user_id, user_id]);
+        if (assignments.length > 0) {
+          const schoolIds = assignments.map(a => a.school_id);
+          schoolFilter = `AND s.id IN (${schoolIds.join(',')})`;
+        } else {
+          return res.json({ success: true, statuses: [] }); 
+        }
+      }
+    }
+
+    let yearFilter = '';
+    if (year) {
+      yearFilter = `AND mir.month_year LIKE ?`;
+      queryParams.push(`%${year}%`);
+    }
+
+    const sql = `
+      SELECT 
+        s.id as school_id,
+        s.name as school_name,
+        MAX(CASE WHEN mir.month_year LIKE 'January-%' THEN 1 ELSE 0 END) as jan,
+        MAX(CASE WHEN mir.month_year LIKE 'February-%' THEN 1 ELSE 0 END) as feb,
+        MAX(CASE WHEN mir.month_year LIKE 'March-%' THEN 1 ELSE 0 END) as mar,
+        MAX(CASE WHEN mir.month_year LIKE 'April-%' THEN 1 ELSE 0 END) as apr,
+        MAX(CASE WHEN mir.month_year LIKE 'May-%' THEN 1 ELSE 0 END) as may,
+        MAX(CASE WHEN mir.month_year LIKE 'June-%' THEN 1 ELSE 0 END) as jun,
+        MAX(CASE WHEN mir.month_year LIKE 'July-%' THEN 1 ELSE 0 END) as jul,
+        MAX(CASE WHEN mir.month_year LIKE 'August-%' THEN 1 ELSE 0 END) as aug,
+        MAX(CASE WHEN mir.month_year LIKE 'September-%' THEN 1 ELSE 0 END) as sep,
+        MAX(CASE WHEN mir.month_year LIKE 'October-%' THEN 1 ELSE 0 END) as oct,
+        MAX(CASE WHEN mir.month_year LIKE 'November-%' THEN 1 ELSE 0 END) as nov,
+        MAX(CASE WHEN mir.month_year LIKE 'December-%' THEN 1 ELSE 0 END) as dec_m
+      FROM schools s
+      LEFT JOIN mir_reports mir ON s.id = mir.school_id ${yearFilter}
+      WHERE 1=1 ${schoolFilter}
+      GROUP BY s.id, s.name
+      ORDER BY s.name ASC
+    `;
+
+    const [rows] = await db.query(sql, queryParams);
+    res.json({ success: true, statuses: rows });
+  } catch (err) {
+    console.error('FETCH MRM STATUS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching MRM status' });
+  }
+});
+
 // 📄 UPLOAD MIR REPORT
 app.post('/api/mir-reports', upload.single('report'), async (req, res) => {
   const { school_id, user_id, month_year } = req.body;
@@ -1591,14 +1649,18 @@ app.get('/api/assigned-users/login-status', async (req, res) => {
     }
 
     const query = `
-      SELECT u.id, u.name, u.email, u.role_id, u.last_login, u.profile_pic,
+      SELECT DISTINCT u.id, u.name, u.email, u.role_id, u.last_login, u.profile_pic,
       CASE 
         WHEN DATE(u.last_login) = CURDATE() THEN 1 
         ELSE 0 
-      END as logged_in_today
+      END as logged_in_today,
+      CASE 
+        WHEN u.last_login IS NULL OR TIMESTAMPDIFF(HOUR, u.last_login, NOW()) > 48 THEN 1
+        ELSE 0
+      END as inactive_48h
       FROM users u
-      JOIN assigned_users au ON u.id = au.subordinate_id
-      WHERE au.manager_id = ?
+      JOIN assign_school ash ON u.id = ash.user_id
+      WHERE ash.ssgm_id = ?
       AND u.is_active = 1
       ORDER BY u.name ASC
     `;
@@ -3603,32 +3665,33 @@ app.put('/api/equipment-orders/:id/status', async (req, res) => {
     const s = (status || '').toLowerCase();
     if (s === 'approved') value = 1;
     else if (s === 'rejected') value = 0;
-    else return res.status(400).json({ success: false, message: 'Invalid status. Use "approved" or "rejected".' });
+    else if (s === 'delivered') value = 1; // We keep approve_admin as 1
+    else return res.status(400).json({ success: false, message: 'Invalid status.' });
 
     if (role_id === 3) {
       updateField = 'approve_ssgm';
       await db.query(`UPDATE equipment_order SET ${updateField} = ? WHERE id = ?`, [value, id]);
     } else if (role_id === 1 || role_id === 7) {
-      updateField = 'approve_admin';
-      
-      if (s === 'approved') {
-        let query = `UPDATE equipment_order SET ${updateField} = ?, status_delivery = 'Processing'`;
-        const params = [value];
-        
-        if (delivery_date) {
-          query += `, delivery_date = ?`;
-          params.push(delivery_date);
-        }
-        
-        query += ` WHERE id = ?`;
-        params.push(id);
-        
-        await db.query(query, params);
+      if (s === 'delivered') {
+        await db.query(`UPDATE equipment_order SET status_delivery = 1 WHERE id = ?`, [id]);
       } else {
-        await db.query(`UPDATE equipment_order SET ${updateField} = ? WHERE id = ?`, [value, id]);
+        updateField = 'approve_admin';
+        if (s === 'approved') {
+          let query = `UPDATE equipment_order SET ${updateField} = ?, status_delivery = 0`; // 0 for approved but not yet delivered
+          const params = [value];
+          if (delivery_date) {
+            query += `, delivery_date = ?`;
+            params.push(delivery_date);
+          }
+          query += ` WHERE id = ?`;
+          params.push(id);
+          await db.query(query, params);
+        } else {
+          await db.query(`UPDATE equipment_order SET ${updateField} = ? WHERE id = ?`, [value, id]);
+        }
       }
     } else {
-      return res.status(403).json({ success: false, message: 'Unauthorized to update order status.' });
+      return res.status(403).json({ success: false, message: 'Unauthorized.' });
     }
 
     res.json({ success: true, message: 'Order status updated successfully.' });
@@ -3809,7 +3872,7 @@ app.get('/api/students/divisions', async (req, res) => {
 
 // 🎯 GET ALL MASTER LESSON PLANS (DETAILED LIST)
 app.get('/api/curriculum/master-list', async (req, res) => {
-  const { sport, grade } = req.query;
+  const { sport, grade, school_id, divisions } = req.query;
   try {
     let query = 'SELECT * FROM year_lp_master_new WHERE 1=1';
     let params = [];
@@ -3824,7 +3887,29 @@ app.get('/api/curriculum/master-list', async (req, res) => {
     }
 
     query += ' ORDER BY sport, grade, lp_no ASC';
+    console.log('MASTER LIST QUERY:', query, params);
     const [rows] = await db.query(query, params);
+
+    // If school and divisions provided, check completion for each
+    if (school_id && divisions) {
+      const divList = divisions.split(',').map(d => d.trim());
+      console.log('COMPLETIONS CHECK QUERY:', school_id, rows.map(r => r.unique_id));
+      const [completions] = await db.query(`
+        SELECT unique_id, divisions, status FROM coach_lesson_tracking 
+        WHERE school_id = ? AND unique_id IN (?)
+      `, [school_id, rows.map(r => r.unique_id)]);
+
+      rows.forEach(r => {
+        const completedSet = new Set();
+        completions.filter(c => c.unique_id === r.unique_id).forEach(c => {
+          if (String(c.status || '').toLowerCase() === 'complete' || String(c.status || '').toLowerCase() === 'done') {
+            String(c.divisions || '').split(',').forEach(d => completedSet.add(d.trim().toLowerCase()));
+          }
+        });
+        r.is_done = divList.every(td => completedSet.has(td.toLowerCase()));
+      });
+    }
+
     res.json({ success: true, data: rows });
   } catch (err) {
     console.error('FETCH MASTER LIST ERROR:', err);
@@ -3842,6 +3927,86 @@ const curriculumEvidenceStorage = multer.diskStorage({
   }
 });
 const uploadEvidence = multer({ storage: curriculumEvidenceStorage });
+app.get('/api/curriculum/lesson-history', async (req, res) => {
+  const { lp_unique_id, school_id, divisions } = req.query;
+  try {
+    if (!lp_unique_id || !school_id || !divisions) {
+      return res.json({ success: true, history: [] });
+    }
+
+    const divList = divisions.split(',').map(d => d.trim());
+    
+    // Fetch all records for this LP and school
+    console.log('LESSON HISTORY QUERY:', lp_unique_id, school_id);
+    const [rows] = await db.query(`
+      SELECT id, status, remark, evidence_photo, divisions, created_at, user_id
+      FROM coach_lesson_tracking 
+      WHERE unique_id = ? AND school_id = ?
+      ORDER BY created_at DESC
+    `, [lp_unique_id, school_id]);
+
+    // Filter by divisions overlap
+    const history = rows.filter(row => {
+      if (!row.divisions) return false;
+      const recordDivs = String(row.divisions).split(',').map(d => d.trim().toLowerCase());
+      return divList.some(td => recordDivs.includes(td));
+    });
+
+    res.json({ success: true, history });
+  } catch (err) {
+    console.error('FETCH HISTORY ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+app.get('/api/curriculum/check-done', async (req, res) => {
+  const { lp_unique_id, school_id, divisions } = req.query;
+  try {
+    if (!lp_unique_id || !school_id || !divisions) {
+      return res.json({ success: true, isDone: false });
+    }
+
+    // Check if any record exists for this LP and school
+    console.log('CHECK DONE QUERY:', lp_unique_id, school_id, divisions);
+    const [rows] = await db.query(`
+      SELECT id, remark, status, created_at, divisions 
+      FROM coach_lesson_tracking 
+      WHERE unique_id = ? AND school_id = ?
+    `, [lp_unique_id, school_id]);
+
+    if (rows.length === 0) {
+      return res.json({ success: true, isDone: false });
+    }
+
+    // Since divisions is comma-separated, we check for any overlap
+    const targetDivs = divisions.split(',').map(d => d.trim().toLowerCase());
+    const completedDivsSet = new Set();
+    
+    rows.forEach(row => {
+      const status = String(row.status || '').toLowerCase();
+      if (status === 'complete' || status === 'done') {
+        const rowDivs = String(row.divisions || '').split(',').map(d => d.trim().toLowerCase());
+        rowDivs.forEach(rd => completedDivsSet.add(rd));
+      }
+    });
+
+    const doneList = targetDivs.filter(td => completedDivsSet.has(td));
+    const pendingList = targetDivs.filter(td => !completedDivsSet.has(td));
+
+    return res.json({ 
+      success: true, 
+      isDone: pendingList.length === 0 && targetDivs.length > 0,
+      completedDivisions: doneList,
+      pendingDivisions: pendingList,
+      hasAnyHistory: completedDivsSet.size > 0,
+      record: rows[0]
+    });
+  } catch (err) {
+    console.error('CHECK DONE ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 app.post('/api/curriculum/save-lp-status', uploadEvidence.array('photos', 10), async (req, res) => {
   try {
     const { lp_no, lp_unique_id, user_id, status, remark, school_id, divisions } = req.body;
@@ -3878,11 +4043,19 @@ app.post('/api/curriculum/save-lp-status', uploadEvidence.array('photos', 10), a
       master.grade,
       user_id || 1, 
       status || 'Complete',
-      remark || null,
+      remark || '',
       evidence_photo,
       school_id || master.school_id || null,
       divisions || master.divisions || null
     ]);
+
+    // Also update/insert into lp_status for global tracking
+    const simpleStatus = (status === 'Complete') ? 'Done' : 'Pending';
+    await db.query(`
+      INSERT INTO lp_status (lp_no, lp_unique_id, user_id, school_id, status, remark)
+      VALUES (?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE status = VALUES(status), remark = VALUES(remark), school_id = VALUES(school_id)
+    `, [master.lp_no, master.unique_id, user_id || 1, school_id || master.school_id || 0, simpleStatus, remark || '']);
 
     res.json({ success: true, message: 'Status tracked successfully' });
   } catch (err) {
@@ -5270,7 +5443,27 @@ app.get('/api/curriculum/report-data', async (req, res) => {
     ]);
     console.log('[DEBUG] Report Data Rows Found:', rows.length);
 
-    if (rows.length === 0) {
+    // FETCH MARKED LECTURES exclusively for the "Coach Attendance Summary" master table
+    const attendanceSql = `
+      SELECT 
+        ml.*,
+        usr.name as coach_name
+      FROM marked_lectures ml
+      LEFT JOIN users usr ON ml.coach_id = usr.id
+      WHERE ml.school_id = ?
+        AND (
+          DATE_FORMAT(ml.lecture_date, '%b, %Y') = ?
+          OR DATE_FORMAT(ml.lecture_date, '%b %Y') = REPLACE(?, ',', '')
+        )
+        AND CONCAT('Week ', (FLOOR((DAY(ml.lecture_date) - 1) / 7) + 1)) = ?
+      ORDER BY ml.lecture_date DESC, ml.start_time DESC
+    `;
+
+    const [attendanceRows] = await db.query(attendanceSql, [school_id, month_year, month_year, week_no]);
+    console.log('[DEBUG] Attendance Rows Found:', attendanceRows.length);
+
+    // If BOTH data sources are completely empty, then we have no report data
+    if (rows.length === 0 && attendanceRows.length === 0) {
       return res.json({ success: true, report: null });
     }
 
@@ -5347,6 +5540,7 @@ app.get('/api/curriculum/report-data', async (req, res) => {
         status: row.lp_status,
         done_date: row.done_date,
         observations: [row.objective].filter(v => v),
+        objective: row.objective,
         photos: [
           ...(row.picture ? String(row.picture).split(',').map(p => p.trim()).filter(p => p).map(p => p.startsWith('/uploads/') ? p : '/uploads/' + p) : []),
           ...(row.evidence_photo ? String(row.evidence_photo).split(',').map(p => p.trim()).filter(p => p).map(p => p.startsWith('/uploads/') ? p : '/uploads/' + p) : [])
@@ -5355,12 +5549,45 @@ app.get('/api/curriculum/report-data', async (req, res) => {
       });
     });
 
+    // (attendanceRows already fetched at the top of the function to prevent early exit)
+
+    // Format allSessions for the master table
+    const allSessions = attendanceRows.map(row => ({
+      coach: row.coach_name,
+      sport: row.sport,
+      grade: row.grades,
+      divisions: row.division,
+      skill: 'Manual Entry',
+      objective: 'Regular Session',
+      status: row.status || 'Completed',
+      date: row.lecture_date,
+      remark: 'Marked via Lecture Manager'
+    }));
+
+    // Calculate totals for a summary dashboard based on ALL SESSION data
+    const coachStats = {};
+    allSessions.forEach(row => {
+      const coach = row.coach || 'Assigned Coach';
+      if (!coachStats[coach]) coachStats[coach] = { name: coach, total: 0, sports: new Set() };
+      coachStats[coach].total++;
+      if (row.sport) coachStats[coach].sports.add(row.sport);
+    });
+
+    const summary = Object.values(coachStats).map(c => ({
+      coach: c.name,
+      total_lectures: c.total,
+      sports: Array.from(c.sports).join(', ')
+    }));
+
     res.json({
       success: true,
       report: {
-        school_name: rows[0].school_name,
+        school_name: rows[0]?.school_name || 'N/A',
         month_year,
         week_no,
+        total_sessions: allSessions.length,
+        summary: summary,
+        all_sessions: allSessions,
         sports_reports: Object.values(sportsData)
       }
     });
@@ -5368,6 +5595,48 @@ app.get('/api/curriculum/report-data', async (req, res) => {
   } catch (err) {
     console.error('FETCH REPORT DATA ERROR:', err);
     res.status(500).json({ success: false, message: 'Server error fetching report details' });
+  }
+});
+
+// ==========================================
+// NEW API: FETCH ALL ATTENDANCE FOR A SCHOOL
+// ==========================================
+app.get('/api/curriculum/school-attendance/:school_id', async (req, res) => {
+  try {
+    const { school_id } = req.params;
+
+    const sql = `
+      SELECT 
+        ml.*,
+        usr.name as coach_name
+      FROM marked_lectures ml
+      LEFT JOIN users usr ON ml.coach_id = usr.id
+      WHERE ml.school_id = ?
+      ORDER BY ml.lecture_date DESC, ml.start_time DESC
+    `;
+
+    const [rows] = await db.query(sql, [school_id]);
+    
+    // Map to match the attendance format
+    const attendanceData = rows.map(row => ({
+      coach: row.coach_name || 'Assigned Coach',
+      sport: row.sport,
+      grade: row.grades,
+      divisions: row.division,
+      skill: 'Manual Entry',
+      objective: 'Regular Session',
+      status: row.status || 'Completed',
+      date: row.lecture_date,
+      start_time: row.start_time,
+      end_time: row.end_time,
+      remark: 'Marked via Lecture Manager'
+    }));
+
+    res.json({ success: true, data: attendanceData });
+
+  } catch (err) {
+    console.error('Error fetching school attendance:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
@@ -5407,6 +5676,58 @@ app.post('/api/curriculum/publish-report', async (req, res) => {
   } catch (err) {
     console.error('PUBLISH REPORT ERROR:', err);
     res.status(500).json({ success: false, message: 'Internal server error while publishing' });
+  }
+});
+
+
+// 📊 GET PUBLISHED REPORTS STATUS BY SCHOOL AND MONTH
+app.get('/api/curriculum/publish-status', async (req, res) => {
+  try {
+    const { user_id, month_year } = req.query;
+    
+    let schoolFilter = '';
+    const queryParams = [];
+    
+    if (user_id) {
+      const [[user]] = await db.query('SELECT role_id FROM users WHERE id = ?', [user_id]);
+      if (user && user.role_id !== 1 && user.role_id !== 7) { 
+        const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ? OR ssgm_id = ?', [user_id, user_id]);
+        if (assignments.length > 0) {
+          const schoolIds = assignments.map(a => a.school_id);
+          schoolFilter = `AND c.school_id IN (${schoolIds.join(',')})`;
+        } else {
+          return res.json({ success: true, statuses: [] }); 
+        }
+      }
+    }
+
+    let monthFilter = '';
+    if (month_year) {
+      monthFilter = `AND REPLACE(REPLACE(c.month_year, '-', ', '), ', ', ',') = REPLACE(REPLACE(?, '-', ', '), ', ', ',')`;
+      queryParams.push(month_year);
+    }
+
+    const sql = `
+      SELECT 
+        s.id as school_id,
+        s.name as school_name,
+        MAX(CASE WHEN c.week LIKE '%Week 1%' THEN c.school_able_to_visibale_status ELSE 0 END) as week_1_published,
+        MAX(CASE WHEN c.week LIKE '%Week 2%' THEN c.school_able_to_visibale_status ELSE 0 END) as week_2_published,
+        MAX(CASE WHEN c.week LIKE '%Week 3%' THEN c.school_able_to_visibale_status ELSE 0 END) as week_3_published,
+        MAX(CASE WHEN c.week LIKE '%Week 4%' THEN c.school_able_to_visibale_status ELSE 0 END) as week_4_published,
+        MAX(CASE WHEN c.week LIKE '%Week 5%' THEN c.school_able_to_visibale_status ELSE 0 END) as week_5_published
+      FROM coach_lesson_tracking c
+      JOIN schools s ON c.school_id = s.id
+      WHERE 1=1 ${schoolFilter} ${monthFilter}
+      GROUP BY s.id, s.name
+      ORDER BY s.name ASC
+    `;
+
+    const [rows] = await db.query(sql, queryParams);
+    res.json({ success: true, statuses: rows });
+  } catch (err) {
+    console.error('FETCH PUBLISH STATUS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching publish status' });
   }
 });
 
@@ -5800,10 +6121,103 @@ app.post('/api/tickets/rules', async (req, res) => {
   }
 });
 
+// Helper: Process Ticket Escalations
+async function processEscalations() {
+  try {
+    // Move pending tickets to next tier if timeout reached (USING MINUTES FOR TESTING)
+    await db.query(`
+      UPDATE complaints c
+      JOIN ticket_escalation_rules r ON c.current_tier = r.tier_level
+      SET c.current_tier = c.current_tier + 1,
+          c.last_escalated_at = NOW()
+      WHERE c.status = 'pending'
+      AND TIMESTAMPDIFF(MINUTE, c.last_escalated_at, NOW()) >= r.timeout_hours
+      AND c.current_tier < (SELECT max_tier FROM (SELECT MAX(tier_level) as max_tier FROM ticket_escalation_rules) as t)
+    `);
+  } catch (err) {
+    console.error('PROCESS ESCALATIONS ERROR:', err);
+  }
+}
+
+// Automatically check escalations every 30 seconds (FOR TESTING)
+setInterval(processEscalations, 30000);
+
 // Get all Support Tickets (Complaints list)
 app.get('/api/tickets/all', async (req, res) => {
   try {
-    const [rows] = await db.query('SELECT * FROM complaints ORDER BY id DESC');
+    const { user_id, role_id } = req.query;
+    
+    // Process any pending escalations before fetching
+    await processEscalations();
+
+    if (!user_id || !role_id) {
+      const [rows] = await db.query(`
+        SELECT DISTINCT c.*, sc.name as school_name, r.name as role_name
+        FROM complaints c
+        LEFT JOIN users u ON c.user_id = u.id
+        LEFT JOIN roles r ON u.role_id = r.id
+        LEFT JOIN assign_school as_coach ON c.user_id = as_coach.user_id
+        LEFT JOIN schools sc ON as_coach.school_id = sc.id
+        ORDER BY c.id DESC
+      `);
+      return res.json({ success: true, tickets: rows });
+    }
+
+    const rId = parseInt(role_id);
+    const uId = parseInt(user_id);
+
+    // Admin (Administrator/Admin) see everything
+    if (rId === 1 || rId === 7) {
+      const [rows] = await db.query(`
+        SELECT DISTINCT c.*, sc.name as school_name, r.name as role_name
+        FROM complaints c
+        LEFT JOIN users u ON c.user_id = u.id
+        LEFT JOIN roles r ON u.role_id = r.id
+        LEFT JOIN assign_school as_coach ON c.user_id = as_coach.user_id
+        LEFT JOIN schools sc ON as_coach.school_id = sc.id
+        ORDER BY c.id DESC
+      `);
+      return res.json({ success: true, tickets: rows });
+    }
+
+    // SSGM (Role 3)
+    if (rId === 3) {
+      const [rows] = await db.query(`
+        SELECT DISTINCT c.*, sc.name as school_name, r.name as role_name
+        FROM complaints c
+        LEFT JOIN users u ON c.user_id = u.id
+        LEFT JOIN roles r ON u.role_id = r.id
+        LEFT JOIN assign_school as_coach ON c.user_id = as_coach.user_id
+        LEFT JOIN schools sc ON as_coach.school_id = sc.id
+        LEFT JOIN ticket_escalation_rules tr ON c.current_tier = tr.tier_level
+        WHERE 
+          -- Case 1: Tier 1 tickets from their assigned schools
+          (c.current_tier = 1 AND as_coach.school_id IN (SELECT school_id FROM assign_school WHERE ssgm_id = ?))
+          -- Case 2: They are specifically assigned to the current tier
+          OR (tr.assigned_user_id = ?)
+          -- Case 3: Their role is assigned to the current tier
+          OR (tr.assigned_role_id = ?)
+          -- Case 4: They raised the ticket themselves
+          OR (c.user_id = ?)
+        ORDER BY c.id DESC
+      `, [uId, uId, rId, uId]);
+      return res.json({ success: true, tickets: rows });
+    }
+
+    // Others (Coaches, etc.) - Only see their own OR if they are assigned to current tier
+    const [rows] = await db.query(`
+      SELECT DISTINCT c.*, sc.name as school_name, r.name as role_name
+      FROM complaints c
+      LEFT JOIN users u ON c.user_id = u.id
+      LEFT JOIN roles r ON u.role_id = r.id
+      LEFT JOIN assign_school as_coach ON c.user_id = as_coach.user_id
+      LEFT JOIN schools sc ON as_coach.school_id = sc.id
+      LEFT JOIN ticket_escalation_rules tr ON c.current_tier = tr.tier_level
+      WHERE c.user_id = ? 
+      OR tr.assigned_user_id = ?
+      OR tr.assigned_role_id = ?
+      ORDER BY c.id DESC
+    `, [uId, uId, rId]);
     res.json({ success: true, tickets: rows });
   } catch (err) {
     console.error('FETCH TICKETS ERROR:', err);
@@ -5942,6 +6356,48 @@ app.post('/api/teams', async (req, res) => {
 });
 
 // Duplicate coaches endpoint removed to avoid conflict with the one at line 671
+
+// 👥 GET SSGM LOGINS
+app.get('/api/management/ssgm-logins', async (req, res) => {
+  try {
+    const sql = `
+      SELECT 
+        u.id, u.name, u.email, u.mobile, u.last_login,
+        DATEDIFF(NOW(), IFNULL(u.last_login, u.added_date)) as days_inactive
+      FROM users u
+      WHERE u.role_id = 3 AND u.is_active = 1
+      ORDER BY days_inactive DESC
+    `;
+    const [rows] = await db.query(sql);
+    res.json({ success: true, ssgms: rows });
+  } catch (err) {
+    console.error('FETCH SSGM LOGINS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching SSGM logins' });
+  }
+});
+
+// 👥 GET PRINCIPAL LOGINS
+app.get('/api/management/principal-logins', async (req, res) => {
+  try {
+    const sql = `
+      SELECT 
+        u.id, u.name, u.email, u.mobile, u.last_login,
+        DATEDIFF(NOW(), IFNULL(u.last_login, u.added_date)) as days_inactive,
+        GROUP_CONCAT(DISTINCT s.name SEPARATOR ', ') as school_name
+      FROM users u
+      LEFT JOIN assign_school a ON u.id = a.user_id
+      LEFT JOIN schools s ON a.school_id = s.id
+      WHERE u.role_id = 8 AND u.is_active = 1
+      GROUP BY u.id
+      ORDER BY days_inactive DESC
+    `;
+    const [rows] = await db.query(sql);
+    res.json({ success: true, principals: rows });
+  } catch (err) {
+    console.error('FETCH PRINCIPAL LOGINS ERROR:', err);
+    res.status(500).json({ success: false, message: 'Server error fetching Principal logins' });
+  }
+});
 
 // 📝 LECTURE MANAGEMENT APIS
 app.get('/api/management/lectures', async (req, res) => {
@@ -6298,6 +6754,92 @@ app.put('/api/sggm-checklist/:id', async (req, res) => {
   }
 });
 
+
+// 📋 SGGM MOM APIS
+app.get('/api/sggm-mom', async (req, res) => {
+  const { school_id, user_id, assigned_user_id } = req.query;
+  try {
+    let sql = 'SELECT * FROM sggm_mom';
+    const params = [];
+    
+    if (assigned_user_id) {
+      const [assignments] = await db.query('SELECT school_id FROM assign_school WHERE user_id = ? OR ssgm_id = ?', [assigned_user_id, assigned_user_id]);
+      const schoolIds = assignments.map(a => a.school_id);
+      
+      if (schoolIds.length > 0) {
+        sql += ` WHERE school_id IN (${schoolIds.join(',')}) OR user_id = ?`;
+        params.push(assigned_user_id);
+      } else {
+        sql += ` WHERE user_id = ?`;
+        params.push(assigned_user_id);
+      }
+    } else if (school_id || user_id) {
+      sql += ' WHERE';
+      if (school_id) {
+        sql += ' school_id = ?';
+        params.push(school_id);
+      }
+      if (user_id) {
+        if (school_id) sql += ' AND';
+        sql += ' user_id = ?';
+        params.push(user_id);
+      }
+    }
+    sql += ' ORDER BY created_at DESC';
+    const [rows] = await db.query(sql, params);
+    res.json({ success: true, moms: rows });
+  } catch (err) {
+    console.error('GET SGGM MOM ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error fetching MOMs' });
+  }
+});
+
+app.post('/api/sggm-mom', async (req, res) => {
+  const data = req.body;
+  try {
+    const columns = [
+      'school_id', 'user_id', 'school_name', 'person_met', 
+      'meeting_concerns', 'coach_concerns', 'consensus', 'mom_summary'
+    ];
+    const placeholders = columns.map(() => '?').join(', ');
+    const sql = `INSERT INTO sggm_mom (${columns.join(', ')}) VALUES (${placeholders})`;
+    
+    const params = [
+      data.school_id || null, data.user_id || null, data.school_name, 
+      data.person_met, data.meeting_concerns, data.coach_concerns, data.consensus, data.mom_summary
+    ];
+    
+    const [result] = await db.query(sql, params);
+    res.json({ success: true, message: 'MOM submitted successfully', id: result.insertId });
+  } catch (err) {
+    console.error('SUBMIT SGGM MOM ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error submitting MOM' });
+  }
+});
+
+app.put('/api/sggm-mom/:id', async (req, res) => {
+  const { id } = req.params;
+  const data = req.body;
+  try {
+    const columns = [
+      'school_id', 'school_name', 'person_met', 
+      'meeting_concerns', 'coach_concerns', 'consensus', 'mom_summary'
+    ];
+    const setClause = columns.map(col => `${col} = ?`).join(', ');
+    const sql = `UPDATE sggm_mom SET ${setClause} WHERE id = ?`;
+    
+    const params = [
+      data.school_id || null, data.school_name, data.person_met, 
+      data.meeting_concerns, data.coach_concerns, data.consensus, data.mom_summary, id
+    ];
+    
+    await db.query(sql, params);
+    res.json({ success: true, message: 'MOM updated successfully' });
+  } catch (err) {
+    console.error('UPDATE SGGM MOM ERROR:', err);
+    res.status(500).json({ success: false, message: 'Error updating MOM' });
+  }
+});
 
 app.listen(3000, () => {
   console.log('🚀 Server running on http://localhost:3000');

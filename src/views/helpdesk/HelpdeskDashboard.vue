@@ -43,12 +43,18 @@
         <tbody v-else>
           <tr v-for="ticket in tickets" :key="ticket.id" class="hover:bg-slate-50/50 transition-colors border-b border-slate-50">
             <td class="py-5 px-6">
-              <div class="font-bold text-slate-800 text-sm mb-0.5">{{ ticket.subject || 'Complaint' }}</div>
+              <div class="flex items-center gap-2 mb-0.5">
+                <div class="font-bold text-slate-800 text-sm">{{ ticket.subject || 'Complaint' }}</div>
+                <span v-if="ticket.school_name" class="px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 text-[9px] font-bold uppercase tracking-wider border border-blue-100">
+                  {{ ticket.school_name }}
+                </span>
+              </div>
               <p class="text-xs text-slate-500 max-w-sm line-clamp-1">{{ ticket.message }}</p>
               <div class="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter">{{ formatDate(ticket.created_at) }}</div>
             </td>
             <td class="py-5 px-6">
               <div class="text-sm font-bold text-slate-700">{{ ticket.name }}</div>
+              <div class="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">{{ ticket.role_name || 'User' }}</div>
               <div class="text-[10px] text-slate-400 font-medium">{{ ticket.email }}</div>
             </td>
             <td class="py-5 px-6 text-center">
@@ -74,13 +80,14 @@
 import { ref, onMounted } from 'vue';
 
 const tickets = ref<any[]>([]);
+const roleId = ref(sessionStorage.getItem('role_id'));
 const loading = ref(true);
 const currentUserId = ref(sessionStorage.getItem('id'));
 
 const fetchTickets = async () => {
   loading.value = true;
   try {
-    const res = await fetch('/api/tickets/all');
+    const res = await fetch(`/api/tickets/all?user_id=${currentUserId.value}&role_id=${roleId.value}`);
     const data = await res.json();
     if (data.success) {
       tickets.value = data.tickets;

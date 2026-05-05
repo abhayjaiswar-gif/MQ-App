@@ -30,12 +30,6 @@ const triggerLoginModal = () => {
       showAssignedLoginStatusModal.value = true;
       sessionStorage.setItem('assigned_login_status_modal_shown', 'true');
     }
-  } else {
-    const loginModalShown = sessionStorage.getItem('login_status_modal_shown');
-    if (!loginModalShown) {
-      showLoginStatusModal.value = true;
-      sessionStorage.setItem('login_status_modal_shown', 'true');
-    }
   }
 };
 

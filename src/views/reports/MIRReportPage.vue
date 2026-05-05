@@ -155,16 +155,16 @@ onMounted(() => {
             class="flex items-center gap-2 text-[10px] uppercase font-bold text-slate-400 tracking-widest mb-2 font-manrope">
             <span>Registry</span>
             <span class="material-symbols-outlined text-[14px]">chevron_right</span>
-            <span class="text-primary">MIR Reports</span>
+            <span class="text-primary">MRM Reports</span>
           </nav>
-          <h2 class="text-4xl font-extrabold text-[#1e293b] tracking-tight font-manrope">MIR Report Registry</h2>
+          <h2 class="text-4xl font-extrabold text-[#1e293b] tracking-tight font-manrope">MRM Report Registry</h2>
           <p class="text-slate-500 mt-1 font-inter italic">Monthly Interaction & Performance Records</p>
         </div>
         <div class="flex items-center gap-3">
           <button @click="showUploadModal = true"
             class="bg-slate-900 hover:bg-black text-white px-8 py-3.5 rounded-2xl font-bold text-sm shadow-xl shadow-slate-200 hover:shadow-2xl hover:scale-[1.02] transition-all active:scale-95 flex items-center gap-2 font-manrope">
             <span class="material-symbols-outlined text-lg">add_circle</span>
-            Register New MIR
+            Register New MRM
           </button>
         </div>
       </div>
@@ -234,13 +234,13 @@ onMounted(() => {
                     <a :href="`/uploads/${report.file_path}`" target="_blank"
                       class="inline-flex items-center gap-2 text-primary hover:bg-primary/5 px-4 py-2 rounded-xl text-xs transition-all">
                       <span class="material-symbols-outlined text-[18px]">visibility</span>
-                      View MIR
+                      View MRM
                     </a>
                   </td>
                 </tr>
               </template>
               <tr v-else>
-                <td colspan="4" class="py-32 text-center text-slate-300 text-sm">No MIR records found matching your
+                <td colspan="4" class="py-32 text-center text-slate-300 text-sm">No MRM records found matching your
                   criteria.</td>
               </tr>
             </tbody>
@@ -254,7 +254,7 @@ onMounted(() => {
       <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" @click="showUploadModal = false"></div>
       <div
         class="bg-white w-full max-w-xl rounded-[40px] shadow-2xl relative overflow-hidden p-10 animate-in zoom-in-95 duration-200">
-        <h3 class="text-3xl font-black text-slate-900 mb-8">Register MIR Report</h3>
+        <h3 class="text-3xl font-black text-slate-900 mb-8">Register MRM Report</h3>
 
         <form @submit.prevent="submitReport" class="space-y-6">
           <div class="space-y-2">

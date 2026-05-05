@@ -20,7 +20,7 @@ interface EquipmentOrder {
   created_at: string;
   approve_ssgm: number | null;
   approve_admin: number | null;
-  status_delivery: string | null;
+  status_delivery: number | string | null;
   user_id: number;
   delivery_date: string | null;
   image_path: string | null;
@@ -121,11 +121,11 @@ const processedOrders = computed(() => {
         step = 3;
         status = 'Admin Approved';
         statusClass = 'status-processing';
-        if (row.status_delivery === 'Processing') {
+        if (row.status_delivery == 0) {
           step = 4;
           status = 'Processing Delivery';
           statusClass = 'status-processing';
-        } else if (row.status_delivery === 'Delivered') {
+        } else if (row.status_delivery == 1) {
           step = 5;
           status = 'Delivered';
           statusClass = 'status-delivered';
@@ -141,7 +141,7 @@ const processedOrders = computed(() => {
 
     const ssgmStatus = row.approve_ssgm === null ? 'pending' : row.approve_ssgm === 1 ? 'approved' : 'rejected';
     const adminStatus = row.approve_admin === null ? 'pending' : row.approve_admin === 1 ? 'approved' : 'rejected';
-    const deliveryStatus = row.status_delivery === null ? 'pending' : row.status_delivery === 'Delivered' ? 'approved' : row.status_delivery === 'Rejected' ? 'rejected' : 'pending';
+    const deliveryStatus = row.status_delivery === null ? 'pending' : row.status_delivery == 1 ? 'approved' : 'pending';
     const deliveryDate = row.delivery_date ? formatDate(row.delivery_date) : 'Admin Gives';
 
     return {
